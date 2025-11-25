@@ -22,6 +22,8 @@ export default function HelperView() {
     const [viewMode, setViewMode] = useState<"map" | "list">("map");
     const [showSOS, setShowSOS] = useState(true);
     const [showEvac, setShowEvac] = useState(true);
+    const [showResolved, setShowResolved] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
     useEffect(() => {
         fetchCases();
@@ -73,6 +75,20 @@ export default function HelperView() {
         );
     }
 
+    // Extract unique categories
+    const categories = Array.from(new Set(cases.flatMap(c => c.categories || []))).sort();
+
+    // Filter cases
+    const filteredCases = cases.filter(c => {
+        // Filter by resolved status
+        if (!showResolved && c.status === "RESOLVED") return false;
+
+        // Filter by category
+        if (selectedCategory !== "all" && (!c.categories || !c.categories.includes(selectedCategory))) return false;
+
+        return true;
+    });
+
     return (
         <div className="relative h-[calc(100vh-60px)]">
             {/* Toggle View (Mobile) */}
@@ -87,13 +103,38 @@ export default function HelperView() {
                     {viewMode === "map" ? "รายการ" : "แผนที่"}
                 </ThaiButton>
 
+                {/* Category Filter */}
+                <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-md">
+                    <select
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className="w-full p-2 text-xs border rounded bg-white"
+                    >
+                        <option value="all">ทุกประเภท</option>
+                        {categories.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Show Resolved Toggle */}
+                <button
+                    onClick={() => setShowResolved(!showResolved)}
+                    className={`px-3 py-2 text-xs font-bold rounded-lg shadow-md transition-colors ${showResolved
+                            ? "bg-green-600 text-white hover:bg-green-700"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                >
+                    {showResolved ? "✓ แสดงสำเร็จ" : "ซ่อนสำเร็จ"}
+                </button>
+
                 {/* Layer Toggles */}
                 <div className="bg-white/90 backdrop-blur rounded-lg shadow-md p-1 flex flex-col gap-1">
                     <button
                         onClick={() => setShowSOS(!showSOS)}
                         className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-between gap-2 ${showSOS ? "bg-red-100 text-red-700" : "text-gray-500 hover:bg-gray-100"}`}
                     >
-                        <span>SOS ({cases.length})</span>
+                        <span>SOS ({filteredCases.length})</span>
                         <div className={`w-2 h-2 rounded-full ${showSOS ? "bg-red-500" : "bg-gray-300"}`} />
                     </button>
                     <button
@@ -121,7 +162,7 @@ export default function HelperView() {
                         attribution='&copy; <a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>'
                         url={`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY}`}
                     />
-                    {showSOS && cases.map((c) => (
+                    {showSOS && filteredCases.map((c) => (
                         c.lat && c.lng && (
                             <RiskMapMarker
                                 key={c.id}
@@ -158,11 +199,11 @@ export default function HelperView() {
 
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-bold">รายการขอความช่วยเหลือ</h2>
-                        <span className="text-sm text-muted-foreground">{cases.length} เคส</span>
+                        <span className="text-sm text-muted-foreground">{filteredCases.length} เคส</span>
                     </div>
 
                     <div className="flex-1 overflow-y-auto space-y-3 pb-20 md:pb-0">
-                        {cases.map((c) => (
+                        {filteredCases.map((c) => (
                             <CaseCard key={c.id} data={c} />
                         ))}
                     </div>

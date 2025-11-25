@@ -272,15 +272,30 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
 
                 {/* Photos */}
                 {caseData.photos?.length > 0 && (
-                    <div className="space-y-2">
-                        <h3 className="font-semibold">รูปภาพ</h3>
-                        <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-3">
+                        <h3 className="font-semibold text-lg">รูปภาพประกอบ ({caseData.photos.length})</h3>
+                        <div className="grid grid-cols-3 gap-3">
                             {caseData.photos.map((photo: any, idx: number) => (
-                                <div key={idx} className="relative aspect-square rounded-xl overflow-hidden bg-muted">
-                                    <Image src={photo.url} alt="Case photo" fill className="object-cover" />
+                                <div
+                                    key={idx}
+                                    className="relative aspect-square rounded-lg overflow-hidden bg-muted shadow-md hover:shadow-lg transition-shadow cursor-pointer group"
+                                    onClick={() => window.open(photo.url, '_blank')}
+                                >
+                                    <Image
+                                        src={photo.url}
+                                        alt={`รูปภาพที่ ${idx + 1}`}
+                                        fill
+                                        className="object-cover group-hover:scale-105 transition-transform duration-200"
+                                    />
+                                    {photo.type === 'resolved' && (
+                                        <div className="absolute top-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded-md shadow-md">
+                                            ✓ หลังช่วยเหลือ
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
+                        <p className="text-xs text-muted-foreground text-center">คลิกที่รูปเพื่อดูขนาดเต็ม</p>
                     </div>
                 )}
 

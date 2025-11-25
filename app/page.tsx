@@ -2,6 +2,7 @@ import { ThaiButton } from "@/components/ui/thai-button";
 import { AlertTriangle, HeartHandshake, MapPin, Search } from "lucide-react";
 import Link from "next/link";
 import LandingMap from "@/components/map/landing-map-wrapper";
+import { DataDeletionCountdown } from "@/components/ui/data-deletion-countdown";
 
 export default function Home() {
   return (
@@ -57,9 +58,7 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="text-sm text-muted-foreground pt-8 font-medium bg-white/50 dark:bg-black/50 p-2 rounded-lg backdrop-blur-sm inline-block">
-          <p>กรณีฉุกเฉินร้ายแรง โทร 1669</p>
-        </div>
+        <DataDeletionCountdown />
       </div>
     </main>
   );
