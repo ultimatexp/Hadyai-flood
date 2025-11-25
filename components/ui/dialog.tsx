@@ -13,8 +13,27 @@ const DialogContext = React.createContext<{
     setOpen: () => { },
 });
 
-export const Dialog = ({ children }: { children: React.ReactNode }) => {
-    const [open, setOpen] = React.useState(false);
+export const Dialog = ({
+    children,
+    open: controlledOpen,
+    onOpenChange,
+}: {
+    children: React.ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+}) => {
+    const [internalOpen, setInternalOpen] = React.useState(false);
+
+    // Use controlled state if provided, otherwise use internal state
+    const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+    const setOpen = (newOpen: boolean) => {
+        if (onOpenChange) {
+            onOpenChange(newOpen);
+        } else {
+            setInternalOpen(newOpen);
+        }
+    };
+
     return (
         <DialogContext.Provider value={{ open, setOpen }}>
             {children}
