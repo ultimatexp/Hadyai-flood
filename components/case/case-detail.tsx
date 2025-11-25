@@ -66,6 +66,33 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const postToFacebook = async (newStatus: string) => {
+        try {
+            const statusMessage = {
+                ACKNOWLEDGED: "✅ รับเรื่องแล้ว",
+                IN_PROGRESS: "🚑 กำลังช่วยเหลือ",
+                RESOLVED: "🎉 ช่วยเหลือสำเร็จ"
+            }[newStatus] || newStatus;
+
+            const message = `[อัปเดตสถานะ: ${statusMessage}]\n\nเคส: ${caseData.reporter_name}\nรายละเอียด: ${caseData.description || "-"}\nพิกัด: https://www.google.com/maps?q=${caseData.lat},${caseData.lng}\n\n#น้ำท่วมหาดใหญ่ #HadyaiFlood`;
+
+            // Use current URL or fallback to origin
+            const link = window.location.href;
+
+            // Get first photo if available
+            const imageUrl = caseData.photos && caseData.photos.length > 0 ? caseData.photos[0].url : null;
+
+            await fetch('/api/facebook/post', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message, link, imageUrl })
+            });
+        } catch (error) {
+            console.error("Failed to auto-post to Facebook:", error);
+            // Don't block the UI flow if FB post fails
+        }
+    };
+
     const updateStatus = async (newStatus: string) => {
         if (newStatus === "RESOLVED") {
             setResolveDialogOpen(true);

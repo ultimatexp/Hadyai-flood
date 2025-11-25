@@ -60,6 +60,24 @@ export default function SOSWizard() {
     const handleSubmit = async () => {
         setLoading(true);
         try {
+            // 0. Check for duplicates
+            const cleanContact = formData.contacts[0].replace(/[-\s]/g, "");
+            if (cleanContact) {
+                const { data: existingCases } = await supabase
+                    .from('sos_cases')
+                    .select('id, status')
+                    .contains('contacts', [cleanContact])
+                    .in('status', ['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS'])
+                    .limit(1);
+
+                if (existingCases && existingCases.length > 0) {
+                    alert("เบอร์โทรศัพท์นี้มีการแจ้งเหตุเข้ามาแล้วและกำลังดำเนินการอยู่\nระบบจะพาคุณไปยังหน้ารายละเอียดเคสเดิม");
+                    router.push(`/case/${existingCases[0].id}`);
+                    setLoading(false);
+                    return;
+                }
+            }
+
             // 1. Upload photos
             const photoUrls = [];
             for (const file of photos) {
