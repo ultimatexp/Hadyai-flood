@@ -2,6 +2,7 @@ import HelperView from "@/components/helper";
 import { ThaiButton } from "@/components/ui/thai-button";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 export default function HelperPage() {
     return (
@@ -13,6 +14,9 @@ export default function HelperPage() {
                     </ThaiButton>
                 </Link>
                 <h1 className="text-xl font-bold">อาสาช่วยเหลือ</h1>
+                <div className="ml-auto">
+                    <LogoutButton />
+                </div>
             </header>
 
             <main className="flex-1 relative">

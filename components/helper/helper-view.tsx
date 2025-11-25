@@ -108,7 +108,7 @@ export default function HelperView() {
                     <select
                         value={selectedCategory}
                         onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="w-full p-2 text-xs border rounded bg-white"
+                        className="w-full p-2 text-xs border rounded bg-white text-gray-900"
                     >
                         <option value="all">ทุกประเภท</option>
                         {categories.map(cat => (
@@ -121,8 +121,8 @@ export default function HelperView() {
                 <button
                     onClick={() => setShowResolved(!showResolved)}
                     className={`px-3 py-2 text-xs font-bold rounded-lg shadow-md transition-colors ${showResolved
-                            ? "bg-green-600 text-white hover:bg-green-700"
-                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        ? "bg-green-600 text-white hover:bg-green-700"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                 >
                     {showResolved ? "✓ แสดงสำเร็จ" : "ซ่อนสำเร็จ"}

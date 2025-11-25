@@ -18,6 +18,8 @@ import { th } from "date-fns/locale";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 
 const CaseMap = dynamic(() => import("./case-map"), {
@@ -43,6 +45,14 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
 
     // New state for resolution dialog
     const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setIsAuthenticated(!!user);
+        });
+        return () => unsubscribe();
+    }, []);
     const [resolvePhotos, setResolvePhotos] = useState<File[]>([]);
 
     useEffect(() => {
@@ -80,6 +90,8 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
             alert("เกิดข้อผิดพลาด");
         } else {
             setStatus(newStatus);
+            // Auto-post to Facebook
+            postToFacebook(newStatus);
             alert("อัปเดตสถานะเรียบร้อยแล้ว!");
         }
         setLoading(false);
@@ -121,6 +133,10 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
 
             setStatus("RESOLVED");
             setResolveDialogOpen(false);
+
+            // Auto-post to Facebook
+            postToFacebook("RESOLVED");
+
             alert("ขอบคุณมาก! การช่วยเหลือเสร็จสิ้นแล้ว");
 
         } catch (error) {
@@ -299,38 +315,40 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
                     </div>
                 )}
 
-                {/* Actions */}
-                <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t flex gap-3 z-[100]">
-                    {status === "NEW" && (
-                        <ThaiButton
-                            className="flex-[2] bg-green-600 hover:bg-green-700"
-                            onClick={() => updateStatus("ACKNOWLEDGED")}
-                            isLoading={loading}
-                        >
-                            <CheckCircle2 className="mr-2" /> ฉันจะช่วยเคสนี้
-                        </ThaiButton>
-                    )}
+                {/* Actions - Only for authenticated helpers */}
+                {isAuthenticated && (
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t flex gap-3 z-[100]">
+                        {status === "NEW" && (
+                            <ThaiButton
+                                className="flex-[2] bg-green-600 hover:bg-green-700"
+                                onClick={() => updateStatus("ACKNOWLEDGED")}
+                                isLoading={loading}
+                            >
+                                <CheckCircle2 className="mr-2" /> ฉันจะช่วยเคสนี้
+                            </ThaiButton>
+                        )}
 
-                    {status === "ACKNOWLEDGED" && (
-                        <ThaiButton
-                            className="flex-[2] bg-blue-600 hover:bg-blue-700"
-                            onClick={() => updateStatus("IN_PROGRESS")}
-                            isLoading={loading}
-                        >
-                            <Navigation className="mr-2" /> กำลังเดินทาง / เริ่มช่วยเหลือ
-                        </ThaiButton>
-                    )}
+                        {status === "ACKNOWLEDGED" && (
+                            <ThaiButton
+                                className="flex-[2] bg-blue-600 hover:bg-blue-700"
+                                onClick={() => updateStatus("IN_PROGRESS")}
+                                isLoading={loading}
+                            >
+                                <Navigation className="mr-2" /> กำลังเดินทาง / เริ่มช่วยเหลือ
+                            </ThaiButton>
+                        )}
 
-                    {status === "IN_PROGRESS" && (
-                        <ThaiButton
-                            className="flex-[2] bg-green-600 hover:bg-green-700"
-                            onClick={() => updateStatus("RESOLVED")}
-                            isLoading={loading}
-                        >
-                            <CheckCircle2 className="mr-2" /> ช่วยเหลือสำเร็จ
-                        </ThaiButton>
-                    )}
-                </div>
+                        {status === "IN_PROGRESS" && (
+                            <ThaiButton
+                                className="flex-[2] bg-green-600 hover:bg-green-700"
+                                onClick={() => updateStatus("RESOLVED")}
+                                isLoading={loading}
+                            >
+                                <CheckCircle2 className="mr-2" /> ช่วยเหลือสำเร็จ
+                            </ThaiButton>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

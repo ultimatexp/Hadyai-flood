@@ -14,6 +14,7 @@ const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapCo
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
 const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
+const ZoomControl = dynamic(() => import("react-leaflet").then(mod => mod.ZoomControl), { ssr: false });
 
 interface DashboardMapProps {
     cases: any[];
@@ -108,7 +109,10 @@ export default function DashboardMap({ cases }: DashboardMapProps) {
                 zoom={12}
                 className="h-full w-full z-0"
                 scrollWheelZoom={true}
+                zoomControl={false} // Disable default zoom control
             >
+                <ZoomControl position="bottomright" /> {/* Add custom zoom control at bottom-right */}
+
                 <TileLayer
                     url={`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY}`}
                     attribution='&copy; <a href="https://www.maptiler.com/">MapTiler</a>'
@@ -185,7 +189,7 @@ export default function DashboardMap({ cases }: DashboardMapProps) {
                     <select
                         value={selectedCategory}
                         onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="w-full p-2 text-sm border rounded bg-white"
+                        className="w-full p-2 text-sm border rounded bg-white text-gray-900"
                     >
                         <option value="all">ทั้งหมด ({categories.length} ประเภท)</option>
                         {categories.map(cat => (
@@ -198,8 +202,8 @@ export default function DashboardMap({ cases }: DashboardMapProps) {
                 <button
                     onClick={() => setShowResolved(!showResolved)}
                     className={`px-4 py-2 rounded-lg shadow-lg text-sm font-bold transition-colors ${showResolved
-                            ? "bg-green-600 text-white hover:bg-green-700"
-                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        ? "bg-green-600 text-white hover:bg-green-700"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                 >
                     {showResolved ? "✓ แสดงเคสที่สำเร็จแล้ว" : "ซ่อนเคสที่สำเร็จแล้ว"}
