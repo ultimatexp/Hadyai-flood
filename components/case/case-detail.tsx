@@ -290,7 +290,7 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-6">
                     <div className="flex-1">
                         <div className="flex flex-wrap gap-2 mb-3">
-                            <span className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${urgencyColors[caseData.urgency_level]}`}>
+                            <span className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${urgencyColors[caseData.urgency_level as 1 | 2 | 3]}`}>
                                 {caseData.urgency_level === 1 ? "ด่วนมาก" : caseData.urgency_level === 2 ? "ด่วน" : "พอรอได้"}
                             </span>
                             <span className={`px-3 py-1.5 rounded-lg text-sm font-bold ${statusColors[status]}`}>
