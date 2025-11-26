@@ -19,6 +19,7 @@ const DashboardMapClient = dynamic(
 
 interface DashboardMapProps {
     cases: any[];
+    evacPoints: any[];
 }
 
 export default function DashboardMap(props: DashboardMapProps) {

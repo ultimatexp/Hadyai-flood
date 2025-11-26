@@ -9,6 +9,10 @@ export default async function DashboardPage() {
         .select("*")
         .order("created_at", { ascending: false });
 
+    const { data: evacPoints } = await supabase
+        .from("evac_points")
+        .select("*");
+
     if (error) {
         console.error("Error fetching cases:", error);
         return (
@@ -18,5 +22,5 @@ export default async function DashboardPage() {
         );
     }
 
-    return <DashboardMap cases={cases || []} />;
+    return <DashboardMap cases={cases || []} evacPoints={evacPoints || []} />;
 }

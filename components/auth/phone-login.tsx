@@ -7,7 +7,12 @@ import { useRouter } from "next/navigation";
 import { ThaiButton } from "@/components/ui/thai-button";
 import { Phone, Lock, Loader2, AlertCircle, KeyRound } from "lucide-react";
 
-export default function PhoneLogin() {
+interface PhoneLoginProps {
+    onSuccess?: () => void;
+    minimal?: boolean;
+}
+
+export default function PhoneLogin({ onSuccess, minimal = false }: PhoneLoginProps) {
     const [phoneNumber, setPhoneNumber] = useState("");
     const [otp, setOtp] = useState("");
     const [step, setStep] = useState<"PHONE" | "OTP" | "ADMIN">("PHONE");
@@ -72,7 +77,11 @@ export default function PhoneLogin() {
         try {
             await confirmationResult.confirm(otp);
             // User signed in successfully.
-            router.push("/helper");
+            if (onSuccess) {
+                onSuccess();
+            } else {
+                router.push("/helper");
+            }
         } catch (err: any) {
             console.error("Error verifying OTP:", err);
             setError("รหัส OTP ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
@@ -89,7 +98,11 @@ export default function PhoneLogin() {
         if (adminPassword === "DietDoctor70350@") {
             try {
                 await signInAnonymously(auth);
-                router.push("/helper");
+                if (onSuccess) {
+                    onSuccess();
+                } else {
+                    router.push("/helper");
+                }
             } catch (err: any) {
                 console.error("Error signing in anonymously:", err);
                 setError("เกิดข้อผิดพลาดในการเข้าสู่ระบบ (กรุณาเปิดใช้งาน Anonymous Auth ใน Firebase)");
@@ -102,16 +115,18 @@ export default function PhoneLogin() {
         }
     };
 
-    return (
-        <div className="w-full max-w-md mx-auto p-6 bg-white rounded-2xl shadow-xl border border-gray-100">
-            <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-800">
-                    {step === "ADMIN" ? "เข้าสู่ระบบ Admin" : "เข้าสู่ระบบอาสา"}
-                </h2>
-                <p className="text-gray-500 text-sm mt-2">
-                    {step === "ADMIN" ? "กรุณากรอกรหัสผ่านเพื่อเข้าใช้งาน" : "ยืนยันตัวตนด้วยเบอร์โทรศัพท์เพื่อเริ่มใช้งาน"}
-                </p>
-            </div>
+    const content = (
+        <>
+            {!minimal && (
+                <div className="text-center mb-8">
+                    <h2 className="text-2xl font-bold text-gray-800">
+                        {step === "ADMIN" ? "เข้าสู่ระบบ Admin" : "เข้าสู่ระบบอาสา"}
+                    </h2>
+                    <p className="text-gray-500 text-sm mt-2">
+                        {step === "ADMIN" ? "กรุณากรอกรหัสผ่านเพื่อเข้าใช้งาน" : "ยืนยันตัวตนด้วยเบอร์โทรศัพท์เพื่อเริ่มใช้งาน"}
+                    </p>
+                </div>
+            )}
 
             {error && (
                 <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 text-red-600 text-sm">
@@ -249,6 +264,16 @@ export default function PhoneLogin() {
                     </button>
                 </form>
             )}
+        </>
+    );
+
+    if (minimal) {
+        return <div className="w-full">{content}</div>;
+    }
+
+    return (
+        <div className="w-full max-w-md mx-auto p-6 bg-white rounded-2xl shadow-xl border border-gray-100">
+            {content}
         </div>
     );
 }

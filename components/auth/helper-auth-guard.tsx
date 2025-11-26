@@ -13,9 +13,20 @@ export default function HelperAuthGuard({ children }: { children: React.ReactNod
     const pathname = usePathname();
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setAuthenticated(true);
+
+                // Check if user has completed onboarding (has name)
+                // Skip check if already on onboarding page
+                if (pathname !== "/helper/onboarding") {
+                    const { getUserProfile } = await import("@/app/actions/auth");
+                    const profile = await getUserProfile(user.uid);
+
+                    if (profile.success && !profile.data?.name) {
+                        router.push("/helper/onboarding");
+                    }
+                }
             } else {
                 setAuthenticated(false);
                 // Redirect to login if not on login page

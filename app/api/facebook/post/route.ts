@@ -7,8 +7,17 @@ export async function POST(request: Request) {
     try {
         const { message, link, imageUrl } = await request.json();
 
+        console.log('Facebook credentials check:', {
+            hasPageId: !!FACEBOOK_PAGE_ID,
+            hasToken: !!FACEBOOK_ACCESS_TOKEN,
+            pageId: FACEBOOK_PAGE_ID,
+        });
+
         if (!FACEBOOK_PAGE_ID || !FACEBOOK_ACCESS_TOKEN) {
-            console.error("Facebook credentials missing");
+            console.error("Facebook credentials missing", {
+                FACEBOOK_PAGE_ID: !!FACEBOOK_PAGE_ID,
+                FACEBOOK_ACCESS_TOKEN: !!FACEBOOK_ACCESS_TOKEN
+            });
             return NextResponse.json({ error: "Configuration error" }, { status: 500 });
         }
 

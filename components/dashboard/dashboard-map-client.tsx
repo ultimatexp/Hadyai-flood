@@ -9,6 +9,7 @@ import "leaflet-defaulticon-compatibility";
 import StatusWidget from "@/components/dashboard/status-widget";
 import Link from "next/link";
 import L from "leaflet";
+import { EvacMarker } from "@/components/evac/evac-marker";
 
 const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
@@ -18,6 +19,7 @@ const ZoomControl = dynamic(() => import("react-leaflet").then(mod => mod.ZoomCo
 
 interface DashboardMapProps {
     cases: any[];
+    evacPoints: any[];
 }
 
 // Custom marker icons based on status
@@ -62,10 +64,12 @@ const getMarkerIcon = (status: string) => {
     });
 };
 
-export default function DashboardMap({ cases }: DashboardMapProps) {
+export default function DashboardMap({ cases, evacPoints }: DashboardMapProps) {
     const [mounted, setMounted] = useState(false);
     const [showResolved, setShowResolved] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>("all");
+    const [victimCountFilter, setVictimCountFilter] = useState<string>("all");
+    const [showEvac, setShowEvac] = useState(true);
 
     useEffect(() => {
         setMounted(true);
@@ -92,6 +96,14 @@ export default function DashboardMap({ cases }: DashboardMapProps) {
 
         // Filter by category
         if (selectedCategory !== "all" && (!c.categories || !c.categories.includes(selectedCategory))) return false;
+
+        // Filter by victim count
+        if (victimCountFilter !== "all") {
+            const count = c.victim_count || 1;
+            if (victimCountFilter === "1-10" && (count < 1 || count > 10)) return false;
+            if (victimCountFilter === "10-50" && (count <= 10 || count > 50)) return false;
+            if (victimCountFilter === "50+" && count <= 50) return false;
+        }
 
         return true;
     });
@@ -177,36 +189,63 @@ export default function DashboardMap({ cases }: DashboardMapProps) {
                         </Marker>
                     );
                 })}
+
+                {/* Evacuation Points */}
+                {showEvac && evacPoints.map((evac) => (
+                    <EvacMarker key={evac.id} data={evac} />
+                ))}
             </MapContainer>
 
             {/* Status Widget Overlay */}
             <StatusWidget cases={cases} />
 
-            {/* Filters Overlay */}
-            <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2 items-end">
+            {/* Compact Filters Bar */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur-md rounded-full shadow-xl px-4 py-2 flex items-center gap-3">
                 {/* Category Filter */}
-                <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-lg max-w-[200px]">
-                    <select
-                        value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="w-full p-2 text-sm border rounded bg-white text-gray-900"
-                    >
-                        <option value="all">ทั้งหมด ({categories.length} ประเภท)</option>
-                        {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                    </select>
-                </div>
+                <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="px-3 py-1 text-xs border-none rounded-full bg-gray-100 text-gray-900 cursor-pointer hover:bg-gray-200 transition-colors"
+                >
+                    <option value="all">หมวดหมู่: ทั้งหมด</option>
+                    {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                </select>
 
-                {/* Show Resolved Toggle */}
+                {/* Victim Count Filter */}
+                <select
+                    value={victimCountFilter}
+                    onChange={(e) => setVictimCountFilter(e.target.value)}
+                    className="px-3 py-1 text-xs border-none rounded-full bg-gray-100 text-gray-900 cursor-pointer hover:bg-gray-200 transition-colors"
+                >
+                    <option value="all">ผู้ประสบภัย: ทั้งหมด</option>
+                    <option value="1-10">1-10 คน</option>
+                    <option value="10-50">10-50 คน</option>
+                    <option value="50+">50+ คน</option>
+                </select>
+
+                <div className="w-px h-6 bg-gray-300"></div>
+
+                {/* Toggle Buttons */}
                 <button
                     onClick={() => setShowResolved(!showResolved)}
-                    className={`px-4 py-2 rounded-lg shadow-lg text-sm font-bold transition-colors ${showResolved
-                        ? "bg-green-600 text-white hover:bg-green-700"
-                        : "bg-white text-gray-700 hover:bg-gray-50"
+                    className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${showResolved
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         }`}
                 >
-                    {showResolved ? "✓ แสดงเคสที่สำเร็จแล้ว" : "ซ่อนเคสที่สำเร็จแล้ว"}
+                    {showResolved ? "✓ สำเร็จแล้ว" : "ซ่อนสำเร็จแล้ว"}
+                </button>
+
+                <button
+                    onClick={() => setShowEvac(!showEvac)}
+                    className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${showEvac
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                >
+                    {showEvac ? "✓ ศูนย์พักพิง" : "ซ่อนศูนย์พักพิง"}
                 </button>
             </div>
 

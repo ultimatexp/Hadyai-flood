@@ -21,6 +21,7 @@ import dynamic from "next/dynamic";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
+import CaseComments from "./case-comments";
 
 const CaseMap = dynamic(() => import("./case-map"), {
     ssr: false,
@@ -42,6 +43,12 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
     const [origin, setOrigin] = useState("");
+
+    const urgencyColors = {
+        1: "bg-red-100 text-red-700 border-red-200",
+        2: "bg-orange-100 text-orange-700 border-orange-200",
+        3: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    };
 
     // New state for resolution dialog
     const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
@@ -82,11 +89,20 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
             // Get first photo if available
             const imageUrl = caseData.photos && caseData.photos.length > 0 ? caseData.photos[0].url : null;
 
-            await fetch('/api/facebook/post', {
+            console.log('Posting to Facebook:', { message, link, imageUrl });
+            const response = await fetch('/api/facebook/post', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message, link, imageUrl })
             });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                console.error("Facebook post failed:", data);
+            } else {
+                console.log("Facebook post successful:", data);
+            }
         } catch (error) {
             console.error("Failed to auto-post to Facebook:", error);
             // Don't block the UI flow if FB post fails
@@ -108,9 +124,16 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
         if (confirmMessage && !confirm(confirmMessage)) return;
 
         setLoading(true);
+        const updates: any = { status: newStatus };
+
+        // Assign rescuer if taking action
+        if ((newStatus === "ACKNOWLEDGED" || newStatus === "IN_PROGRESS") && auth.currentUser) {
+            updates.rescuer_id = auth.currentUser.uid;
+        }
+
         const { error } = await supabase
             .from("sos_cases")
-            .update({ status: newStatus })
+            .update(updates)
             .eq("id", caseData.id);
 
         if (error) {
@@ -184,11 +207,11 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
     };
 
     const statusColors: { [key: string]: string } = {
-        NEW: "bg-red-500",
-        ACKNOWLEDGED: "bg-yellow-500",
-        IN_PROGRESS: "bg-blue-500",
-        RESOLVED: "bg-green-500",
-        CLOSED: "bg-gray-500",
+        NEW: "bg-red-100 text-red-700",
+        ACKNOWLEDGED: "bg-purple-100 text-purple-700",
+        IN_PROGRESS: "bg-yellow-100 text-yellow-700",
+        RESOLVED: "bg-green-100 text-green-700",
+        CLOSED: "bg-gray-100 text-gray-700",
     };
 
     return (
@@ -264,19 +287,19 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
                 )}
 
                 {/* Header */}
-                <div className="space-y-3">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
-                        <h1 className="text-2xl font-bold break-words leading-tight">{caseData.reporter_name}</h1>
-                        <div className="flex items-center gap-2 self-start">
-                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${statusColors[status] || "bg-gray-100 text-gray-700"}`}>
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-6">
+                    <div className="flex-1">
+                        <div className="flex flex-wrap gap-2 mb-3">
+                            <span className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${urgencyColors[caseData.urgency_level]}`}>
+                                {caseData.urgency_level === 1 ? "ด่วนมาก" : caseData.urgency_level === 2 ? "ด่วน" : "พอรอได้"}
+                            </span>
+                            <span className={`px-3 py-1.5 rounded-lg text-sm font-bold ${statusColors[status]}`}>
                                 {statusLabels[status] || status}
                             </span>
-                            {isOwner && editToken && (
-                                <Link href={`/case/${caseData.id}/update?token=${editToken}`}>
-                                    <button className="p-1 rounded-full hover:bg-gray-100 text-muted-foreground transition-colors">
-                                        <Edit2 className="w-4 h-4" />
-                                    </button>
-                                </Link>
+                            {caseData.case_offers && caseData.case_offers.length > 0 && (
+                                <span className="px-3 py-1.5 rounded-lg text-sm font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 text-white shadow-md">
+                                    💰 สินน้ำใจ {caseData.case_offers[0].amount.toLocaleString()} บาท
+                                </span>
                             )}
                         </div>
                     </div>
@@ -339,6 +362,18 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
                             ))}
                         </div>
                         <p className="text-xs text-muted-foreground text-center">คลิกที่รูปเพื่อดูขนาดเต็ม</p>
+                    </div>
+                )}
+
+                {/* Chat Section for Helper */}
+                {isAuthenticated && auth.currentUser && (
+                    <div className="space-y-3">
+                        <h3 className="font-semibold text-lg">แชทกับผู้แจ้งเหตุ</h3>
+                        <CaseComments
+                            caseId={caseData.id}
+                            userId={auth.currentUser.uid}
+                            role="volunteer"
+                        />
                     </div>
                 )}
 

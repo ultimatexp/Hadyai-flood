@@ -40,13 +40,23 @@ export const CaseCard: React.FC<CaseCardProps> = ({ data, compact, onClick }) =>
             className={`bg-card rounded-xl border p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${compact ? 'space-y-2' : 'space-y-4'}`}
         >
             <div className="flex justify-between items-start">
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                     <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${urgencyColors[data.urgency_level as 1 | 2 | 3]}`}>
                         {data.urgency_level === 1 ? "ด่วนมาก" : data.urgency_level === 2 ? "ด่วน" : "พอรอได้"}
                     </span>
                     <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${statusColors[data.status as keyof typeof statusColors]}`}>
                         {statusLabels[data.status as string] || data.status}
                     </span>
+                    {data.case_offers && data.case_offers.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 text-white shadow-sm">
+                            💰 {data.case_offers[0].amount.toLocaleString()} ฿
+                        </span>
+                    )}
+                    {data.victim_count && data.victim_count > 1 && (
+                        <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                            👥 {data.victim_count} คน
+                        </span>
+                    )}
                 </div>
                 <span className="text-xs text-muted-foreground flex items-center">
                     <Clock className="w-3 h-3 mr-1" />

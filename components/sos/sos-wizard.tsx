@@ -51,6 +51,7 @@ export default function SOSWizard() {
         categories: [] as string[],
         urgency_level: 2,
         note: "",
+        victim_count: 1,
     });
     const [photos, setPhotos] = useState<File[]>([]);
 
@@ -226,6 +227,19 @@ export default function SOSWizard() {
                             <button type="button" onClick={addContact} className="text-sm text-primary font-medium hover:underline">
                                 + เพิ่มเบอร์สำรอง
                             </button>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="font-medium">จำนวนผู้ประสบภัยที่จุดนี้</label>
+                            <input
+                                type="number"
+                                min="1"
+                                className="w-full p-3 rounded-xl border-2 border-border bg-background focus:border-primary outline-none"
+                                placeholder="จำนวนคน"
+                                value={formData.victim_count}
+                                onChange={(e) => setFormData(prev => ({ ...prev, victim_count: parseInt(e.target.value) || 1 }))}
+                            />
+                            <p className="text-xs text-muted-foreground">ระบุจำนวนคนที่ต้องการความช่วยเหลือ (รวมผู้แจ้ง)</p>
                         </div>
 
                         <div className="space-y-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Truck, Clock, Phone, BookOpen, ChevronRight, Copy, Edit, CheckCircle2 } from "lucide-react";
+import { Check, Truck, Clock, Phone, BookOpen, ChevronRight, Copy, Edit, CheckCircle2, Loader2 } from "lucide-react";
 import { ThaiButton } from "@/components/ui/thai-button";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -241,15 +241,34 @@ export function SOSSuccessView({ caseData, editToken }: SOSSuccessViewProps) {
                 </Dialog>
 
                 <button
-                    onClick={() => {
-                        const url = `${window.location.origin}/case/${caseData.id}`;
-                        navigator.clipboard.writeText(url);
-                        alert("คัดลอกลิงก์แล้ว! ส่งให้ญาติหรือคนรู้จักเพื่อติดตามสถานะได้เลย");
+                    onClick={async () => {
+                        setLoading(true);
+                        try {
+                            // Import dynamically to avoid server action issues in client component if not handled well, 
+                            // but here we can just import at top level if it's a server action.
+                            // Assuming generateFamilyToken is available.
+                            const { generateFamilyToken } = await import("@/app/actions/family");
+                            const result = await generateFamilyToken(caseData.id);
+
+                            if (result.success) {
+                                const url = `${window.location.origin}/case/${caseData.id}/family?token=${result.token}`;
+                                navigator.clipboard.writeText(url);
+                                alert("คัดลอกลิงก์สำหรับญาติแล้ว! (ต้องเข้าสู่ระบบเพื่อดูข้อมูล)");
+                            } else {
+                                alert("ไม่สามารถสร้างลิงก์ได้");
+                            }
+                        } catch (e) {
+                            console.error(e);
+                            alert("เกิดข้อผิดพลาด");
+                        } finally {
+                            setLoading(false);
+                        }
                     }}
+                    disabled={loading}
                     className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-colors border border-zinc-700"
                 >
-                    <Copy className="w-5 h-5" />
-                    แชร์ลิงก์ติดตามสถานะ (Share Link)
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Copy className="w-5 h-5" />}
+                    แชร์ลิงก์ให้ญาติ (Share Family Link)
                 </button>
 
                 <Link href="/info" className="block w-full">

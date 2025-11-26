@@ -1,8 +1,34 @@
+"use client";
+
 import PhoneLogin from "@/components/auth/phone-login";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { useEffect } from "react";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 export default function HelperLoginPage() {
+    const router = useRouter();
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const { syncUserRole, updateUserProfile } = await import("@/app/actions/auth");
+
+                if (user.isAnonymous) {
+                    // Admin Login: Auto-set name to skip onboarding
+                    await updateUserProfile(user.uid, { name: "Administrator" });
+                }
+
+                // Sync role as 'volunteer' for both Admin and Volunteers
+                await syncUserRole(user.uid, "volunteer");
+                router.push("/helper");
+            }
+        });
+        return () => unsubscribe();
+    }, [router]);
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
             <Link href="/" className="absolute top-6 left-6 text-gray-500 hover:text-gray-800 transition-colors flex items-center gap-1">
@@ -21,7 +47,7 @@ export default function HelperLoginPage() {
                     <p className="text-gray-500 mt-2">ระบบสำหรับอาสาสมัครและเจ้าหน้าที่</p>
                 </div>
 
-                <PhoneLogin />
+                <PhoneLogin minimal onSuccess={() => { }} />
             </div>
         </div>
     );

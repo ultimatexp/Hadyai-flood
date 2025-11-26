@@ -1,5 +1,5 @@
 import { ThaiButton } from "@/components/ui/thai-button";
-import { AlertTriangle, HeartHandshake, MapPin, Search } from "lucide-react";
+import { AlertTriangle, HeartHandshake, MapPin, Search, Camera, UserSearch } from "lucide-react";
 import Link from "next/link";
 import LandingMap from "@/components/map/landing-map-wrapper";
 import { DataDeletionCountdown } from "@/components/ui/data-deletion-countdown";
@@ -49,6 +49,25 @@ export default function Home() {
               ฉันเป็นอาสา
             </ThaiButton>
           </Link>
+
+          {/* Face Search Features */}
+          <div className="pt-4 border-t border-gray-200">
+            <p className="text-sm text-gray-600 mb-3 font-medium">ค้นหาผู้ได้รับผลกระทบ</p>
+            <div className="grip gap-3">
+              <Link href="/find" className="block w-full">
+                <button className="w-full bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold py-3 rounded-xl shadow-md transition-transform hover:scale-105 flex items-center justify-center gap-2 mb-3">
+                  <UserSearch className="w-5 h-5" />
+                  ค้นหาด้วยใบหน้า
+                </button>
+              </Link>
+              <Link href="/upload-victim" className="block w-full">
+                <button className="w-full bg-gray-700 hover:bg-gray-800 text-white text-lg font-bold py-3 rounded-xl shadow-md transition-transform hover:scale-105 flex items-center justify-center gap-2">
+                  <Camera className="w-5 h-5" />
+                  อัพโหลดรูปผู้ได้รับผลกระทบ
+                </button>
+              </Link>
+            </div>
+          </div>
 
           <Link href="/dashboard" className="block w-full">
             <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold py-3 rounded-2xl shadow-md transition-transform hover:scale-105 flex items-center justify-center gap-2">
