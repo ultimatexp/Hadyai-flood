@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { enrollFamilyMember } from "@/app/actions/family";
 import { Loader2, UserPlus, ShieldCheck } from "lucide-react";
 
-export default function FamilyEnrollPage() {
+function FamilyEnrollContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const caseId = searchParams.get("caseId");
@@ -122,5 +122,17 @@ export default function FamilyEnrollPage() {
                 </form>
             </div>
         </div>
+    );
+}
+
+export default function FamilyEnrollPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        }>
+            <FamilyEnrollContent />
+        </Suspense>
     );
 }
