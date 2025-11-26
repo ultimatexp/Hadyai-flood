@@ -2,11 +2,12 @@
 
 import PhoneLogin from "@/components/auth/phone-login";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { Loader2 } from "lucide-react";
 
-export default function FamilyLoginPage() {
+function FamilyLoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const redirectUrl = searchParams.get("redirect") || "/family";
@@ -35,5 +36,17 @@ export default function FamilyLoginPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function FamilyLoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        }>
+            <FamilyLoginContent />
+        </Suspense>
     );
 }
