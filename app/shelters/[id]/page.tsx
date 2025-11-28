@@ -55,13 +55,13 @@ export default function ShelterDetailPage() {
             if (user) {
                 const likeStatus = await getShelterLikeStatus(id, user.uid);
                 if (likeStatus.success) {
-                    setLikeCount(likeStatus.count);
-                    setIsLiked(likeStatus.liked);
+                    setLikeCount(likeStatus.count ?? 0);
+                    setIsLiked(likeStatus.liked ?? false);
                 }
             } else {
                 const likeStatus = await getShelterLikeStatus(id);
                 if (likeStatus.success) {
-                    setLikeCount(likeStatus.count);
+                    setLikeCount(likeStatus.count ?? 0);
                 }
             }
 
