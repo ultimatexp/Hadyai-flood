@@ -19,6 +19,7 @@ const MapPicker = dynamic(() => import("@/components/map/map-picker"), {
 });
 
 export function LostPetForm() {
+    // Form component for reporting lost pets
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
