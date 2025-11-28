@@ -40,6 +40,7 @@ export function LostPetForm() {
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [lastSeenDate, setLastSeenDate] = useState("");
+    const [sex, setSex] = useState<'male' | 'female' | 'unknown'>('unknown');
     const [petAnalysis, setPetAnalysis] = useState<any>(null);
     const [analyzing, setAnalyzing] = useState(false);
 
@@ -163,6 +164,7 @@ export function LostPetForm() {
             formData.append('owner_name', ownerName);
             formData.append('contact_info', contactInfo);
             formData.append('reward', reward);
+            formData.append('sex', sex);
             formData.append('description', description);
             formData.append('user_id', user.uid);
 
@@ -281,6 +283,20 @@ export function LostPetForm() {
                                     <Label>สายพันธุ์</Label>
                                     <Input value={breed} onChange={e => setBreed(e.target.value)} placeholder="เช่น โกลเด้น, วิเชียรมาศ" className="text-black" />
                                 </div>
+                                <div>
+                                    <Label>เพศ</Label>
+                                    <select
+                                        value={sex}
+                                        onChange={e => setSex(e.target.value as 'male' | 'female' | 'unknown')}
+                                        className="w-full px-3 py-2 border rounded-md text-black"
+                                    >
+                                        <option value="unknown">ไม่มีข้อมูล</option>
+                                        <option value="male">ผู้</option>
+                                        <option value="female">เมีย</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label>สี</Label>
                                     <Input value={color} onChange={e => setColor(e.target.value)} placeholder="เช่น น้ำตาล, ขาว-ดำ" className="text-black" />

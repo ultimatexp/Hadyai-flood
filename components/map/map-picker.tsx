@@ -41,10 +41,17 @@ const libraries: ("places")[] = ["places"];
 
 export default function MapPicker({ lat, lng, onLocationSelect }: MapPickerProps) {
     const [loading, setLoading] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
+
     const { isLoaded } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
     });
+
+    // Ensure component only renders on client side
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const handleGetCurrentLocation = () => {
         setLoading(true);
@@ -68,6 +75,15 @@ export default function MapPicker({ lat, lng, onLocationSelect }: MapPickerProps
 
     // Default center (Hadyai)
     const defaultCenter: [number, number] = [7.00866, 100.47469];
+
+    // Don't render map until mounted on client
+    if (!isMounted) {
+        return (
+            <div className="h-[400px] w-full bg-gray-100 animate-pulse rounded-xl flex items-center justify-center text-gray-400">
+                กำลังโหลดแผนที่...
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-4">

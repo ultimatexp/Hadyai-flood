@@ -68,6 +68,7 @@ export default function FindPetPage() {
     // Shared State
     const [contactInfo, setContactInfo] = useState("");
     const [description, setDescription] = useState("");
+    const [sex, setSex] = useState<'male' | 'female' | 'unknown'>('unknown');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -104,10 +105,20 @@ export default function FindPetPage() {
 
             if (data.success) {
                 setPetAnalysis(data.data);
+                console.log("✅ Analysis complete! Data saved:", data.data);
                 // Autofill description if empty
                 if (!description && data.data.description) {
                     setDescription(data.data.description);
                 }
+
+                // Auto-trigger search after analysis completes (ensures features are sent)
+                setTimeout(() => {
+                    const searchForm = document.querySelector('form[data-search-form]') as HTMLFormElement;
+                    if (searchForm) {
+                        console.log("🔄 Auto-triggering search with fresh analysis data...");
+                        searchForm.requestSubmit();
+                    }
+                }, 100); // Small delay to ensure state updates
             }
         } catch (error: any) {
             console.error('Error analyzing image:', error);
@@ -197,6 +208,9 @@ export default function FindPetPage() {
                     setSearchImagePreview(reader.result as string);
                 };
                 reader.readAsDataURL(compressed);
+
+                // Analyze the image for search features
+                analyzeImage(compressed);
             } catch (err) {
                 console.error("Compression failed", err);
                 setSelectedSearchImage(file);
@@ -205,6 +219,9 @@ export default function FindPetPage() {
                     setSearchImagePreview(reader.result as string);
                 };
                 reader.readAsDataURL(file);
+
+                // Analyze the original image
+                analyzeImage(file);
             }
 
             setError(null);
@@ -231,6 +248,7 @@ export default function FindPetPage() {
             });
             formData.append('contact_info', contactInfo);
             formData.append('description', description);
+            formData.append('sex', sex);
             formData.append('status', 'FOUND');
             if (foundLocation) {
                 formData.append('lat', foundLocation.lat.toString());
@@ -280,6 +298,7 @@ export default function FindPetPage() {
 
     const handleLostSearch = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("🔍 Search button clicked! petAnalysis state:", petAnalysis);
         if (!selectedSearchImage) {
             setError("กรุณาเลือกรูปภาพเพื่อค้นหา");
             return;
@@ -292,6 +311,23 @@ export default function FindPetPage() {
         try {
             const formData = new FormData();
             formData.append('image', selectedSearchImage);
+            formData.append('type', 'lost'); // Search FOUND pets for lost pet queries
+
+            // Append analysis data if available
+            if (petAnalysis) {
+                console.log("Search: Using petAnalysis data:", petAnalysis);
+                if (petAnalysis.species) formData.append('species', petAnalysis.species);
+                if (petAnalysis.color_main) formData.append('color_main', petAnalysis.color_main);
+                if (petAnalysis.color_pattern) formData.append('color_pattern', petAnalysis.color_pattern);
+                if (petAnalysis.fur_length) formData.append('fur_length', petAnalysis.fur_length);
+            } else {
+                console.warn("Search: No petAnalysis data available");
+            }
+
+            // Add manual sex selection
+            if (sex !== 'unknown') {
+                formData.append('sex', sex);
+            }
 
             const response = await fetch('/api/pet/search', {
                 method: 'POST',
@@ -440,25 +476,87 @@ export default function FindPetPage() {
 
                                         {petAnalysis && !analyzing && (
                                             <div className="mt-4 p-4 bg-green-50 rounded-xl border border-green-100 animate-in fade-in slide-in-from-top-2">
-                                                <div className="flex items-center gap-2 mb-2 text-green-800 font-bold">
+                                                <div className="flex items-center gap-2 mb-3 text-green-800 font-bold">
                                                     <Check className="w-4 h-4" />
                                                     AI วิเคราะห์ข้อมูลเรียบร้อย
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-2 text-sm text-green-700">
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-green-700">
+                                                    {/* Basic Info */}
                                                     <div>
                                                         <span className="font-semibold">ประเภท:</span> {petAnalysis.species === 'dog' ? 'สุนัข' : petAnalysis.species === 'cat' ? 'แมว' : 'อื่นๆ'}
                                                     </div>
                                                     <div>
-                                                        <span className="font-semibold">สี:</span> {petAnalysis.color_main}
+                                                        <span className="font-semibold">สี:</span> {petAnalysis.color_main}{petAnalysis.color_secondary && ` / ${petAnalysis.color_secondary}`}
                                                     </div>
-                                                    {petAnalysis.breed && (
+                                                    {petAnalysis.color_pattern && (
                                                         <div>
-                                                            <span className="font-semibold">สายพันธุ์:</span> {petAnalysis.breed}
+                                                            <span className="font-semibold">ลาย:</span> {petAnalysis.color_pattern}
                                                         </div>
                                                     )}
-                                                    {petAnalysis.unique_marks && (
+                                                    {petAnalysis.body_size && (
+                                                        <div>
+                                                            <span className="font-semibold">ขนาด:</span> {petAnalysis.body_size === 'small' ? 'เล็ก' : petAnalysis.body_size === 'medium' ? 'กลาง' : 'ใหญ่'}
+                                                        </div>
+                                                    )}
+                                                    {petAnalysis.fur_length && (
+                                                        <div>
+                                                            <span className="font-semibold">ความยาวขน:</span> {petAnalysis.fur_length}
+                                                        </div>
+                                                    )}
+                                                    {petAnalysis.eye_color && (
+                                                        <div>
+                                                            <span className="font-semibold">สีตา:</span> {petAnalysis.eye_color}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Body Features */}
+                                                    {petAnalysis.ear_shape && (
+                                                        <div>
+                                                            <span className="font-semibold">รูปหู:</span> {petAnalysis.ear_shape}
+                                                        </div>
+                                                    )}
+                                                    {petAnalysis.tail_type && (
+                                                        <div>
+                                                            <span className="font-semibold">ประเภทหาง:</span> {petAnalysis.tail_type}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Accessories */}
+                                                    {petAnalysis.has_collar && (
                                                         <div className="col-span-2">
-                                                            <span className="font-semibold">จุดเด่น:</span> {petAnalysis.unique_marks}
+                                                            <span className="font-semibold">🔖 ปลอกคอ:</span> {petAnalysis.collar_color || 'มี'}{petAnalysis.collar_type && ` (${petAnalysis.collar_type})`}
+                                                        </div>
+                                                    )}
+                                                    {petAnalysis.has_tag && (
+                                                        <div>
+                                                            <span className="font-semibold">✓ มีป้ายชื่อ</span>
+                                                        </div>
+                                                    )}
+                                                    {petAnalysis.clothes && (
+                                                        <div className="col-span-2">
+                                                            <span className="font-semibold">👕 เสื้อผ้า:</span> {petAnalysis.clothes}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Unique Marks */}
+                                                    {petAnalysis.special_marks && (
+                                                        <div className="col-span-full">
+                                                            <span className="font-semibold">⭐ จุดเด่น:</span> {petAnalysis.special_marks}
+                                                        </div>
+                                                    )}
+                                                    {petAnalysis.white_patch_location && petAnalysis.white_patch_location.length > 0 && (
+                                                        <div className="col-span-2">
+                                                            <span className="font-semibold">ตำแหน่งสีขาว:</span> {petAnalysis.white_patch_location.join(', ')}
+                                                        </div>
+                                                    )}
+                                                    {petAnalysis.injury_or_scar && (
+                                                        <div className="col-span-full">
+                                                            <span className="font-semibold">⚠️ รอยแผล/แผลเป็น:</span> {petAnalysis.injury_or_scar}
+                                                        </div>
+                                                    )}
+                                                    {petAnalysis.heterochromia && (
+                                                        <div>
+                                                            <span className="font-semibold">👁️ ตาสองสี</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -512,6 +610,22 @@ export default function FindPetPage() {
                                         />
                                     </div>
 
+                                    {/* Sex Selection */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            เพศ
+                                        </label>
+                                        <select
+                                            value={sex}
+                                            onChange={(e) => setSex(e.target.value as 'male' | 'female' | 'unknown')}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-black appearance-none"
+                                        >
+                                            <option value="unknown">ไม่มีข้อมูล</option>
+                                            <option value="male">ผู้</option>
+                                            <option value="female">เมีย</option>
+                                        </select>
+                                    </div>
+
                                     {/* Description */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -547,7 +661,7 @@ export default function FindPetPage() {
                             </form>
                         ) : (
                             /* Lost Pet Search */
-                            <form onSubmit={handleLostSearch} className="space-y-6">
+                            <form onSubmit={handleLostSearch} data-search-form className="space-y-6">
                                 <div className="text-center mb-6">
                                     <h2 className="text-2xl font-bold text-gray-800">ค้นหาสัตว์เลี้ยงที่หายไป</h2>
                                     <p className="text-gray-500">อัพโหลดรูปสัตว์เลี้ยงของคุณ ระบบจะค้นหาจากฐานข้อมูลสัตว์ที่พบ</p>
@@ -593,10 +707,10 @@ export default function FindPetPage() {
 
                                 <ThaiButton
                                     type="submit"
-                                    disabled={loading || !selectedSearchImage}
+                                    disabled={loading || !selectedSearchImage || analyzing}
                                     className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-lg shadow-lg shadow-blue-200 disabled:opacity-50 disabled:shadow-none"
                                 >
-                                    {loading ? (
+                                    {analyzing || loading ? (
                                         <div className="flex items-center justify-center gap-2">
                                             <Loader2 className="w-5 h-5 animate-spin" />
                                             กำลังค้นหา...
