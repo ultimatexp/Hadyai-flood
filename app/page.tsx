@@ -1,5 +1,5 @@
 import { ThaiButton } from "@/components/ui/thai-button";
-import { AlertTriangle, HeartHandshake, MapPin, Search, Camera, UserSearch } from "lucide-react";
+import { AlertTriangle, HeartHandshake, MapPin, Search, Camera, UserSearch, PawPrint, User } from "lucide-react";
 import Link from "next/link";
 import LandingMap from "@/components/map/landing-map-wrapper";
 import { DataDeletionCountdown } from "@/components/ui/data-deletion-countdown";
@@ -11,6 +11,26 @@ export default function Home() {
       <div className="absolute inset-0 z-0 opacity-60">
         <LandingMap />
         <div className="absolute inset-0 bg-gradient-to-b from-white/90 via-white/70 to-white/90 dark:from-black/80 dark:via-black/60 dark:to-black/80 z-[1]" />
+      </div>
+
+      {/* Pet Mode Toggle */}
+      <div className="absolute top-6 left-6 z-50">
+        <Link href="/find-pet">
+          <button className="bg-white/80 dark:bg-black/50 backdrop-blur-md p-3 rounded-full shadow-lg hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-all border-2 border-orange-100 dark:border-orange-900/50 group">
+            <PawPrint className="w-8 h-8 text-orange-500 group-hover:scale-110 transition-transform" />
+            <span className="sr-only">Pet Mode</span>
+          </button>
+        </Link>
+      </div>
+
+      {/* My Account Shortcut */}
+      <div className="absolute top-6 right-6 z-50">
+        <Link href="/my-account">
+          <button className="bg-white/80 dark:bg-black/50 backdrop-blur-md p-3 rounded-full shadow-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all border-2 border-blue-100 dark:border-blue-900/50 group">
+            <User className="w-8 h-8 text-blue-500 group-hover:scale-110 transition-transform" />
+            <span className="sr-only">My Account</span>
+          </button>
+        </Link>
       </div>
 
       <div className="max-w-md w-full space-y-12 text-center relative z-10">
@@ -68,6 +88,8 @@ export default function Home() {
               </Link>
             </div>
           </div>
+
+
 
           <Link href="/dashboard" className="block w-full">
             <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold py-3 rounded-2xl shadow-md transition-transform hover:scale-105 flex items-center justify-center gap-2">

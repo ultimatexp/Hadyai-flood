@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { detectFaceAndGetDescriptor, loadModels } from "@/lib/face-api";
-import { Upload, Loader2, Check, X } from "lucide-react";
+import { Upload, Loader2, Check, X, AlertCircle } from "lucide-react";
 import { ThaiButton } from "@/components/ui/thai-button";
 
 export default function UploadVictimPage() {
@@ -14,18 +14,30 @@ export default function UploadVictimPage() {
     const [uploadedCount, setUploadedCount] = useState(0);
     const [modelsLoaded, setModelsLoaded] = useState(false);
     const [loadingModels, setLoadingModels] = useState(true);
+    const [modelLoadError, setModelLoadError] = useState(false);
 
-    // Load face-api models on mount
+    // Load face-api models on mount with timeout
     useEffect(() => {
         async function loadFaceModels() {
             try {
                 setLoadingModels(true);
-                await loadModels();
+
+                // Set a timeout for model loading (30 seconds)
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error("Model loading timeout")), 30000)
+                );
+
+                await Promise.race([
+                    loadModels(),
+                    timeoutPromise
+                ]);
+
                 setModelsLoaded(true);
                 setLoadingModels(false);
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Failed to load face detection models:", err);
-                setError("ไม่สามารถโหลดโมเดลตรวจจับใบหน้าได้");
+                setModelLoadError(true);
+                setError("ไม่สามารถโหลดโมเดลตรวจจับใบหน้าได้ อาจเป็นเพราะอินเทอร์เน็ตช้าหรือเบราว์เซอร์ไม่รองรับ");
                 setLoadingModels(false);
             }
         }
@@ -83,22 +95,30 @@ export default function UploadVictimPage() {
 
                 // Create temporary image element to extract face descriptor
                 const img = new Image();
-                // const imageBitmap = await createImageBitmap(file); // createImageBitmap is not directly used here
                 img.src = URL.createObjectURL(file);
                 await new Promise(resolve => img.onload = resolve);
 
-                // Extract face embedding
-                const descriptor = await detectFaceAndGetDescriptor(img);
+                // Extract face embedding (only if models loaded)
+                let descriptor = null;
+                if (modelsLoaded) {
+                    try {
+                        descriptor = await detectFaceAndGetDescriptor(img);
+                    } catch (err) {
+                        console.warn(`Face detection failed for image ${i + 1}:`, err);
+                    }
+                }
 
-                if (!descriptor) {
+                if (!descriptor && modelsLoaded) {
                     console.warn(`No face detected in image ${i + 1}`);
-                    continue; // Skip this image if no face detected
+                    // Continue anyway, upload without embedding
                 }
 
                 // Upload to API
                 const formData = new FormData();
                 formData.append('image', file);
-                formData.append('embedding', JSON.stringify(Array.from(descriptor)));
+                if (descriptor) {
+                    formData.append('embedding', JSON.stringify(Array.from(descriptor)));
+                }
 
                 const response = await fetch('/api/upload-victim-photo', {
                     method: 'POST',
@@ -120,11 +140,16 @@ export default function UploadVictimPage() {
                 setSuccess(true);
                 setSelectedImages([]);
                 setImagePreviews([]);
-                setError(successCount < selectedImages.length
-                    ? `อัพโหลดสำเร็จ ${successCount} จาก ${selectedImages.length} รูป (บางรูปไม่พบใบหน้า)`
-                    : null);
+
+                if (!modelsLoaded) {
+                    setError(`อัพโหลดสำเร็จ ${successCount} รูป (โหมดไม่มีการตรวจจับใบหน้า)`);
+                } else if (successCount < selectedImages.length) {
+                    setError(`อัพโหลดสำเร็จ ${successCount} จาก ${selectedImages.length} รูป`);
+                } else {
+                    setError(null);
+                }
             } else {
-                setError("ไม่พบใบหน้าในรูปภาพที่เลือก กรุณาอัพโหลดรูปที่เห็นใบหน้าชัดเจน");
+                setError("ไม่สามารถอัพโหลดได้");
             }
         } catch (err: any) {
             setError(err.message || "เกิดข้อผิดพลาดในการอัพโหลด");
@@ -133,11 +158,13 @@ export default function UploadVictimPage() {
         }
     };
 
-    if (loadingModels) {
+    // Show loading state while models are loading
+    if (loadingModels && !modelLoadError) {
         return (
             <div className="min-h-screen flex items-center justify-center flex-col gap-4">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                {loadingModels && <p className="text-gray-600">กำลังโหลดโมเดลตรวจจับใบหน้า...</p>}
+                <p className="text-gray-600">กำลังโหลดโมเดลตรวจจับใบหน้า...</p>
+                <p className="text-xs text-gray-400">อาจใช้เวลา 10-30 วินาที</p>
             </div>
         );
     }
@@ -149,6 +176,22 @@ export default function UploadVictimPage() {
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">อัพโหลดรูปผู้ได้รับผลกระทบ</h1>
                     <p className="text-gray-600">อัพโหลดรูปภาพผู้ได้รับผลกระทบเพื่อให้ครอบครัวสามารถค้นหาได้</p>
                 </div>
+
+                {/* Model Load Error Warning */}
+                {modelLoadError && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                        <div className="flex items-start gap-2">
+                            <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                            <div>
+                                <p className="font-medium text-yellow-900">โหมดลดความสามารถ</p>
+                                <p className="text-sm text-yellow-700 mt-1">
+                                    ไม่สามารถโหลดโมเดลตรวจจับใบหน้าได้ รูปภาพจะถูกอัพโหลดโดยไม่มีการวิเคราะห์ใบหน้า
+                                    ครอบครัวจะยังค้นหาได้แต่อาจไม่แม่นยำ
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <form onSubmit={handleUpload} className="bg-white rounded-xl shadow-lg p-6 space-y-6">
                     {/* Image Upload */}
