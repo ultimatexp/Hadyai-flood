@@ -81,7 +81,16 @@ export async function getUserChats(userId: string) {
         if (commentedError) throw commentedError;
 
         // Combine and format
-        const chats = [];
+        interface ChatItem {
+            id: string;
+            type: string;
+            title: string;
+            subtitle: string;
+            link: string;
+            image: string | null;
+            updated_at: string;
+        }
+        const chats: ChatItem[] = [];
 
         // Add Family Chats
         if (familyCases) {
