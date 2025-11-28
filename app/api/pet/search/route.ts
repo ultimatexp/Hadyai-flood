@@ -13,7 +13,7 @@ const supabase = createClient(
     }
 );
 
-const PYTHON_SERVICE_URL = 'http://127.0.0.1:8000';
+const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'https://hadyai-flood-production.up.railway.app';
 
 export async function POST(request: NextRequest) {
     try {
