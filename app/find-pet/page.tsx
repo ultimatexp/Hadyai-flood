@@ -1,7 +1,7 @@
 "use client";
 
 import { compressImage } from "@/lib/image-utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     ArrowLeft,
     Search,
@@ -18,7 +18,8 @@ import {
     FileText,
     Check,
     AlertCircle,
-    Home
+    Home,
+    ChevronLeft
 } from "lucide-react";
 import { ThaiButton } from "@/components/ui/thai-button";
 import { LostPetForm } from "@/components/pet/lost-pet-form";
@@ -350,8 +351,13 @@ export default function FindPetPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white py-8 px-4">
-            <div className="max-w-3xl mx-auto">
+        <div className="min-h-screen bg-gradient-to-b from-purple-50 via-pink-50 to-orange-50">
+            {/* Back Button */}
+            <Link href="/" className="absolute top-6 left-6 text-gray-500 hover:text-gray-900 transition-colors z-10 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-sm hover:shadow-md">
+                <ChevronLeft className="w-6 h-6" />
+            </Link>
+
+            <div className="container mx-auto py-8 px-4 max-w-5xl">
                 <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
                     <div className="text-center md:text-left flex-1">
                         <h1 className="text-3xl font-bold text-gray-900 mb-2">ศูนย์ตามหาสัตว์เลี้ยง</h1>
@@ -407,7 +413,7 @@ export default function FindPetPage() {
                                 : 'text-gray-600 hover:bg-gray-50'
                                 }`}
                         >
-                            ฉันทำสัตว์เลี้ยงหาย
+                            ค้นหาอย่างรวดเร็ว
                         </button>
                     </div>
                 </div>
@@ -420,8 +426,8 @@ export default function FindPetPage() {
                             /* Found Pet Form */
                             <form onSubmit={handleFoundSubmit} className="space-y-6">
                                 <div className="text-center mb-6">
-                                    <h2 className="text-2xl font-bold text-gray-800">ลงทะเบียนสัตว์เลี้ยงที่พบ</h2>
-                                    <p className="text-gray-500">กรอกข้อมูลและอัพโหลดรูปภาพเพื่อช่วยตามหาเจ้าของ</p>
+                                    <h2 className="text-2xl font-bold text-gray-800">อัพโหลดรูปหมา แมวที่คุณเจอ</h2>
+                                    <p className="text-gray-500">หมา แมวจรที่คุณเจออาจเป็นดวงใจของใครบางคน</p>
                                 </div>
 
                                 <div className="space-y-4">

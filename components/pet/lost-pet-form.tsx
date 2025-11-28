@@ -221,18 +221,25 @@ export function LostPetForm() {
     const nextStep = () => setStep(prev => prev + 1);
     const prevStep = () => setStep(prev => prev - 1);
 
-    if (!user) {
-        return null; // Don't show button if not logged in (or show login prompt)
-    }
+    const handleOpenDialog = () => {
+        if (!user) {
+            alert('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
+            // Redirect to home page where user can sign in
+            window.location.href = '/';
+            return;
+        }
+        setOpen(true);
+    };
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <button className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-all flex items-center gap-2 px-4">
-                    <Plus className="w-5 h-5" />
-                    <span className="font-bold">แจ้งสัตว์หาย</span>
-                </button>
-            </DialogTrigger>
+            <button
+                onClick={handleOpenDialog}
+                className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center gap-2 px-4"
+            >
+                <Plus className="w-5 h-5" />
+                <span className="font-bold">เพิ่ม</span>
+            </button>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold text-center">
@@ -336,7 +343,7 @@ export function LostPetForm() {
                                 <div className="grid grid-cols-3 gap-4">
                                     {imagePreviews.map((preview, index) => (
                                         <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
-                                            <img src={preview} alt={`Preview ${index}`} className="w-full h-full object-cover" />
+                                            <img src={preview} alt={`Preview ${index} `} className="w-full h-full object-cover" />
                                             <button
                                                 onClick={() => removeImage(index)}
                                                 className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full"

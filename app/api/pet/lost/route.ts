@@ -104,16 +104,37 @@ export async function POST(request: Request) {
                 reward: reward,
                 user_id: userId,
                 last_seen_at: formData.get('last_seen_at') || null,
-                // New fields from Gemini analysis
+                // Core characteristics from Gemini analysis
                 species: formData.get('species') || null,
                 color_main: formData.get('color_main') || null,
+                color_secondary: formData.get('color_secondary') || null,
                 color_pattern: formData.get('color_pattern') || null,
                 fur_length: formData.get('fur_length') || null,
                 eye_color: formData.get('eye_color') || null,
+                body_size: formData.get('body_size') || null,
+                sex: formData.get('sex') || null,
+                // Accessories
                 collar_color: formData.get('collar_color') || null,
+                // Detailed characteristics (JSONB)
+                characteristics: {
+                    // Body features
+                    ear_shape: formData.get('ear_shape') || null,
+                    tail_type: formData.get('tail_type') || null,
+                    // Unique marks
+                    special_marks: formData.get('special_marks') || null,
+                    white_patch_location: formData.get('white_patch_location') ? JSON.parse(formData.get('white_patch_location') as string) : null,
+                    injury_or_scar: formData.get('injury_or_scar') || null,
+                    heterochromia: formData.get('heterochromia') === 'true',
+                    // Accessories
+                    has_collar: formData.get('has_collar') === 'true',
+                    collar_type: formData.get('collar_type') || null,
+                    has_tag: formData.get('has_tag') === 'true',
+                    clothes: formData.get('clothes') || null,
+                    // Other
+                    pose: formData.get('pose') || null,
+                    quality: formData.get('quality') || null,
+                },
                 unique_marks: formData.get('unique_marks') || null,
-                pose: formData.get('pose') || null,
-                quality: formData.get('quality') || null,
                 exif_time: formData.get('exif_time') || null,
                 exif_location: formData.get('exif_location') ? JSON.parse(formData.get('exif_location') as string) : null
             })

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Filter, MapPin, Calendar, PawPrint, Loader2 } from "lucide-react";
+import { Search, Filter, MapPin, Calendar, PawPrint, Loader2, Plus } from "lucide-react";
 import { ThaiButton } from "@/components/ui/thai-button";
+import { LostPetForm } from "@/components/pet/lost-pet-form";
 import Link from "next/link";
 
 interface Pet {
@@ -73,15 +74,11 @@ export default function PetArchivePage() {
                         <div>
                             <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
                                 <PawPrint className="w-10 h-10 text-orange-500" />
-                                คลังข้อมูลสัตว์เลี้ยงหาย
+                                รวมน้องที่พ่อแม่กำลังหา
                             </h1>
                             <p className="text-gray-600">รวมรายการสัตว์เลี้ยงที่กำลังตามหา</p>
                         </div>
-                        <Link href="/find-pet">
-                            <ThaiButton className="bg-orange-500 hover:bg-orange-600">
-                                แจ้งเบาะแสสัตว์หาย
-                            </ThaiButton>
-                        </Link>
+                        <LostPetForm />
                     </div>
 
                     {/* Search and Filters */}
