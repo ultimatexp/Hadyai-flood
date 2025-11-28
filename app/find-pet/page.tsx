@@ -72,6 +72,34 @@ export default function FindPetPage() {
     const [error, setError] = useState<string | null>(null);
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [searched, setSearched] = useState(false);
+    const [petAnalysis, setPetAnalysis] = useState<any>(null);
+    const [analyzing, setAnalyzing] = useState(false);
+
+    const analyzeImage = async (file: File) => {
+        setAnalyzing(true);
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await fetch('/api/analyze-pet', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setPetAnalysis(data.data);
+                // Autofill description if empty
+                if (!description && data.data.description) {
+                    setDescription(data.data.description);
+                }
+            }
+        } catch (error) {
+            console.error('Error analyzing image:', error);
+        } finally {
+            setAnalyzing(false);
+        }
+    };
 
     const handleFoundImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
@@ -96,6 +124,11 @@ export default function FindPetPage() {
 
             setError(null);
             setSuccess(false);
+
+            // Analyze the first image
+            if (files.length > 0) {
+                analyzeImage(files[0]);
+            }
         }
     };
 
@@ -149,6 +182,19 @@ export default function FindPetPage() {
             }
             if (lastSeenDate) {
                 formData.append('last_seen_at', new Date(lastSeenDate).toISOString());
+            }
+
+            // Append analysis data
+            if (petAnalysis) {
+                Object.entries(petAnalysis).forEach(([key, value]) => {
+                    if (value !== null && value !== undefined) {
+                        if (typeof value === 'object') {
+                            formData.append(key, JSON.stringify(value));
+                        } else {
+                            formData.append(key, String(value));
+                        }
+                    }
+                });
             }
 
             const response = await fetch('/api/pet/found', {
@@ -327,6 +373,41 @@ export default function FindPetPage() {
                                                 </span>
                                             </label>
                                         </div>
+
+                                        {/* Analysis Results */}
+                                        {analyzing && (
+                                            <div className="mt-4 p-4 bg-blue-50 rounded-xl flex items-center gap-3 text-blue-700 animate-pulse">
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                                <span>กำลังวิเคราะห์รูปภาพด้วย AI...</span>
+                                            </div>
+                                        )}
+
+                                        {petAnalysis && !analyzing && (
+                                            <div className="mt-4 p-4 bg-green-50 rounded-xl border border-green-100 animate-in fade-in slide-in-from-top-2">
+                                                <div className="flex items-center gap-2 mb-2 text-green-800 font-bold">
+                                                    <Check className="w-4 h-4" />
+                                                    AI วิเคราะห์ข้อมูลเรียบร้อย
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2 text-sm text-green-700">
+                                                    <div>
+                                                        <span className="font-semibold">ประเภท:</span> {petAnalysis.species === 'dog' ? 'สุนัข' : petAnalysis.species === 'cat' ? 'แมว' : 'อื่นๆ'}
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-semibold">สี:</span> {petAnalysis.color_main}
+                                                    </div>
+                                                    {petAnalysis.breed && (
+                                                        <div>
+                                                            <span className="font-semibold">สายพันธุ์:</span> {petAnalysis.breed}
+                                                        </div>
+                                                    )}
+                                                    {petAnalysis.unique_marks && (
+                                                        <div className="col-span-2">
+                                                            <span className="font-semibold">จุดเด่น:</span> {petAnalysis.unique_marks}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Location Picker */}
@@ -530,8 +611,11 @@ export default function FindPetPage() {
 
                                                 <div className="aspect-video relative bg-gray-100">
                                                     <img src={pet.image_url} alt="Found Pet" className="w-full h-full object-cover" />
-                                                    <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
-                                                        ความเหมือน {(pet.similarity * 100).toFixed(1)}%
+                                                    <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm flex flex-col items-end">
+                                                        <span className="font-bold">{(pet.combined_score * 100).toFixed(0)}% Match</span>
+                                                        <span className="text-[10px] opacity-80">
+                                                            (V:{(pet.embedding_similarity * 100).toFixed(0)}% C:{(pet.color_similarity * 100).toFixed(0)}% F:{(pet.feature_score * 100).toFixed(0)}%)
+                                                        </span>
                                                     </div>
                                                 </div>
                                                 <div className="p-4">

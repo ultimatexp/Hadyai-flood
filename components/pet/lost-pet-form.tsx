@@ -38,6 +38,51 @@ export function LostPetForm() {
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [lastSeenDate, setLastSeenDate] = useState("");
+    const [petAnalysis, setPetAnalysis] = useState<any>(null);
+    const [analyzing, setAnalyzing] = useState(false);
+
+    const analyzeImage = async (file: File) => {
+        setAnalyzing(true);
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await fetch('/api/analyze-pet', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setPetAnalysis(data.data);
+
+                // Autofill fields
+                if (data.data.species) setPetType(data.data.species === 'dog' ? 'dog' : data.data.species === 'cat' ? 'cat' : 'other');
+                if (data.data.color_main) setColor(data.data.color_main);
+                if (data.data.unique_marks) setMarks(data.data.unique_marks);
+                if (data.data.description) setDescription(data.data.description);
+
+                // Add image to list
+                setImages(prev => [...prev, file]);
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setImagePreviews(prev => [...prev, reader.result as string]);
+                };
+                reader.readAsDataURL(file);
+            }
+        } catch (error) {
+            console.error('Error analyzing image:', error);
+        } finally {
+            setAnalyzing(false);
+        }
+    };
+
+    const handleAutofillSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0) {
+            analyzeImage(files[0]);
+        }
+    };
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -101,6 +146,19 @@ export function LostPetForm() {
                 formData.append('last_seen_at', new Date(lastSeenDate).toISOString());
             }
 
+            // Append analysis data
+            if (petAnalysis) {
+                Object.entries(petAnalysis).forEach(([key, value]) => {
+                    if (value !== null && value !== undefined) {
+                        if (typeof value === 'object') {
+                            formData.append(key, JSON.stringify(value));
+                        } else {
+                            formData.append(key, String(value));
+                        }
+                    }
+                });
+            }
+
             const response = await fetch('/api/pet/lost', {
                 method: 'POST',
                 body: formData,
@@ -156,6 +214,22 @@ export function LostPetForm() {
                     {/* Step 1: Pet Details */}
                     {step === 1 && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+
+                            {/* Autofill Button */}
+                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-bold text-blue-800">ใช้ AI ช่วยกรอกข้อมูล?</h3>
+                                        <p className="text-xs text-blue-600">อัพโหลดรูปภาพเพื่อใ้ห้ AI ช่วยระบุสี ตำหนิ และรายละเอียด</p>
+                                    </div>
+                                    <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-colors">
+                                        {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                        <span className="text-sm font-bold">{analyzing ? 'กำลังวิเคราะห์...' : 'อัพโหลดรูป'}</span>
+                                        <input type="file" accept="image/*" className="hidden" onChange={handleAutofillSelect} disabled={analyzing} />
+                                    </label>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label>ชื่อน้อง</Label>

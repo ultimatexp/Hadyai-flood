@@ -83,7 +83,19 @@ export async function POST(request: NextRequest) {
                 description: description,
                 lat: formData.get('lat') ? parseFloat(formData.get('lat') as string) : null,
                 lng: formData.get('lng') ? parseFloat(formData.get('lng') as string) : null,
-                last_seen_at: formData.get('last_seen_at') || null
+                last_seen_at: formData.get('last_seen_at') || null,
+                // New fields from Gemini analysis
+                species: formData.get('species') || null,
+                color_main: formData.get('color_main') || null,
+                color_pattern: formData.get('color_pattern') || null,
+                fur_length: formData.get('fur_length') || null,
+                eye_color: formData.get('eye_color') || null,
+                collar_color: formData.get('collar_color') || null,
+                unique_marks: formData.get('unique_marks') || null,
+                pose: formData.get('pose') || null,
+                quality: formData.get('quality') || null,
+                exif_time: formData.get('exif_time') || null,
+                exif_location: formData.get('exif_location') ? JSON.parse(formData.get('exif_location') as string) : null
             })
             .select()
             .single();

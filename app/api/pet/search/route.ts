@@ -93,48 +93,84 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 3. Calculate color similarity for each match and compute combined score
-        const matchesWithColorScore = matches.map((match: any) => {
-            // Parse stored color data if available
-            let colorSimilarity = 0.5; // Default neutral score if no color data
-
+        // 3. Calculate color and feature similarity for each match
+        const matchesWithScores = matches.map((match: any) => {
+            // --- Color Similarity ---
+            let colorSimilarity = 0.5;
             if (match.dominant_colors && match.color_percentages) {
                 try {
-                    const petColors = typeof match.dominant_colors === 'string'
-                        ? JSON.parse(match.dominant_colors)
-                        : match.dominant_colors;
-                    const petPercentages = typeof match.color_percentages === 'string'
-                        ? JSON.parse(match.color_percentages)
-                        : match.color_percentages;
-
-                    colorSimilarity = calculateColorSimilarity(
-                        queryColors,
-                        queryPercentages,
-                        petColors,
-                        petPercentages
-                    );
+                    const petColors = typeof match.dominant_colors === 'string' ? JSON.parse(match.dominant_colors) : match.dominant_colors;
+                    const petPercentages = typeof match.color_percentages === 'string' ? JSON.parse(match.color_percentages) : match.color_percentages;
+                    colorSimilarity = calculateColorSimilarity(queryColors, queryPercentages, petColors, petPercentages);
                 } catch (e) {
-                    console.error('Error parsing color data for match:', match.id, e);
+                    console.error('Error parsing color data:', e);
                 }
             }
 
-            // Combined score: 50% embedding + 50% color
+            // --- Feature Similarity (Gemini) ---
+            let featureScore = 0.5; // Default neutral
+            let featureCount = 0;
+
+            // Helper to compare strings loosely
+            const compare = (a: string | null, b: string | null) => {
+                if (!a || !b) return 0;
+                return a.toLowerCase().includes(b.toLowerCase()) || b.toLowerCase().includes(a.toLowerCase()) ? 1 : 0;
+            };
+
+            const querySpecies = formData.get('species') as string;
+            const queryColor = formData.get('color_main') as string;
+            const queryFur = formData.get('fur_length') as string;
+
+            if (querySpecies) {
+                // Critical mismatch penalty
+                if (match.species && match.species.toLowerCase() !== querySpecies.toLowerCase()) {
+                    featureScore = 0;
+                } else {
+                    featureScore += 1; // Match or unknown
+                }
+                featureCount++;
+            }
+
+            if (queryColor) {
+                featureScore += compare(match.color_main, queryColor);
+                featureCount++;
+            }
+
+            if (queryFur) {
+                featureScore += compare(match.fur_length, queryFur);
+                featureCount++;
+            }
+
+            // Normalize feature score
+            if (featureCount > 0) {
+                featureScore = featureScore / featureCount;
+            }
+
+            // --- Combined Score ---
+            // Weights: Embedding 40%, Color 30%, Features 30%
             const embeddingSimilarity = match.similarity || 0;
-            const combinedScore = (embeddingSimilarity * 0.5) + (colorSimilarity * 0.5);
+            const combinedScore = (embeddingSimilarity * 0.4) + (colorSimilarity * 0.3) + (featureScore * 0.3);
+
+            console.log(`Match: ${match.pet_name} (${match.id})`);
+            console.log(`  - Embedding: ${(embeddingSimilarity * 100).toFixed(1)}%`);
+            console.log(`  - Color: ${(colorSimilarity * 100).toFixed(1)}%`);
+            console.log(`  - Features: ${(featureScore * 100).toFixed(1)}%`);
+            console.log(`  = Combined: ${(combinedScore * 100).toFixed(1)}%`);
 
             return {
                 ...match,
                 color_similarity: colorSimilarity,
                 embedding_similarity: embeddingSimilarity,
+                feature_score: featureScore,
                 combined_score: combinedScore
             };
         });
 
         // 4. Sort by combined score and filter
-        const filteredMatches = matchesWithColorScore
-            .filter((match: any) => match.combined_score >= 0.6) // Threshold
+        const filteredMatches = matchesWithScores
+            .filter((match: any) => match.combined_score >= 0.5) // Lower threshold slightly to allow feature boost
             .sort((a: any, b: any) => b.combined_score - a.combined_score)
-            .slice(0, 20); // Return top 20
+            .slice(0, 20);
 
         return NextResponse.json({ success: true, matches: filteredMatches });
 
