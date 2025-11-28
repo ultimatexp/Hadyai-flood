@@ -1,5 +1,6 @@
 "use client";
 
+import { compressImage } from "@/lib/image-utils";
 import { useState } from "react";
 import {
     ArrowLeft,
@@ -76,17 +77,31 @@ export default function FindPetPage() {
     const [analyzing, setAnalyzing] = useState(false);
 
     const analyzeImage = async (file: File) => {
+        console.log("analyzeImage called");
         setAnalyzing(true);
         try {
             const formData = new FormData();
             formData.append('image', file);
 
+            console.log("Sending request to /api/analyze-pet");
             const response = await fetch('/api/analyze-pet', {
                 method: 'POST',
                 body: formData,
             });
+            console.log("Response received:", response.status);
 
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+                console.log("Data parsed:", data);
+            } catch (jsonError) {
+                console.error("JSON parse error:", jsonError);
+                // Try to read as text to see what happened
+                const text = await response.text(); // This might fail if body already read, but worth a try if json() failed immediately
+                console.log("Raw response text:", text);
+                throw new Error("Failed to parse server response");
+            }
+
             if (data.success) {
                 setPetAnalysis(data.data);
                 // Autofill description if empty
@@ -94,28 +109,53 @@ export default function FindPetPage() {
                     setDescription(data.data.description);
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error analyzing image:', error);
+            // Log the specific error message to see if it matches
+            console.log("Error message:", error.message);
         } finally {
             setAnalyzing(false);
         }
     };
 
-    const handleFoundImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+
+    // ... (inside component)
+
+    const handleFoundImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        console.log("Image selected");
         const files = Array.from(e.target.files || []);
         if (files.length > 0) {
-            const newImages = [...selectedImages, ...files];
+            console.log("Processing files:", files.length);
+
+            // Compress images
+            const compressedFiles = await Promise.all(
+                files.map(async (file) => {
+                    try {
+                        console.log(`Compressing ${file.name}...`);
+                        const compressed = await compressImage(file);
+                        console.log(`Compressed ${file.name}: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressed.size / 1024 / 1024).toFixed(2)}MB`);
+                        return compressed;
+                    } catch (err) {
+                        console.error("Compression failed for", file.name, err);
+                        return file; // Fallback to original
+                    }
+                })
+            );
+
+            const newImages = [...selectedImages, ...compressedFiles];
             setSelectedImages(newImages);
 
             const newPreviews: string[] = [];
             let loadedCount = 0;
 
-            files.forEach(file => {
+            compressedFiles.forEach(file => {
                 const reader = new FileReader();
                 reader.onloadend = () => {
+                    console.log("File read complete");
                     newPreviews.push(reader.result as string);
                     loadedCount++;
-                    if (loadedCount === files.length) {
+                    if (loadedCount === compressedFiles.length) {
                         setImagePreviews(prev => [...prev, ...newPreviews]);
                     }
                 };
@@ -126,8 +166,9 @@ export default function FindPetPage() {
             setSuccess(false);
 
             // Analyze the first image
-            if (files.length > 0) {
-                analyzeImage(files[0]);
+            if (compressedFiles.length > 0) {
+                console.log("Starting analysis for:", compressedFiles[0].name);
+                analyzeImage(compressedFiles[0]);
             }
         }
     };
@@ -142,15 +183,30 @@ export default function FindPetPage() {
         setImagePreviews(newPreviews);
     };
 
-    const handleLostImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleLostImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            setSelectedSearchImage(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setSearchImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            try {
+                console.log(`Compressing search image ${file.name}...`);
+                const compressed = await compressImage(file);
+                console.log(`Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressed.size / 1024 / 1024).toFixed(2)}MB`);
+                setSelectedSearchImage(compressed);
+
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setSearchImagePreview(reader.result as string);
+                };
+                reader.readAsDataURL(compressed);
+            } catch (err) {
+                console.error("Compression failed", err);
+                setSelectedSearchImage(file);
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setSearchImagePreview(reader.result as string);
+                };
+                reader.readAsDataURL(file);
+            }
+
             setError(null);
             setSuccess(false);
             setSearched(false);

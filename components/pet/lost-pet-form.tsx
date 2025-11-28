@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ThaiButton } from "@/components/ui/thai-button";
 import { Input } from "@/components/ui/input";
+import { compressImage } from "@/lib/image-utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2, Upload, MapPin, Check, ChevronRight, ChevronLeft, X, Plus } from "lucide-react";
@@ -77,10 +78,18 @@ export function LostPetForm() {
         }
     };
 
-    const handleAutofillSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleAutofillSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
         if (files.length > 0) {
-            analyzeImage(files[0]);
+            try {
+                console.log(`Compressing autofill image ${files[0].name}...`);
+                const compressed = await compressImage(files[0]);
+                console.log(`Compressed: ${(files[0].size / 1024 / 1024).toFixed(2)}MB -> ${(compressed.size / 1024 / 1024).toFixed(2)}MB`);
+                analyzeImage(compressed);
+            } catch (err) {
+                console.error("Compression failed", err);
+                analyzeImage(files[0]);
+            }
         }
     };
 
@@ -91,15 +100,33 @@ export function LostPetForm() {
         return () => unsubscribe();
     }, []);
 
-    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
         if (files.length > 0) {
-            setImages(prev => [...prev, ...files]);
+            const compressedFiles = await Promise.all(
+                files.map(async (file) => {
+                    try {
+                        return await compressImage(file);
+                    } catch (err) {
+                        console.error("Compression failed", err);
+                        return file;
+                    }
+                })
+            );
 
-            files.forEach(file => {
+            setImages(prev => [...prev, ...compressedFiles]);
+
+            const newPreviews: string[] = [];
+            let loadedCount = 0;
+
+            compressedFiles.forEach(file => {
                 const reader = new FileReader();
                 reader.onloadend = () => {
-                    setImagePreviews(prev => [...prev, reader.result as string]);
+                    newPreviews.push(reader.result as string);
+                    loadedCount++;
+                    if (loadedCount === compressedFiles.length) {
+                        setImagePreviews(prev => [...prev, ...newPreviews]);
+                    }
                 };
                 reader.readAsDataURL(file);
             });
