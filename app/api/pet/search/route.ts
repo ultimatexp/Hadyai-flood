@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const type = formData.get('type') as string || 'found';
+        const filterStatus = type === 'found' ? 'LOST' : 'FOUND';
+
         // 1. Call Python service to get embedding and colors
         const pythonFormData = new FormData();
         pythonFormData.append('file', file);
@@ -77,8 +80,9 @@ export async function POST(request: NextRequest) {
         const { data: matches, error: matchError } = await supabase
             .rpc('match_pets', {
                 query_embedding: `[${embedding.join(',')}]`,
-                match_threshold: 0.5, // Lower threshold to get more candidates
-                match_count: 20 // Get more candidates for color filtering
+                match_threshold: 0.4, // Production threshold
+                match_count: 50,
+                filter_status: filterStatus,
             });
 
         if (matchError) {
@@ -110,13 +114,13 @@ export async function POST(request: NextRequest) {
                         petPercentages
                     );
                 } catch (e) {
-                    console.error('Error parsing color data:', e);
+                    console.error('Error parsing color data for match:', match.id, e);
                 }
             }
 
-            // Combined score: 70% embedding + 30% color
+            // Combined score: 50% embedding + 50% color
             const embeddingSimilarity = match.similarity || 0;
-            const combinedScore = (embeddingSimilarity * 0.7) + (colorSimilarity * 0.3);
+            const combinedScore = (embeddingSimilarity * 0.5) + (colorSimilarity * 0.5);
 
             return {
                 ...match,
@@ -128,9 +132,9 @@ export async function POST(request: NextRequest) {
 
         // 4. Sort by combined score and filter
         const filteredMatches = matchesWithColorScore
-            .filter((match: any) => match.combined_score >= 0.6) // Stricter threshold
+            .filter((match: any) => match.combined_score >= 0.6) // Threshold
             .sort((a: any, b: any) => b.combined_score - a.combined_score)
-            .slice(0, 5); // Return top 5
+            .slice(0, 20); // Return top 20
 
         return NextResponse.json({ success: true, matches: filteredMatches });
 

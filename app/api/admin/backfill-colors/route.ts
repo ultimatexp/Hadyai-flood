@@ -21,7 +21,7 @@ export async function GET() {
         const { data: pets, error: fetchError } = await supabase
             .from('pets')
             .select('id, image_url')
-            .is('dominant_colors', null)
+            .is('embedding', null)
             .not('image_url', 'is', null)
             .limit(50); // Process in batches
 
@@ -53,12 +53,13 @@ export async function GET() {
                     continue;
                 }
 
-                const { colors, color_percentages } = await response.json();
+                const { embedding, colors, color_percentages } = await response.json();
 
                 // Update pet
                 const { error: updateError } = await supabase
                     .from('pets')
                     .update({
+                        embedding: `[${embedding.join(',')}]`,
                         dominant_colors: JSON.stringify(colors),
                         color_percentages: JSON.stringify(color_percentages)
                     })
