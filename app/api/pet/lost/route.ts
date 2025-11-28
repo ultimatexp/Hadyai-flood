@@ -32,7 +32,7 @@ export async function POST(request: Request) {
         }
 
         const uploadedUrls: string[] = [];
-        const embeddings: number[][] = [];
+        const embeddingPromises: Promise<any>[] = [];
 
         // 1. Upload images to Supabase Storage and Generate Embeddings
         for (const file of images) {
@@ -56,24 +56,28 @@ export async function POST(request: Request) {
             uploadedUrls.push(publicUrl);
 
             // Generate Embedding
-            try {
-                const embedResponse = await fetch(`${PYTHON_SERVICE_URL}/embed-url`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ image_url: publicUrl }),
-                });
+            embeddingPromises.push((async () => {
+                try {
+                    const embedResponse = await fetch(`${PYTHON_SERVICE_URL}/embed-url`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ image_url: publicUrl }),
+                    });
 
-                if (embedResponse.ok) {
-                    const embedData = await embedResponse.json();
-                    embeddings.push(embedData.embedding);
-                } else {
-                    console.error('Embedding service error:', await embedResponse.text());
+                    if (embedResponse.ok) {
+                        const { embedding, colors, color_percentages } = await embedResponse.json();
+                        return { embedding, colors, color_percentages };
+                    } else {
+                        console.error('Embedding service error:', await embedResponse.text());
+                        return null;
+                    }
+                } catch (embedErr) {
+                    console.error('Embedding service connection error:', embedErr);
+                    return null;
                 }
-            } catch (embedErr) {
-                console.error('Embedding service connection error:', embedErr);
-            }
+            })());
         }
 
         if (uploadedUrls.length === 0) {
@@ -109,19 +113,23 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Failed to save pet data' }, { status: 500 });
         }
 
-        // 3. Insert embeddings into 'pet_embeddings' table
-        if (embeddings.length > 0) {
-            const embeddingRecords = embeddings.map(embedding => ({
-                pet_id: petData.id,
-                embedding: embedding
-            }));
+        // 3. Process embeddings and update 'pets' table
+        const embeddings = await Promise.all(embeddingPromises);
 
-            const { error: embedInsertError } = await supabase
-                .from('pet_embeddings')
-                .insert(embeddingRecords);
+        // Update pet with embeddings and color data
+        const embeddingData = embeddings.find(e => e !== null);
+        if (embeddingData) {
+            const { error: updateError } = await supabase
+                .from('pets')
+                .update({
+                    embedding: `[${embeddingData.embedding.join(',')}]`,
+                    dominant_colors: JSON.stringify(embeddingData.colors),
+                    color_percentages: JSON.stringify(embeddingData.color_percentages)
+                })
+                .eq('id', petData.id);
 
-            if (embedInsertError) {
-                console.error('Embedding insert error:', embedInsertError);
+            if (updateError) {
+                console.error('Error updating pet with embedding and color data:', updateError);
                 // Non-critical, we still return success for the pet creation
             }
         }

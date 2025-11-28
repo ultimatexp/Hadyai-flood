@@ -112,77 +112,74 @@ export async function POST(request: NextRequest) {
                     throw new Error(`Embedding service error: ${embedResponse.statusText}`);
                 }
 
-                const { embedding } = await embedResponse.json();
-                return embedding; // Return the embedding
+                const { embedding, colors, color_percentages } = await embedResponse.json();
+                return { embedding, colors, color_percentages }; // Return embedding and color data
             } catch (err) {
                 console.error(`Failed to generate embedding for ${url}:`, err);
                 return null; // Return null for failed embeddings
             }
         });
 
-        const embeddings = (await Promise.all(embeddingPromises)).filter(
-            (e) => e !== null
-        ) as number[][]; // Filter out nulls and cast
 
-        // 3. Insert embeddings into 'pet_embeddings' table
-        if (embeddings.length > 0) {
-            const embeddingRecords = embeddings.map((embedding) => ({
-                pet_id: petData.id,
-                embedding: `[${embedding.join(',')}]`, // Store as string representation of array
-            }));
+        const embeddings = await Promise.all(embeddingPromises);
 
-            const { error: embedInsertError } = await supabase
-                .from('pet_embeddings')
-                .insert(embeddingRecords);
+        // 4. Update pet with embeddings and color data
+        const embeddingData = embeddings.find(e => e !== null);
+        if (embeddingData) {
+            const { error: updateError } = await supabase
+                .from('pets')
+                .update({
+                    embedding: `[${embeddingData.embedding.join(',')}]`,
+                    dominant_colors: JSON.stringify(embeddingData.colors),
+                    color_percentages: JSON.stringify(embeddingData.color_percentages)
+                })
+                .eq('id', petData.id);
 
-            if (embedInsertError) {
-                console.error('Embedding insert error:', embedInsertError);
+            if (updateError) {
+                console.error('Error updating pet with embedding:', updateError);
             }
+        }
 
-            // 4. Check for matches with LOST pets and Alert Owners
-            try {
-                for (const embedding of embeddings) {
-                    const { data: matches, error: matchError } = await supabase
-                        .rpc('match_pets', {
-                            query_embedding: embedding,
-                            match_threshold: 0.85, // High threshold for alerts
-                            match_count: 5,
-                            filter_status: 'LOST',
-                        });
+        // 5. Check for matches with LOST pets and Alert Owners
+        try {
+            if (embeddingData) {
+                const { data: matches, error: matchError } = await supabase
+                    .rpc('match_pets', {
+                        query_embedding: `[${embeddingData.embedding.join(',')}]`,
+                        match_threshold: 0.85, // High threshold for alerts
+                        match_count: 5,
+                        filter_status: 'LOST',
+                    });
 
-                    if (matchError) {
-                        console.error('Match error:', matchError);
-                        continue;
-                    }
+                if (matchError) {
+                    console.error('Match error:', matchError);
+                } else if (matches && matches.length > 0) {
+                    const notifications = matches
+                        .filter((match: any) => match.user_id) // Only notify if user_id exists
+                        .map((match: any) => ({
+                            user_id: match.user_id,
+                            title: 'พบสัตว์เลี้ยงที่อาจเป็นของคุณ!',
+                            message: `มีผู้พบสัตว์เลี้ยงที่คล้ายกับ "${match.pet_name || 'สัตว์เลี้ยงของคุณ'}" กรุณาตรวจสอบ`,
+                            type: 'PET_MATCH',
+                            data: {
+                                found_pet_id: petData.id,
+                                lost_pet_id: match.pet_id,
+                                similarity: match.similarity,
+                                found_image_url: petData.image_url,
+                            },
+                        }));
 
-                    if (matches && matches.length > 0) {
-                        const notifications = matches
-                            .filter((match: any) => match.user_id) // Only notify if user_id exists
-                            .map((match: any) => ({
-                                user_id: match.user_id,
-                                title: 'พบสัตว์เลี้ยงที่อาจเป็นของคุณ!',
-                                message: `มีผู้พบสัตว์เลี้ยงที่คล้ายกับ "${match.pet_name || 'สัตว์เลี้ยงของคุณ'}" กรุณาตรวจสอบ`,
-                                type: 'PET_MATCH',
-                                data: {
-                                    found_pet_id: petData.id,
-                                    lost_pet_id: match.pet_id,
-                                    similarity: match.similarity,
-                                    found_image_url: petData.image_url,
-                                },
-                            }));
+                    if (notifications.length > 0) {
+                        const { error: notifyError } = await supabase
+                            .from('notifications')
+                            .insert(notifications);
 
-                        if (notifications.length > 0) {
-                            const { error: notifyError } = await supabase
-                                .from('notifications')
-                                .insert(notifications);
-
-                            if (notifyError) console.error('Notify error:', notifyError);
-                        }
+                        if (notifyError) console.error('Notify error:', notifyError);
                     }
                 }
-            } catch (alertError) {
-                console.error('Alert generation error:', alertError);
             }
+        } catch (alertError) {
+            console.error('Alert generation error:', alertError);
         }
 
         return NextResponse.json({ success: true, pet: petData });
