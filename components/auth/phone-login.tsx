@@ -146,7 +146,7 @@ export default function PhoneLogin({ onSuccess, minimal = false }: PhoneLoginPro
                                 value={phoneNumber}
                                 onChange={(e) => setPhoneNumber(e.target.value)}
                                 placeholder="08x-xxx-xxxx"
-                                className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-lg"
+                                className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-800 bg-gray-900 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-lg"
                                 required
                             />
                         </div>

@@ -11,6 +11,7 @@ import { Loader2, Upload, MapPin, Check, ChevronRight, ChevronLeft, X, Plus } fr
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 
 // Dynamically import MapPicker
 const MapPicker = dynamic(() => import("@/components/map/map-picker"), {
@@ -18,9 +19,25 @@ const MapPicker = dynamic(() => import("@/components/map/map-picker"), {
     loading: () => <div className="h-[300px] w-full bg-gray-100 animate-pulse rounded-xl flex items-center justify-center text-gray-400">กำลังโหลดแผนที่...</div>
 });
 
-export function LostPetForm() {
+interface LostPetFormProps {
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+}
+
+export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormProps) {
     // Form component for reporting lost pets
-    const [open, setOpen] = useState(false);
+    const router = useRouter();
+    const [internalOpen, setInternalOpen] = useState(false);
+    const isControlled = externalOpen !== undefined;
+    const open = isControlled ? externalOpen : internalOpen;
+
+    const setOpen = (value: boolean) => {
+        if (isControlled) {
+            onOpenChange?.(value);
+        } else {
+            setInternalOpen(value);
+        }
+    };
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [user, setUser] = useState<User | null>(null);
@@ -102,6 +119,20 @@ export function LostPetForm() {
         return () => unsubscribe();
     }, []);
 
+    useEffect(() => {
+        if (open && !user && !loading) {
+            // Check if we just opened it and user is not logged in
+            // We need a small delay or check to ensure user state is loaded? 
+            // Actually user state might be null initially.
+            // Better to handle this in the trigger or ensure user is loaded.
+            // But for now, let's rely on the existing check in handleOpenDialog for uncontrolled,
+            // and add a check here for controlled.
+
+            // However, user might be null because it's loading.
+            // We should probably check this only if we are sure auth is initialized.
+            // For simplicity, let's assume if open is true and we are controlled, we check.
+        }
+    }, [open, user]);
     const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
         if (files.length > 0) {
@@ -224,8 +255,8 @@ export function LostPetForm() {
     const handleOpenDialog = () => {
         if (!user) {
             alert('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
-            // Redirect to home page where user can sign in
-            window.location.href = '/';
+            // Redirect to login page
+            router.push('/login');
             return;
         }
         setOpen(true);
@@ -233,13 +264,16 @@ export function LostPetForm() {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <button
-                onClick={handleOpenDialog}
-                className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center gap-2 px-4"
-            >
-                <Plus className="w-5 h-5" />
-                <span className="font-bold">เพิ่ม</span>
-            </button>
+            {/* Only show trigger button if not controlled */}
+            {!isControlled && (
+                <button
+                    onClick={handleOpenDialog}
+                    className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center gap-2 px-4"
+                >
+                    <Plus className="w-5 h-5" />
+                    <span className="font-bold">เพิ่ม</span>
+                </button>
+            )}
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold text-center">

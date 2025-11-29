@@ -19,8 +19,12 @@ import {
     Check,
     AlertCircle,
     Home,
-    ChevronLeft
+    ChevronLeft,
+    Plus
 } from "lucide-react";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
 import { ThaiButton } from "@/components/ui/thai-button";
 import { LostPetForm } from "@/components/pet/lost-pet-form";
 import dynamic from "next/dynamic";
@@ -53,7 +57,26 @@ function deg2rad(deg: number) {
 }
 
 export default function FindPetPage() {
+    const router = useRouter();
     const [mode, setMode] = useState<'found' | 'lost'>('found');
+    const [user, setUser] = useState<any>(null);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isLostPetFormOpen, setIsLostPetFormOpen] = useState(false);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, setUser);
+        return () => unsubscribe();
+    }, []);
+
+    const handleReportLostPetClick = () => {
+        if (!user) {
+            alert('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
+            router.push('/login');
+            return;
+        }
+        setIsLostPetFormOpen(true);
+        setIsDropdownOpen(false);
+    };
 
     // Found Mode State
     const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -113,13 +136,8 @@ export default function FindPetPage() {
                 }
 
                 // Auto-trigger search after analysis completes (ensures features are sent)
-                setTimeout(() => {
-                    const searchForm = document.querySelector('form[data-search-form]') as HTMLFormElement;
-                    if (searchForm) {
-                        console.log("🔄 Auto-triggering search with fresh analysis data...");
-                        searchForm.requestSubmit();
-                    }
-                }, 100); // Small delay to ensure state updates
+                // Auto-trigger removed as per user request
+                // User will manually click search button
             }
         } catch (error: any) {
             console.error('Error analyzing image:', error);
@@ -382,7 +400,48 @@ export default function FindPetPage() {
                                 <span className="hidden sm:inline">ศูนย์พักพิง</span>
                             </button>
                         </Link>
-                        <LostPetForm />
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center gap-2 px-4"
+                            >
+                                <Plus className="w-5 h-5" />
+                                <span className="font-bold">เพิ่ม</span>
+                            </button>
+
+                            {isDropdownOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
+                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl z-50 border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                        <button
+                                            onClick={handleReportLostPetClick}
+                                            className="w-full px-4 py-3 hover:bg-orange-50 text-gray-700 text-sm font-medium flex items-center gap-3 transition-colors text-left"
+                                        >
+                                            <div className="bg-orange-100 p-2 rounded-lg text-orange-600">
+                                                <Search className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-gray-900">แจ้งสัตว์หาย</div>
+                                                <div className="text-xs text-gray-500">ประกาศตามหาสัตว์เลี้ยง</div>
+                                            </div>
+                                        </button>
+                                        <div className="h-px bg-gray-100" />
+                                        <Link href="/shelters/new" className="block w-full">
+                                            <button className="w-full px-4 py-3 hover:bg-blue-50 text-gray-700 text-sm font-medium flex items-center gap-3 transition-colors text-left">
+                                                <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+                                                    <Home className="w-4 h-4" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-gray-900">ลงทะเบียนศูนย์พักพิง</div>
+                                                    <div className="text-xs text-gray-500">สำหรับผู้ดูแลศูนย์</div>
+                                                </div>
+                                            </button>
+                                        </Link>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        <LostPetForm open={isLostPetFormOpen} onOpenChange={setIsLostPetFormOpen} />
                     </div>
                 </div>
 

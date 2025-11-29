@@ -7,6 +7,10 @@ import { getShelters } from "@/app/actions/shelter";
 import { Loader2, ArrowLeft, Filter, Map as MapIcon, Home, Plus, MapPin } from "lucide-react";
 import Link from "next/link";
 import { ThaiButton } from "@/components/ui/thai-button";
+import { LostPetForm } from "@/components/pet/lost-pet-form";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 // Dynamically import Map component to avoid SSR issues
 const MapWithNoSSR = dynamic(() => import("@/components/map/pet-map"), {
@@ -24,6 +28,24 @@ export default function PetMapPage() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'ALL' | 'LOST' | 'FOUND' | 'SHELTER'>('ALL');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isLostPetFormOpen, setIsLostPetFormOpen] = useState(false);
+    const [user, setUser] = useState<any>(null);
+    const router = useRouter();
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, setUser);
+        return () => unsubscribe();
+    }, []);
+
+    const handleReportLostPetClick = () => {
+        if (!user) {
+            alert('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
+            router.push('/login');
+            return;
+        }
+        setIsLostPetFormOpen(true);
+        setIsMenuOpen(false);
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -112,6 +134,15 @@ export default function PetMapPage() {
                                 </div>
                             </button>
                         </Link>
+                        <button
+                            onClick={handleReportLostPetClick}
+                            className="flex items-center gap-2 bg-white text-gray-800 px-4 py-2 rounded-full shadow-lg hover:bg-gray-50 transition-all"
+                        >
+                            <span className="font-bold text-sm">แจ้งสัตว์หาย</span>
+                            <div className="bg-red-100 p-2 rounded-full text-red-600">
+                                <div className="w-5 h-5 rounded-full bg-red-500" />
+                            </div>
+                        </button>
                         <Link href="/find-pet">
                             <button className="flex items-center gap-2 bg-white text-gray-800 px-4 py-2 rounded-full shadow-lg hover:bg-gray-50 transition-all">
                                 <span className="font-bold text-sm">แจ้งเบาะแส</span>
@@ -134,6 +165,7 @@ export default function PetMapPage() {
             <div className="w-full h-full">
                 <MapWithNoSSR pets={filteredPets} shelters={filteredShelters} />
             </div>
+            <LostPetForm open={isLostPetFormOpen} onOpenChange={setIsLostPetFormOpen} />
         </div>
     );
 }
