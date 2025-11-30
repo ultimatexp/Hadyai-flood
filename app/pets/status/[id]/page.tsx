@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getPetDetails, updatePetStatus } from "@/app/actions/pet";
-import { Loader2, ShieldCheck, ShieldAlert, ShieldQuestion, Clock, MapPin, Phone, User, PawPrint, CheckCircle, ArrowLeft } from "lucide-react";
+import { Loader2, ShieldCheck, ShieldAlert, ShieldQuestion, Clock, MapPin, Phone, User, PawPrint, CheckCircle, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { auth } from "@/lib/firebase";
@@ -112,18 +112,13 @@ export default function PetStatusPage() {
             </header>
 
             <main className="container mx-auto px-4 py-6 max-w-lg space-y-6">
-                {/* Pet Image */}
-                <div className="aspect-video w-full bg-gray-200 rounded-xl overflow-hidden shadow-sm relative">
-                    <img
-                        src={petData.image_url}
-                        alt={petData.pet_name}
-                        className="w-full h-full object-cover"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                        <p className="text-white font-bold text-lg">{petData.pet_name}</p>
-                        <p className="text-white/80 text-sm">{petData.color} • {petData.marks || "ไม่มีตำหนิ"}</p>
-                    </div>
-                </div>
+                {/* Pet Image Gallery */}
+                <PetImageGallery
+                    images={petData.images?.length > 0 ? petData.images : [petData.image_url].filter(Boolean)}
+                    petName={petData.pet_name}
+                    color={petData.color}
+                    marks={petData.marks}
+                />
 
                 {/* Status Card */}
                 <StatusCard status={petData.status} />
@@ -184,7 +179,7 @@ export default function PetStatusPage() {
                 <div className="bg-white rounded-xl border shadow-sm p-5 space-y-3">
                     <h2 className="font-bold text-lg text-gray-900 flex items-center gap-2">
                         <User className="w-5 h-5 text-blue-600" />
-                        ข้อมูลติดต่อเจ้าของ
+                        {petData.status === 'FOUND' ? 'ข้อมูลติดต่อผู้แจ้งเบาะแส' : 'ข้อมูลติดต่อเจ้าของ'}
                     </h2>
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">
@@ -300,6 +295,66 @@ function Timeline({ petData }: { petData: any }) {
                     </div>
                 ))}
             </div>
+        </div>
+    );
+}
+
+function PetImageGallery({ images, petName, color, marks }: { images: string[], petName: string, color?: string, marks?: string }) {
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    const nextImage = () => {
+        setCurrentIndex((prev) => (prev + 1) % images.length);
+    };
+
+    const prevImage = () => {
+        setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+    };
+
+    if (!images || images.length === 0) return null;
+
+    return (
+        <div className="aspect-video w-full bg-gray-200 rounded-xl overflow-hidden shadow-sm relative group">
+            <img
+                src={images[currentIndex]}
+                alt={`${petName} - ${currentIndex + 1}`}
+                className="w-full h-full object-cover transition-all duration-300"
+            />
+
+            {/* Overlay Info */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 pointer-events-none">
+                <p className="text-white font-bold text-lg">{petName}</p>
+                {(color || marks) && (
+                    <p className="text-white/80 text-sm">{color} • {marks || "ไม่มีตำหนิ"}</p>
+                )}
+            </div>
+
+            {/* Navigation Buttons */}
+            {images.length > 1 && (
+                <>
+                    <button
+                        onClick={(e) => { e.preventDefault(); prevImage(); }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-1.5 rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
+                    >
+                        <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button
+                        onClick={(e) => { e.preventDefault(); nextImage(); }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-1.5 rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
+                    >
+                        <ChevronRight className="w-6 h-6" />
+                    </button>
+
+                    {/* Dots Indicator */}
+                    <div className="absolute top-4 right-4 flex justify-center gap-1.5 pointer-events-none">
+                        {images.map((_, idx) => (
+                            <div
+                                key={idx}
+                                className={`w-1.5 h-1.5 rounded-full transition-all shadow-sm ${idx === currentIndex ? 'bg-white w-3' : 'bg-white/50'}`}
+                            />
+                        ))}
+                    </div>
+                </>
+            )}
         </div>
     );
 }
