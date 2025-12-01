@@ -109,6 +109,21 @@ export default function MapPicker({ lat, lng, onLocationSelect }: MapPickerProps
                         <MapPin className="w-10 h-10 text-primary -mt-10 animate-bounce" />
                     </div>
                 )}
+
+                {/* Current Location FAB */}
+                <button
+                    type="button"
+                    onClick={handleGetCurrentLocation}
+                    disabled={loading}
+                    className="absolute bottom-4 right-4 z-[1000] bg-white p-3 rounded-full shadow-md hover:shadow-lg transition-all border border-gray-200 text-gray-700 hover:text-blue-600 disabled:opacity-50"
+                    title="ตำแหน่งปัจจุบัน"
+                >
+                    {loading ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                        <MapPin className="w-6 h-6" />
+                    )}
+                </button>
             </div>
 
             <ThaiButton

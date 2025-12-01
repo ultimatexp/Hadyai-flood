@@ -91,6 +91,7 @@ export default function FindPetPage() {
 
     // Shared State
     const [contactInfo, setContactInfo] = useState("");
+    const [isAnonymousReport, setIsAnonymousReport] = useState(false);
     const [description, setDescription] = useState("");
     const [sex, setSex] = useState<'male' | 'female' | 'unknown'>('unknown');
     const [loading, setLoading] = useState(false);
@@ -265,7 +266,14 @@ export default function FindPetPage() {
             selectedImages.forEach(file => {
                 formData.append('images', file);
             });
-            formData.append('contact_info', contactInfo);
+
+            // Handle anonymous report
+            if (isAnonymousReport) {
+                formData.append('contact_info', "ผู้แจ้งเบาะแสไม่สะดวกให้ติดต่อเป็นการส่วนตัว คุณเจ้าของสามารถลงไปตรวจสอบด้วยได้ตัวเอง");
+            } else {
+                formData.append('contact_info', contactInfo);
+            }
+
             formData.append('description', description);
             formData.append('sex', sex);
             formData.append('status', 'FOUND');
@@ -670,9 +678,22 @@ export default function FindPetPage() {
                                             value={contactInfo}
                                             onChange={(e) => setContactInfo(e.target.value)}
                                             placeholder="เบอร์โทร, Line ID, หรือ Facebook"
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-black"
-                                            required
+                                            className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-black ${isAnonymousReport ? 'bg-gray-100 text-gray-400' : ''}`}
+                                            required={!isAnonymousReport}
+                                            disabled={isAnonymousReport}
                                         />
+                                        <div className="mt-2 flex items-start gap-2">
+                                            <input
+                                                type="checkbox"
+                                                id="anonymous-report"
+                                                checked={isAnonymousReport}
+                                                onChange={(e) => setIsAnonymousReport(e.target.checked)}
+                                                className="mt-1 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                            />
+                                            <label htmlFor="anonymous-report" className="text-sm text-gray-600 cursor-pointer select-none">
+                                                ฉันเพียงต้องการแจ้งเบาะแส ไม่สะดวกทิ้งเบอร์ติดต่อส่วนตัว
+                                            </label>
+                                        </div>
                                     </div>
 
                                     {/* Sex Selection */}
