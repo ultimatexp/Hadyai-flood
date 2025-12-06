@@ -213,7 +213,13 @@ function PetsSection({ pets }: { pets: any[] }) {
         <div className="grid gap-4 md:grid-cols-2">
             {pets.map((pet) => (
                 <Link href={`/pets/status/${pet.id}`} key={pet.id}>
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all flex">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all flex relative">
+                        {/* Owner/Monitored Badge */}
+                        {pet.is_monitored && (
+                            <div className="absolute top-2 left-2 bg-purple-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                กำลังติดตาม
+                            </div>
+                        )}
                         <div className="w-32 h-32 bg-gray-100 relative shrink-0">
                             <img src={pet.image_url} alt={pet.pet_name} className="w-full h-full object-cover" />
                         </div>

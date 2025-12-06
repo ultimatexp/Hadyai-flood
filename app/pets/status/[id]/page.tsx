@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getPetDetails, updatePetStatus, addPetImages, updatePetDetails } from "@/app/actions/pet";
 import { supabase } from "@/lib/supabase";
-import { Loader2, ShieldCheck, ShieldAlert, ShieldQuestion, Clock, MapPin, Phone, User, PawPrint, CheckCircle, ArrowLeft, ChevronLeft, ChevronRight, Pencil, ImagePlus } from "lucide-react";
+import { Loader2, ShieldCheck, ShieldAlert, ShieldQuestion, Clock, MapPin, Phone, User, PawPrint, CheckCircle, ArrowLeft, ChevronLeft, ChevronRight, Pencil, ImagePlus, Eye, EyeOff } from "lucide-react";
+import { monitorPet, unmonitorPet, isMonitoringPet } from "@/app/actions/account";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { auth } from "@/lib/firebase";
@@ -32,6 +33,8 @@ export default function PetStatusPage() {
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const photoInputRef = React.useRef<HTMLInputElement>(null);
     const [saving, setSaving] = useState(false);
+    const [isMonitoring, setIsMonitoring] = useState(false);
+    const [monitorLoading, setMonitorLoading] = useState(false);
 
     // Edit form states
     const [editPetName, setEditPetName] = useState('');
@@ -63,6 +66,47 @@ export default function PetStatusPage() {
             setError(result.error || "Failed to load pet data");
         }
         setLoading(false);
+    };
+
+    // Check monitoring status when user and pet data are available
+    useEffect(() => {
+        const checkMonitoring = async () => {
+            if (currentUser && id) {
+                const result = await isMonitoringPet(currentUser.uid, id);
+                if (result.success) {
+                    setIsMonitoring(result.isMonitoring || false);
+                }
+            }
+        };
+        checkMonitoring();
+    }, [currentUser, id]);
+
+    const handleToggleMonitor = async () => {
+        if (!currentUser) {
+            alert('กรุณาเข้าสู่ระบบก่อนเพื่อติดตามสัตว์เลี้ยง');
+            return;
+        }
+
+        setMonitorLoading(true);
+        try {
+            if (isMonitoring) {
+                const result = await unmonitorPet(currentUser.uid, id);
+                if (result.success) {
+                    setIsMonitoring(false);
+                    alert('ยกเลิกการติดตามแล้ว');
+                }
+            } else {
+                const result = await monitorPet(currentUser.uid, id);
+                if (result.success) {
+                    setIsMonitoring(true);
+                    alert('เพิ่มในรายการติดตามแล้ว! ดูได้ที่ "บัญชีของฉัน"');
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling monitor:', error);
+        } finally {
+            setMonitorLoading(false);
+        }
     };
 
     const handleConfirmFound = async () => {
@@ -285,6 +329,31 @@ export default function PetStatusPage() {
                                 <ImagePlus className="w-5 h-5" />
                             )}
                             เพิ่มรูปภาพ
+                        </button>
+                    </div>
+                )}
+
+                {/* Monitor Pet Button - Available to everyone */}
+                {petData.status !== 'REUNITED' && (
+                    <div className="bg-white rounded-xl border shadow-sm p-5">
+                        <h2 className="font-bold text-lg mb-3 text-gray-900">ติดตามสัตว์เลี้ยงนี้</h2>
+                        <p className="text-sm text-gray-600 mb-4">เพิ่มในรายการติดตามเพื่อรับการแจ้งเตือนความคืบหน้า</p>
+                        <button
+                            onClick={handleToggleMonitor}
+                            disabled={monitorLoading}
+                            className={`w-full font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${isMonitoring
+                                    ? 'bg-gray-500 hover:bg-gray-600 text-white shadow-gray-200'
+                                    : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-200'
+                                }`}
+                        >
+                            {monitorLoading ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : isMonitoring ? (
+                                <EyeOff className="w-5 h-5" />
+                            ) : (
+                                <Eye className="w-5 h-5" />
+                            )}
+                            {isMonitoring ? 'ยกเลิกการติดตาม' : 'ติดตามน้องตัวนี้'}
                         </button>
                     </div>
                 )}

@@ -10,7 +10,7 @@ const prompt = Prompt({
 });
 
 export const metadata: Metadata = {
-  title: "SOS Flood Map",
+  title: "คนไทยช่วยกัน",
   description: "Emergency assistance for flood victims",
 };
 

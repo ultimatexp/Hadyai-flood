@@ -1,20 +1,96 @@
 "use server";
 
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
 
 export async function getUserPets(userId: string) {
-    const { data, error } = await supabase
+    // Get pets owned by user
+    const { data: ownedPets, error: ownedError } = await supabase
         .from("pets")
-        .select("*")
+        .select("*, is_owner:user_id")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
 
+    if (ownedError) {
+        console.error("Error fetching owned pets:", ownedError);
+        return { success: false, error: ownedError.message };
+    }
+
+    // Get monitored pets
+    const { data: monitoredPets, error: monitoredError } = await supabase
+        .from("pet_monitors")
+        .select("pet_id, pets(*)")
+        .eq("user_id", userId);
+
+    if (monitoredError) {
+        console.error("Error fetching monitored pets:", monitoredError);
+        return { success: false, error: monitoredError.message };
+    }
+
+    // Combine and mark ownership
+    const ownedWithFlag = (ownedPets || []).map(p => ({ ...p, is_monitored: false, is_owner: true }));
+    const monitoredWithFlag = (monitoredPets || [])
+        .filter((m: any) => m.pets && !ownedPets?.some((o: any) => o.id === m.pets.id))
+        .map((m: any) => ({ ...m.pets, is_monitored: true, is_owner: false }));
+
+    return { success: true, data: [...ownedWithFlag, ...monitoredWithFlag] };
+}
+
+export async function monitorPet(userId: string, petId: string) {
+    const { error } = await supabase
+        .from("pet_monitors")
+        .insert({ user_id: userId, pet_id: petId });
+
     if (error) {
-        console.error("Error fetching user pets:", error);
+        if (error.code === '23505') { // Unique constraint violation
+            return { success: true, message: 'Already monitoring' };
+        }
+        console.error("Error monitoring pet:", error);
         return { success: false, error: error.message };
     }
 
-    return { success: true, data };
+    return { success: true };
+}
+
+export async function unmonitorPet(userId: string, petId: string) {
+    const { error } = await supabase
+        .from("pet_monitors")
+        .delete()
+        .eq("user_id", userId)
+        .eq("pet_id", petId);
+
+    if (error) {
+        console.error("Error unmonitoring pet:", error);
+        return { success: false, error: error.message };
+    }
+
+    return { success: true };
+}
+
+export async function isMonitoringPet(userId: string, petId: string) {
+    const { data, error } = await supabase
+        .from("pet_monitors")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("pet_id", petId)
+        .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+        console.error("Error checking monitoring status:", error);
+        return { success: false, error: error.message };
+    }
+
+    return { success: true, isMonitoring: !!data };
 }
 
 export async function getUserNotifications(userId: string) {
