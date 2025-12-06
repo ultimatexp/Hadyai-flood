@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getPetDetails, updatePetStatus } from "@/app/actions/pet";
-import { Loader2, ShieldCheck, ShieldAlert, ShieldQuestion, Clock, MapPin, Phone, User, PawPrint, CheckCircle, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { getPetDetails, updatePetStatus, addPetImages, updatePetDetails } from "@/app/actions/pet";
+import { supabase } from "@/lib/supabase";
+import { Loader2, ShieldCheck, ShieldAlert, ShieldQuestion, Clock, MapPin, Phone, User, PawPrint, CheckCircle, ArrowLeft, ChevronLeft, ChevronRight, Pencil, ImagePlus } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { auth } from "@/lib/firebase";
@@ -12,6 +13,10 @@ import { ThaiButton } from "@/components/ui/thai-button";
 import Link from "next/link";
 import PetComments from "@/components/pet/pet-comments";
 import { differenceInDays, differenceInHours, differenceInMinutes, addDays } from "date-fns";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function PetStatusPage() {
     const params = useParams();
@@ -23,6 +28,20 @@ export default function PetStatusPage() {
     const [error, setError] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [updating, setUpdating] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const photoInputRef = React.useRef<HTMLInputElement>(null);
+    const [saving, setSaving] = useState(false);
+
+    // Edit form states
+    const [editPetName, setEditPetName] = useState('');
+    const [editBreed, setEditBreed] = useState('');
+    const [editColor, setEditColor] = useState('');
+    const [editMarks, setEditMarks] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [editSex, setEditSex] = useState('');
+    const [editContactInfo, setEditContactInfo] = useState('');
+    const [editReward, setEditReward] = useState('');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -58,6 +77,94 @@ export default function PetStatusPage() {
             alert("เกิดข้อผิดพลาด: " + result.error);
         }
         setUpdating(false);
+    };
+
+    const handleAddPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        setUploadingPhoto(true);
+        const newImageUrls: string[] = [];
+
+        try {
+            for (const file of Array.from(files)) {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `pets/${id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('sos-photos')
+                    .upload(fileName, file);
+
+                if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    continue;
+                }
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('sos-photos')
+                    .getPublicUrl(fileName);
+
+                newImageUrls.push(publicUrl);
+            }
+
+            if (newImageUrls.length > 0) {
+                const result = await addPetImages(id, newImageUrls);
+                if (result.success) {
+                    setPetData(result.data);
+                    alert(`เพิ่มรูปภาพสำเร็จ ${newImageUrls.length} รูป`);
+                } else {
+                    alert('เกิดข้อผิดพลาด: ' + result.error);
+                }
+            }
+        } catch (error: any) {
+            console.error('Error adding photos:', error);
+            alert('เกิดข้อผิดพลาดในการอัพโหลดรูปภาพ');
+        } finally {
+            setUploadingPhoto(false);
+            if (photoInputRef.current) photoInputRef.current.value = '';
+        }
+    };
+
+    const handleOpenEdit = () => {
+        // Populate form with current values
+        setEditPetName(petData.pet_name || '');
+        setEditBreed(petData.breed || '');
+        setEditColor(petData.color || '');
+        setEditMarks(petData.marks || '');
+        setEditDescription(petData.description || '');
+        setEditSex(petData.sex || 'unknown');
+        setEditContactInfo(petData.contact_info || '');
+        setEditReward(petData.reward || '');
+        setEditMode(true);
+    };
+
+    const handleSaveEdit = async () => {
+        setSaving(true);
+        try {
+            const result = await updatePetDetails(id, {
+                pet_name: editPetName,
+                breed: editBreed,
+                color: editColor,
+                marks: editMarks,
+                description: editDescription,
+                sex: editSex,
+                contact_info: editContactInfo,
+                reward: editReward,
+            });
+
+            if (result.success) {
+                setPetData(result.data);
+                setEditMode(false);
+                alert('บันทึกข้อมูลสำเร็จ');
+            } else {
+                alert('เกิดข้อผิดพลาด: ' + result.error);
+            }
+        } catch (error: any) {
+            console.error('Error saving:', error);
+            alert('เกิดข้อผิดพลาดในการบันทึก');
+        } finally {
+            setSaving(false);
+        }
     };
 
     if (loading) {
@@ -108,6 +215,13 @@ export default function PetStatusPage() {
                                 <span>• {petData.breed || "ไม่ระบุสายพันธุ์"}</span>
                             </div>
                         </div>
+                        <button
+                            onClick={handleOpenEdit}
+                            className="ml-auto p-2 text-gray-500 hover:text-orange-500 hover:bg-orange-50 rounded-full transition-colors"
+                            title="แก้ไขข้อมูล"
+                        >
+                            <Pencil className="w-5 h-5" />
+                        </button>
                     </div>
                 </div>
             </header>
@@ -143,6 +257,34 @@ export default function PetStatusPage() {
                                 <CheckCircle className="w-5 h-5" />
                             )}
                             ยืนยันว่าพบแล้ว (ปิดเคส)
+                        </button>
+                    </div>
+                )}
+
+                {/* Add Photo Section - Available to everyone */}
+                {petData.status !== 'REUNITED' && (
+                    <div className="bg-white rounded-xl border shadow-sm p-5">
+                        <h2 className="font-bold text-lg mb-3 text-gray-900">เพิ่มรูปภาพ</h2>
+                        <p className="text-sm text-gray-600 mb-4">ช่วยเพิ่มรูปภาพน้องเพื่อให้ค้นหาได้ง่ายขึ้น</p>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            ref={photoInputRef}
+                            onChange={handleAddPhoto}
+                            className="hidden"
+                        />
+                        <button
+                            onClick={() => photoInputRef.current?.click()}
+                            disabled={uploadingPhoto}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                        >
+                            {uploadingPhoto ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                <ImagePlus className="w-5 h-5" />
+                            )}
+                            เพิ่มรูปภาพ
                         </button>
                     </div>
                 )}
@@ -215,6 +357,111 @@ export default function PetStatusPage() {
                 </div>
 
             </main>
+
+            {/* Edit Pet Modal */}
+            <Dialog open={editMode} onOpenChange={setEditMode}>
+                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold">แก้ไขข้อมูลสัตว์เลี้ยง</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div>
+                            <Label>ชื่อน้อง</Label>
+                            <Input
+                                value={editPetName}
+                                onChange={e => setEditPetName(e.target.value)}
+                                placeholder="ชื่อสัตว์เลี้ยง"
+                                className="text-gray-900"
+                            />
+                        </div>
+                        <div>
+                            <Label>สายพันธุ์</Label>
+                            <Input
+                                value={editBreed}
+                                onChange={e => setEditBreed(e.target.value)}
+                                placeholder="เช่น โกลเด้น, วิเชียรมาศ"
+                                className="text-gray-900"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label>สี</Label>
+                                <Input
+                                    value={editColor}
+                                    onChange={e => setEditColor(e.target.value)}
+                                    placeholder="เช่น น้ำตาล"
+                                    className="text-gray-900"
+                                />
+                            </div>
+                            <div>
+                                <Label>เพศ</Label>
+                                <select
+                                    value={editSex}
+                                    onChange={e => setEditSex(e.target.value)}
+                                    className="w-full px-3 py-2 border rounded-md text-gray-900"
+                                >
+                                    <option value="unknown">ไม่มีข้อมูล</option>
+                                    <option value="male">ผู้</option>
+                                    <option value="female">เมีย</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <Label>ตำหนิ</Label>
+                            <Input
+                                value={editMarks}
+                                onChange={e => setEditMarks(e.target.value)}
+                                placeholder="เช่น หางกุด, มีปานแดง"
+                                className="text-gray-900"
+                            />
+                        </div>
+                        <div>
+                            <Label>รายละเอียด</Label>
+                            <Textarea
+                                value={editDescription}
+                                onChange={e => setEditDescription(e.target.value)}
+                                placeholder="ข้อมูลเพิ่มเติม"
+                                className="text-gray-900"
+                                rows={3}
+                            />
+                        </div>
+                        <div>
+                            <Label>ช่องทางติดต่อ</Label>
+                            <Input
+                                value={editContactInfo}
+                                onChange={e => setEditContactInfo(e.target.value)}
+                                placeholder="เบอร์โทร, Line ID"
+                                className="text-gray-900"
+                            />
+                        </div>
+                        <div>
+                            <Label>สินน้ำใจ (Reward)</Label>
+                            <Input
+                                value={editReward}
+                                onChange={e => setEditReward(e.target.value)}
+                                placeholder="ถ้ามี"
+                                className="text-gray-900"
+                            />
+                        </div>
+                        <div className="flex gap-3 pt-4">
+                            <button
+                                onClick={() => setEditMode(false)}
+                                className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-50 transition-colors"
+                            >
+                                ยกเลิก
+                            </button>
+                            <button
+                                onClick={handleSaveEdit}
+                                disabled={saving}
+                                className="flex-1 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                                บันทึก
+                            </button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

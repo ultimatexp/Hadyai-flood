@@ -383,14 +383,14 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label>ชื่อน้อง</Label>
-                                    <Input value={petName} onChange={e => setPetName(e.target.value)} placeholder="ชื่อสัตว์เลี้ยง" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
+                                    <Input value={petName} onChange={e => setPetName(e.target.value)} placeholder="ชื่อสัตว์เลี้ยง" className="text-gray-900 bg-white border-gray-600 focus:border-orange-500" />
                                 </div>
                                 <div>
                                     <Label>ประเภท</Label>
                                     <select
                                         value={petType}
                                         onChange={e => setPetType(e.target.value as any)}
-                                        className="w-full px-3 py-2 border rounded-md text-white bg-white/5 border-gray-600 focus:border-orange-500"
+                                        className="w-full px-3 py-2 border rounded-md text-gray-900 bg-white border-gray-600 focus:border-orange-500"
                                     >
                                         <option value="dog">สุนัข</option>
                                         <option value="cat">แมว</option>
@@ -401,14 +401,14 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label>สายพันธุ์</Label>
-                                    <Input value={breed} onChange={e => setBreed(e.target.value)} placeholder="เช่น โกลเด้น, วิเชียรมาศ" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
+                                    <Input value={breed} onChange={e => setBreed(e.target.value)} placeholder="เช่น โกลเด้น, วิเชียรมาศ" className="text-gray-900 bg-white border-gray-600 focus:border-orange-500" />
                                 </div>
                                 <div>
                                     <Label>เพศ</Label>
                                     <select
                                         value={sex}
                                         onChange={e => setSex(e.target.value as 'male' | 'female' | 'unknown')}
-                                        className="w-full px-3 py-2 border rounded-md text-white bg-white/5 border-gray-600 focus:border-orange-500"
+                                        className="w-full px-3 py-2 border rounded-md text-gray-900 bg-white border-gray-600 focus:border-orange-500"
                                     >
                                         <option value="unknown">ไม่มีข้อมูล</option>
                                         <option value="male">ผู้</option>
@@ -419,16 +419,16 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label>สี</Label>
-                                    <Input value={color} onChange={e => setColor(e.target.value)} placeholder="เช่น น้ำตาล, ขาว-ดำ" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
+                                    <Input value={color} onChange={e => setColor(e.target.value)} placeholder="เช่น น้ำตาล, ขาว-ดำ" className="text-gray-900 bg-white border-gray-600 focus:border-orange-500" />
                                 </div>
                             </div>
                             <div>
                                 <Label>ตำหนิที่สังเกตได้ชัด</Label>
-                                <Input value={marks} onChange={e => setMarks(e.target.value)} placeholder="เช่น หางกุด, มีปานแดงที่หู" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
+                                <Input value={marks} onChange={e => setMarks(e.target.value)} placeholder="เช่น หางกุด, มีปานแดงที่หู" className="text-gray-900 bg-white border-gray-600 focus:border-orange-500" />
                             </div>
                             <div>
                                 <Label>รายละเอียดเพิ่มเติม</Label>
-                                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="ข้อมูลอื่นๆ ที่เป็นประโยชน์" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
+                                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="ข้อมูลอื่นๆ ที่เป็นประโยชน์" className="text-gray-900 bg-white border-gray-600 focus:border-orange-500" />
                             </div>
                         </div>
                     )}
@@ -485,7 +485,7 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                                     type="datetime-local"
                                     value={lastSeenDate}
                                     onChange={e => setLastSeenDate(e.target.value)}
-                                    className="text-white bg-white/5 border-gray-600 focus:border-orange-500"
+                                    className="text-gray-900 bg-white border-gray-600 focus:border-orange-500"
                                 />
                             </div>
                         </div>
@@ -496,15 +496,15 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
                             <div>
                                 <Label>ชื่อเจ้าของ</Label>
-                                <Input value={ownerName} onChange={e => setOwnerName(e.target.value)} placeholder="ชื่อ-นามสกุล" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
+                                <Input value={ownerName} onChange={e => setOwnerName(e.target.value)} placeholder="ชื่อ-นามสกุล" className="text-gray-900 bg-white border-gray-600 focus:border-orange-500" />
                             </div>
                             <div>
                                 <Label>ช่องทางติดต่อ (Contact)</Label>
-                                <Input value={contactInfo} onChange={e => setContactInfo(e.target.value)} placeholder="เบอร์โทร, Line ID" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
+                                <Input value={contactInfo} onChange={e => setContactInfo(e.target.value)} placeholder="เบอร์โทร, Line ID" className="text-gray-900 bg-white border-gray-600 focus:border-orange-500" />
                             </div>
                             <div>
                                 <Label>สินน้ำใจ (Reward)</Label>
-                                <Input value={reward} onChange={e => setReward(e.target.value)} placeholder="ระบุจำนวนเงิน หรือ ของรางวัล (ถ้ามี)" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
+                                <Input value={reward} onChange={e => setReward(e.target.value)} placeholder="ระบุจำนวนเงิน หรือ ของรางวัล (ถ้ามี)" className="text-gray-900 bg-white border-gray-600 focus:border-orange-500" />
                             </div>
                         </div>
                     )}
