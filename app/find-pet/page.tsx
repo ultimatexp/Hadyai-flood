@@ -20,7 +20,8 @@ import {
     AlertCircle,
     Home,
     ChevronLeft,
-    Plus
+    Plus,
+    Facebook
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -152,6 +153,75 @@ export default function FindPetPage() {
 
 
     // ... (inside component)
+
+    const handleFoundSocialImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setAnalyzing(true);
+        try {
+            console.log(`Compressing social post image ${file.name}...`);
+            let imageToUpload = file;
+            try {
+                imageToUpload = await compressImage(file);
+            } catch (err) {
+                console.error("Compression failed", err);
+            }
+
+            const formData = new FormData();
+            formData.append('image', imageToUpload);
+
+            const response = await fetch('/api/analyze-social-post', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.data) {
+                const info = data.data;
+                let filledCount = 0;
+
+                // Autofill fields
+                if (info.sex) { setSex(info.sex); filledCount++; }
+                if (info.description) { setDescription(info.description); filledCount++; }
+                if (info.last_seen_date) { setLastSeenDate(info.last_seen_date); filledCount++; }
+                if (info.contact_info && !isAnonymousReport) { setContactInfo(info.contact_info); filledCount++; }
+
+                // Map analysis data to petAnalysis format if possible
+                if (info.species || info.color || info.breed) {
+                    setPetAnalysis({
+                        species: info.species,
+                        color_main: info.color,
+                        breed: info.breed,
+                        unique_marks: info.marks,
+                        // Add other fields as needed based on what analyze-social-post returns vs analyze-pet
+                    });
+                }
+
+                // Add the screenshot
+                setSelectedImages(prev => [imageToUpload, ...prev]);
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setImagePreviews(prev => [reader.result as string, ...prev]);
+                };
+                reader.readAsDataURL(imageToUpload);
+
+                if (filledCount > 0) {
+                    alert(`ดึงข้อมูลเรียบร้อย! (พบข้อมูล ${filledCount} รายการ)\nกรุณาตรวจสอบความถูกต้องและเติมข้อมูลที่ขาดหายไป`);
+                } else {
+                    alert("วิเคราะห์รูปภาพแล้ว แต่ไม่พบข้อมูลที่ชัดเจน กรุณากรอกข้อมูลด้วยตนเอง");
+                }
+            } else {
+                alert("ไม่สามารถวิเคราะห์ข้อมูลได้ หรือไม่พบข้อมูลสัตว์เลี้ยงในภาพ");
+            }
+        } catch (error) {
+            console.error('Error analyzing social post:', error);
+            alert("เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ");
+        } finally {
+            setAnalyzing(false);
+        }
+    };
 
     const handleFoundImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         console.log("Image selected");
@@ -537,6 +607,21 @@ export default function FindPetPage() {
                                                     เลือกได้หลายรูป
                                                 </span>
                                             </label>
+                                        </div>
+
+                                        {/* Social Import Button */}
+                                        <div className="mt-4 border-t border-gray-200 pt-4">
+                                            <div className="flex items-center justify-between bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                                <div>
+                                                    <h3 className="font-bold text-indigo-800">นำเข้าจากโพสต์โซเชียล?</h3>
+                                                    <p className="text-xs text-indigo-600">แคปหน้าจอโพสต์ Facebook/IG แล้วให้ AI ดึงข้อมูล</p>
+                                                </div>
+                                                <label className="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-colors shadow-sm">
+                                                    {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Facebook className="w-4 h-4" />}
+                                                    <span className="text-sm font-bold">{analyzing ? 'กำลังวิเคราะห์...' : 'รูปแคปหน้าจอ'}</span>
+                                                    <input type="file" accept="image/*" className="hidden" onChange={handleFoundSocialImport} disabled={analyzing} />
+                                                </label>
+                                            </div>
                                         </div>
 
                                         {/* Analysis Results */}

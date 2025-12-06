@@ -221,7 +221,7 @@ export default function PetComments({ petId, userId, role }: PetCommentsProps) {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="พิมพ์ข้อความ..."
-                    className="flex-1 px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm"
+                    className="flex-1 px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm text-gray-900"
                     disabled={loading}
                 />
                 <button

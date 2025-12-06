@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { compressImage } from "@/lib/image-utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, MapPin, Check, ChevronRight, ChevronLeft, X, Plus } from "lucide-react";
+import { Loader2, Upload, MapPin, Check, ChevronRight, ChevronLeft, X, Plus, Facebook } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import dynamic from "next/dynamic";
@@ -109,6 +109,73 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                 console.error("Compression failed", err);
                 analyzeImage(files[0]);
             }
+        }
+    };
+
+    const handleSocialImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setAnalyzing(true);
+        try {
+            console.log(`Compressing social post image ${file.name}...`);
+            let imageToUpload = file;
+            try {
+                imageToUpload = await compressImage(file);
+            } catch (err) {
+                console.error("Compression failed", err);
+            }
+
+            const formData = new FormData();
+            formData.append('image', imageToUpload);
+
+            const response = await fetch('/api/analyze-social-post', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.data) {
+                const info = data.data;
+
+                // Autofill fields
+                let filledCount = 0;
+                if (info.pet_name) { setPetName(info.pet_name); filledCount++; }
+                if (info.species) { setPetType(info.species === 'dog' ? 'dog' : info.species === 'cat' ? 'cat' : 'other'); filledCount++; }
+                if (info.breed) { setBreed(info.breed); filledCount++; }
+                if (info.color) { setColor(info.color); filledCount++; }
+                if (info.marks) { setMarks(info.marks); filledCount++; }
+                if (info.owner_name) { setOwnerName(info.owner_name); filledCount++; }
+                if (info.contact_info) { setContactInfo(info.contact_info); filledCount++; }
+                if (info.reward) { setReward(info.reward); filledCount++; }
+                if (info.sex) { setSex(info.sex); filledCount++; }
+                if (info.description) { setDescription(info.description); filledCount++; }
+                if (info.last_seen_date) { setLastSeenDate(info.last_seen_date); filledCount++; }
+
+                // Add the screenshot as the first image
+                setImages(prev => [imageToUpload, ...prev]);
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setImagePreviews(prev => [reader.result as string, ...prev]);
+                };
+                reader.readAsDataURL(imageToUpload);
+
+                if (filledCount > 0) {
+                    alert(`ดึงข้อมูลเรียบร้อย! (พบข้อมูล ${filledCount} รายการ)\nกรุณาตรวจสอบความถูกต้องและเติมข้อมูลที่ขาดหายไป`);
+                } else {
+                    alert("วิเคราะห์รูปภาพแล้ว แต่ไม่พบข้อมูลที่ชัดเจน กรุณากรอกข้อมูลด้วยตนเอง");
+                }
+            } else {
+                alert("ไม่สามารถวิเคราะห์ข้อมูลได้ หรือไม่พบข้อมูลสัตว์เลี้ยงในภาพ");
+            }
+
+
+        } catch (error) {
+            console.error('Error analyzing social post:', error);
+            alert("เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ");
+        } finally {
+            setAnalyzing(false);
         }
     };
 
@@ -287,7 +354,7 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
 
                             {/* Autofill Button */}
-                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
+                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4 space-y-3">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h3 className="font-bold text-blue-800">ใช้ AI ช่วยกรอกข้อมูล?</h3>
@@ -295,8 +362,20 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                                     </div>
                                     <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-colors">
                                         {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                                        <span className="text-sm font-bold">{analyzing ? 'กำลังวิเคราะห์...' : 'อัพโหลดรูป'}</span>
+                                        <span className="text-sm font-bold">{analyzing ? 'กำลังวิเคราะห์...' : 'รูปถ่ายสัตว์'}</span>
                                         <input type="file" accept="image/*" className="hidden" onChange={handleAutofillSelect} disabled={analyzing} />
+                                    </label>
+                                </div>
+
+                                <div className="border-t border-blue-200 pt-3 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-bold text-indigo-800">นำเข้าจากโพสต์โซเชียล?</h3>
+                                        <p className="text-xs text-indigo-600">แคปหน้าจอโพสต์ Facebook/IG แล้วให้ AI ดึงข้อมูล</p>
+                                    </div>
+                                    <label className="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-colors">
+                                        {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Facebook className="w-4 h-4" />}
+                                        <span className="text-sm font-bold">{analyzing ? 'กำลังวิเคราะห์...' : 'รูปแคปหน้าจอ'}</span>
+                                        <input type="file" accept="image/*" className="hidden" onChange={handleSocialImport} disabled={analyzing} />
                                     </label>
                                 </div>
                             </div>
@@ -304,14 +383,14 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label>ชื่อน้อง</Label>
-                                    <Input value={petName} onChange={e => setPetName(e.target.value)} placeholder="ชื่อสัตว์เลี้ยง" className="text-black" />
+                                    <Input value={petName} onChange={e => setPetName(e.target.value)} placeholder="ชื่อสัตว์เลี้ยง" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
                                 </div>
                                 <div>
                                     <Label>ประเภท</Label>
                                     <select
                                         value={petType}
                                         onChange={e => setPetType(e.target.value as any)}
-                                        className="w-full px-3 py-2 border rounded-md text-black"
+                                        className="w-full px-3 py-2 border rounded-md text-white bg-white/5 border-gray-600 focus:border-orange-500"
                                     >
                                         <option value="dog">สุนัข</option>
                                         <option value="cat">แมว</option>
@@ -322,14 +401,14 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label>สายพันธุ์</Label>
-                                    <Input value={breed} onChange={e => setBreed(e.target.value)} placeholder="เช่น โกลเด้น, วิเชียรมาศ" className="text-black" />
+                                    <Input value={breed} onChange={e => setBreed(e.target.value)} placeholder="เช่น โกลเด้น, วิเชียรมาศ" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
                                 </div>
                                 <div>
                                     <Label>เพศ</Label>
                                     <select
                                         value={sex}
                                         onChange={e => setSex(e.target.value as 'male' | 'female' | 'unknown')}
-                                        className="w-full px-3 py-2 border rounded-md text-black"
+                                        className="w-full px-3 py-2 border rounded-md text-white bg-white/5 border-gray-600 focus:border-orange-500"
                                     >
                                         <option value="unknown">ไม่มีข้อมูล</option>
                                         <option value="male">ผู้</option>
@@ -340,16 +419,16 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label>สี</Label>
-                                    <Input value={color} onChange={e => setColor(e.target.value)} placeholder="เช่น น้ำตาล, ขาว-ดำ" className="text-black" />
+                                    <Input value={color} onChange={e => setColor(e.target.value)} placeholder="เช่น น้ำตาล, ขาว-ดำ" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
                                 </div>
                             </div>
                             <div>
                                 <Label>ตำหนิที่สังเกตได้ชัด</Label>
-                                <Input value={marks} onChange={e => setMarks(e.target.value)} placeholder="เช่น หางกุด, มีปานแดงที่หู" className="text-black" />
+                                <Input value={marks} onChange={e => setMarks(e.target.value)} placeholder="เช่น หางกุด, มีปานแดงที่หู" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
                             </div>
                             <div>
                                 <Label>รายละเอียดเพิ่มเติม</Label>
-                                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="ข้อมูลอื่นๆ ที่เป็นประโยชน์" className="text-black" />
+                                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="ข้อมูลอื่นๆ ที่เป็นประโยชน์" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
                             </div>
                         </div>
                     )}
@@ -406,7 +485,7 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                                     type="datetime-local"
                                     value={lastSeenDate}
                                     onChange={e => setLastSeenDate(e.target.value)}
-                                    className="text-black"
+                                    className="text-white bg-white/5 border-gray-600 focus:border-orange-500"
                                 />
                             </div>
                         </div>
@@ -417,15 +496,15 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
                             <div>
                                 <Label>ชื่อเจ้าของ</Label>
-                                <Input value={ownerName} onChange={e => setOwnerName(e.target.value)} placeholder="ชื่อ-นามสกุล" className="text-black" />
+                                <Input value={ownerName} onChange={e => setOwnerName(e.target.value)} placeholder="ชื่อ-นามสกุล" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
                             </div>
                             <div>
                                 <Label>ช่องทางติดต่อ (Contact)</Label>
-                                <Input value={contactInfo} onChange={e => setContactInfo(e.target.value)} placeholder="เบอร์โทร, Line ID" className="text-black" />
+                                <Input value={contactInfo} onChange={e => setContactInfo(e.target.value)} placeholder="เบอร์โทร, Line ID" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
                             </div>
                             <div>
                                 <Label>สินน้ำใจ (Reward)</Label>
-                                <Input value={reward} onChange={e => setReward(e.target.value)} placeholder="ระบุจำนวนเงิน หรือ ของรางวัล (ถ้ามี)" className="text-black" />
+                                <Input value={reward} onChange={e => setReward(e.target.value)} placeholder="ระบุจำนวนเงิน หรือ ของรางวัล (ถ้ามี)" className="text-white bg-white/5 border-gray-600 focus:border-orange-500" />
                             </div>
                         </div>
                     )}

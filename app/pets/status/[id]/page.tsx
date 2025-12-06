@@ -11,6 +11,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { ThaiButton } from "@/components/ui/thai-button";
 import Link from "next/link";
 import PetComments from "@/components/pet/pet-comments";
+import { differenceInDays, differenceInHours, differenceInMinutes, addDays } from "date-fns";
 
 export default function PetStatusPage() {
     const params = useParams();
@@ -119,6 +120,9 @@ export default function PetStatusPage() {
                     color={petData.color}
                     marks={petData.marks}
                 />
+
+                {/* Expiration Countdown */}
+                <CountdownTimer createdAt={petData.created_at} />
 
                 {/* Status Card */}
                 <StatusCard status={petData.status} />
@@ -355,6 +359,60 @@ function PetImageGallery({ images, petName, color, marks }: { images: string[], 
                     </div>
                 </>
             )}
+        </div>
+    );
+}
+
+function CountdownTimer({ createdAt }: { createdAt: string }) {
+    const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number } | null>(null);
+
+    useEffect(() => {
+        const calculateTimeLeft = () => {
+            const created = new Date(createdAt);
+            const expirationDate = addDays(created, 180);
+            const now = new Date();
+
+            if (now >= expirationDate) {
+                setTimeLeft(null); // Expired
+                return;
+            }
+
+            const days = differenceInDays(expirationDate, now);
+            const hours = differenceInHours(expirationDate, now) % 24;
+            const minutes = differenceInMinutes(expirationDate, now) % 60;
+
+            setTimeLeft({ days, hours, minutes });
+        };
+
+        calculateTimeLeft();
+        const timer = setInterval(calculateTimeLeft, 60000); // Update every minute
+
+        return () => clearInterval(timer);
+    }, [createdAt]);
+
+    if (!timeLeft) {
+        return (
+            <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-center gap-3 text-red-700">
+                <Clock className="w-5 h-5 shrink-0" />
+                <span className="font-bold text-sm">โพสต์นี้หมดอายุแล้วและจะถูกลบออกจากระบบเร็วๆ นี้</span>
+            </div>
+        );
+    }
+
+    // Only show if less than 30 days remaining to avoid clutter, or always show? 
+    // User asked for countdown, so let's show it.
+    // Maybe style it differently based on urgency.
+    const isUrgent = timeLeft.days < 7;
+
+    return (
+        <div className={`rounded-xl border p-4 flex items-center justify-between ${isUrgent ? 'bg-orange-50 border-orange-100 text-orange-800' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+            <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                <span className="text-sm font-medium">โพสต์จะถูกลบอัตโนมัติในอีก</span>
+            </div>
+            <div className="font-mono font-bold text-lg">
+                {timeLeft.days} วัน {timeLeft.hours} ชม.
+            </div>
         </div>
     );
 }

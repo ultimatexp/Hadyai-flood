@@ -48,7 +48,7 @@ export const LocationSearch = ({ onSelect }: LocationSearchProps) => {
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     disabled={!ready}
-                    className="pl-9 bg-white shadow-md border-0"
+                    className="pl-9 bg-white shadow-md border-0 text-black placeholder:text-gray-400"
                     placeholder="ค้นหาสถานที่..."
                 />
             </div>
@@ -58,7 +58,7 @@ export const LocationSearch = ({ onSelect }: LocationSearchProps) => {
                         <li
                             key={place_id}
                             onClick={() => handleSelect(description)}
-                            className="px-4 py-2 hover:bg-accent cursor-pointer text-sm truncate"
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm truncate text-black"
                         >
                             {description}
                         </li>
