@@ -23,7 +23,7 @@
     "leaflet-defaulticon-compatibility": "^0.1.2",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.554.0",
-    "next": "^16.0.7",
+    "next": "^16.1.1",
     "promptparse": "^1.4.0",
     "qrcode": "^1.5.4",
     "react": "19.2.0",
