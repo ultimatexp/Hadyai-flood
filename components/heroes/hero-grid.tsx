@@ -4,7 +4,7 @@ import { Hero } from "@/app/actions/hero";
 import { HeroCard } from "./hero-card";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AddHeroDialog } from "./add-hero-dialog";
+import { HeroDialog } from "./hero-dialog";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -35,7 +35,7 @@ export function HeroGrid({ heroes }: HeroGridProps) {
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <AddHeroDialog />
+                <HeroDialog />
             </div>
 
             {/* Grid */}

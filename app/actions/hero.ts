@@ -43,6 +43,18 @@ export async function createHero(hero: Omit<Hero, "id" | "created_at">) {
     return { success: true };
 }
 
+export async function updateHero(id: string, hero: Partial<Omit<Hero, "id" | "created_at">>) {
+    const { error } = await supabase.from("heroes").update(hero).eq("id", id);
+
+    if (error) {
+        console.error("Error updating hero:", error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/hall-of-heroes");
+    return { success: true };
+}
+
 export async function analyzeHeroSource(formData: FormData) {
     try {
         const file = formData.get("image") as File;

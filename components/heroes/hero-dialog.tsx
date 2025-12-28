@@ -1,16 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ThaiButton } from "@/components/ui/thai-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { analyzeHeroSource, createHero } from "@/app/actions/hero";
-import { Loader2, Plus, Sparkles, Upload } from "lucide-react";
+import { analyzeHeroSource, createHero, updateHero, Hero } from "@/app/actions/hero";
+import { Loader2, Plus, Sparkles, Upload, Pencil } from "lucide-react";
 import Image from "next/image";
 
-export function AddHeroDialog() {
+interface HeroDialogProps {
+    hero?: Hero;
+    trigger?: React.ReactNode;
+}
+
+export function HeroDialog({ hero, trigger }: HeroDialogProps) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
@@ -26,6 +31,28 @@ export function AddHeroDialog() {
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [analysisFile, setAnalysisFile] = useState<File | null>(null);
     const [analysisText, setAnalysisText] = useState("");
+
+    // Load initial data when dialog opens or hero changes
+    useEffect(() => {
+        if (hero && open) {
+            setName(hero.name || "");
+            setRank(hero.rank || "");
+            setBiography(hero.biography || "");
+            setImageUrl(hero.image_url || "");
+            setSocialLink(hero.social_link || "");
+        } else if (!hero && open) {
+            // Reset form for add mode
+            setName("");
+            setRank("");
+            setBiography("");
+            setImageUrl("");
+            setSocialLink("");
+            setPreviewImage(null);
+            setAnalysisFile(null);
+            setAnalysisText("");
+        }
+    }, [hero, open]);
+
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -54,8 +81,6 @@ export function AddHeroDialog() {
             if (rank) setRank(rank);
             if (biography) setBiography(biography);
             if (social_link) setSocialLink(social_link);
-            // Determine if we can use the uploaded image as the hero image (in a real app we'd upload it)
-            // For now, prompt user to provide a URL or keep the field empty
         }
     };
 
@@ -63,51 +88,55 @@ export function AddHeroDialog() {
         e.preventDefault();
         setLoading(true);
 
-        const res = await createHero({
+        const heroData = {
             name,
             rank,
             biography,
             image_url: imageUrl,
             social_link: socialLink,
-        });
+        };
+
+        let res;
+        if (hero) {
+            res = await updateHero(hero.id, heroData);
+        } else {
+            res = await createHero(heroData);
+        }
 
         setLoading(false);
         if (res.success) {
             setOpen(false);
-            // Reset form
-            setName("");
-            setRank("");
-            setBiography("");
-            setImageUrl("");
-            setSocialLink("");
-            setPreviewImage(null);
-            setAnalysisFile(null);
-            setAnalysisText("");
         }
     };
+
+    const isEdit = !!hero;
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <ThaiButton variant="primary" className="gap-2 shadow-amber-500/50">
-                    <Plus size={20} />
-                    Add Hero (เพิ่มฮีโร่)
-                </ThaiButton>
+                {trigger ? trigger : (
+                    <ThaiButton variant="primary" className="gap-2 shadow-amber-500/50">
+                        <Plus size={20} />
+                        Add Hero (เพิ่มฮีโร่)
+                    </ThaiButton>
+                )}
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px] bg-zinc-950 border-amber-500/30 text-zinc-100">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl font-serif text-amber-500">Add New Hero</DialogTitle>
+                    <DialogTitle className="text-2xl font-serif text-amber-500">
+                        {isEdit ? "Edit Hero" : "Add New Hero"}
+                    </DialogTitle>
                     <DialogDescription className="text-zinc-400">
-                        Honor a Thai soldier by adding their story. You can use AI to extract info from social media posts.
+                        {isEdit ? "Update the hero's information." : "Honor a Thai soldier by adding their story."}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-6 py-4">
-                    {/* AI Extraction Section */}
+                    {/* AI Extraction Section - Only show for Add mode or explicit request? Maybe keep it for both */}
                     <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800 space-y-4">
                         <h3 className="text-sm font-semibold flex items-center text-indigo-400">
                             <Sparkles size={16} className="mr-2" />
-                            AI Auto-Fill (Optional)
+                            AI {isEdit ? "Re-Extract" : "Auto-Fill"} (Optional)
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -185,7 +214,7 @@ export function AddHeroDialog() {
                         <div className="pt-4 flex justify-end gap-2">
                             <ThaiButton type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</ThaiButton>
                             <ThaiButton type="submit" variant="primary" disabled={loading}>
-                                {loading ? "Saving..." : "Save Hero"}
+                                {loading ? "Saving..." : (isEdit ? "Update Hero" : "Save Hero")}
                             </ThaiButton>
                         </div>
                     </form>

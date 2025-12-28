@@ -99,6 +99,51 @@ export default function LandingPage() {
                 </Link>
             </div>
 
+            {/* Hall of Heroes Banner */}
+            <div className="mt-8 max-w-4xl w-full z-10 perspective-1000">
+                <Link href="/hall-of-heroes" className="block group">
+                    <div className="relative transform-gpu transition-all duration-500 hover:scale-[1.02] hover:-translate-y-1"
+                        style={{ transformStyle: 'preserve-3d' }}>
+                        {/* Banner Shadow */}
+                        <div className="absolute inset-0 bg-amber-600/20 rounded-3xl blur-xl translate-y-4 group-hover:translate-y-6 group-hover:blur-2xl transition-all" />
+
+                        {/* Banner Content */}
+                        <div className="relative bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 rounded-3xl p-6 md:p-8 shadow-2xl border border-amber-500/30 overflow-hidden flex flex-col md:flex-row items-center gap-6 md:gap-8"
+                            style={{ transform: 'translateZ(20px)' }}>
+
+                            {/* Shine Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/0 via-amber-500/10 to-amber-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 animate-pulse" />
+
+                            {/* Icon Section */}
+                            <div className="flex-shrink-0">
+                                <div className="w-16 h-16 md:w-20 md:h-20 bg-amber-900/30 backdrop-blur rounded-2xl flex items-center justify-center border border-amber-500/30 group-hover:bg-amber-900/50 transition-colors"
+                                    style={{ transform: 'translateZ(30px)' }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 md:w-10 md:h-10 text-amber-500 drop-shadow-lg"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" /></svg>
+                                </div>
+                            </div>
+
+                            {/* Text Section */}
+                            <div className="flex-grow text-center md:text-left z-10">
+                                <h2 className="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-amber-500 to-amber-700 mb-2 drop-shadow-sm font-serif">
+                                    Hall of Heroes
+                                </h2>
+                                <p className="text-amber-100/80 text-sm md:text-base">
+                                    สดุดีวีรชนผู้กล้า • ฮีโร่ของคนไทย
+                                </p>
+                            </div>
+
+                            {/* Arrow Indicator */}
+                            <div className="hidden md:flex items-center text-amber-500/50 group-hover:text-amber-500 group-hover:translate-x-2 transition-all duration-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                            </div>
+
+                            {/* Decorative Elements */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+                        </div>
+                    </div>
+                </Link>
+            </div>
+
             {/* Footer */}
             <div className="mt-12 text-center z-10">
                 <p className="text-slate-400 text-sm">

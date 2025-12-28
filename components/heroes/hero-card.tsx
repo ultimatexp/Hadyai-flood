@@ -3,6 +3,7 @@
 import { Hero } from "@/app/actions/hero";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { HeroDialog } from "./hero-dialog";
 
 interface HeroCardProps {
     hero: Hero;
@@ -59,6 +60,20 @@ export function HeroCard({ hero, onClick }: HeroCardProps) {
             <div className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 border-[#FFE55C] rounded-tr-lg pointer-events-none"></div>
             <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-[#FFE55C] rounded-bl-lg pointer-events-none"></div>
             <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-[#FFE55C] rounded-br-lg pointer-events-none"></div>
+
+            {/* Edit Button - Top Right */}
+            <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div onClick={(e) => e.stopPropagation()}>
+                    <HeroDialog
+                        hero={hero}
+                        trigger={
+                            <button className="p-2 bg-zinc-900/80 hover:bg-zinc-800 text-amber-500 rounded-full border border-amber-500/30 backdrop-blur-sm transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+                            </button>
+                        }
+                    />
+                </div>
+            </div>
         </motion.div>
     );
 }
