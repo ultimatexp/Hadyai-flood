@@ -1,9 +1,10 @@
-"use client";
-
 import Link from "next/link";
 import { Users, PawPrint } from "lucide-react";
+import { getAppSettings } from "./actions/settings";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+    const helpPeopleEnabled = await getAppSettings("help_people_enabled") !== false; // Default to true if null/undefined
+
     return (
         <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-6">
             {/* Background Pattern */}
@@ -27,40 +28,73 @@ export default function LandingPage() {
             {/* 3D Cards Container */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full z-10 perspective-1000">
                 {/* Help People Card */}
-                <Link href="/home" className="block group">
-                    <div className="relative transform-gpu transition-all duration-500 hover:scale-105 hover:-translate-y-2 hover:rotate-y-[-5deg]"
-                        style={{ transformStyle: 'preserve-3d' }}>
-                        {/* Card Shadow */}
-                        <div className="absolute inset-0 bg-blue-600/30 rounded-3xl blur-xl translate-y-4 group-hover:translate-y-6 group-hover:blur-2xl transition-all" />
+                {helpPeopleEnabled ? (
+                    <Link href="/home" className="block group">
+                        <div className="relative transform-gpu transition-all duration-500 hover:scale-105 hover:-translate-y-2 hover:rotate-y-[-5deg]"
+                            style={{ transformStyle: 'preserve-3d' }}>
+                            {/* Card Shadow */}
+                            <div className="absolute inset-0 bg-blue-600/30 rounded-3xl blur-xl translate-y-4 group-hover:translate-y-6 group-hover:blur-2xl transition-all" />
 
-                        {/* Card */}
-                        <div className="relative bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-3xl p-8 shadow-2xl border border-blue-400/30 overflow-hidden"
-                            style={{ transform: 'translateZ(20px)' }}>
-                            {/* Shine Effect */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            {/* Card */}
+                            <div className="relative bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-3xl p-8 shadow-2xl border border-blue-400/30 overflow-hidden"
+                                style={{ transform: 'translateZ(20px)' }}>
+                                {/* Shine Effect */}
+                                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-                            {/* Icon */}
-                            <div className="w-24 h-24 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform duration-500"
-                                style={{ transform: 'translateZ(40px)' }}>
-                                <Users className="w-14 h-14 text-white drop-shadow-lg" />
+                                {/* Icon */}
+                                <div className="w-24 h-24 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform duration-500"
+                                    style={{ transform: 'translateZ(40px)' }}>
+                                    <Users className="w-14 h-14 text-white drop-shadow-lg" />
+                                </div>
+
+                                {/* Text */}
+                                <h2 className="text-3xl font-bold text-white text-center mb-3 drop-shadow-lg"
+                                    style={{ transform: 'translateZ(30px)' }}>
+                                    ช่วยคน
+                                </h2>
+                                <p className="text-blue-100 text-center text-sm"
+                                    style={{ transform: 'translateZ(25px)' }}>
+                                    ขอความช่วยเหลือ • เป็นอาสา • ค้นหาผู้ประสบภัย
+                                </p>
+
+                                {/* Decorative Elements */}
+                                <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+                                <div className="absolute -top-6 -left-6 w-24 h-24 bg-blue-300/20 rounded-full blur-xl" />
                             </div>
+                        </div>
+                    </Link>
+                ) : (
+                    <div className="block cursor-not-allowed opacity-60 grayscale filter">
+                        <div className="relative transform-gpu transition-all duration-500"
+                            style={{ transformStyle: 'preserve-3d' }}>
 
-                            {/* Text */}
-                            <h2 className="text-3xl font-bold text-white text-center mb-3 drop-shadow-lg"
-                                style={{ transform: 'translateZ(30px)' }}>
-                                ช่วยคน
-                            </h2>
-                            <p className="text-blue-100 text-center text-sm"
-                                style={{ transform: 'translateZ(25px)' }}>
-                                ขอความช่วยเหลือ • เป็นอาสา • ค้นหาผู้ประสบภัย
-                            </p>
+                            {/* Card */}
+                            <div className="relative bg-gradient-to-br from-gray-500 via-gray-600 to-gray-700 rounded-3xl p-8 shadow-2xl border border-gray-400/30 overflow-hidden"
+                                style={{ transform: 'translateZ(20px)' }}>
 
-                            {/* Decorative Elements */}
-                            <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-                            <div className="absolute -top-6 -left-6 w-24 h-24 bg-blue-300/20 rounded-full blur-xl" />
+                                {/* Icon */}
+                                <div className="w-24 h-24 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg"
+                                    style={{ transform: 'translateZ(40px)' }}>
+                                    <Users className="w-14 h-14 text-white drop-shadow-lg" />
+                                </div>
+
+                                {/* Text */}
+                                <h2 className="text-3xl font-bold text-white text-center mb-3 drop-shadow-lg"
+                                    style={{ transform: 'translateZ(30px)' }}>
+                                    ช่วยคน (ปิดปรับปรุง)
+                                </h2>
+                                <p className="text-gray-200 text-center text-sm"
+                                    style={{ transform: 'translateZ(25px)' }}>
+                                    ระบบกำลังปิดปรับปรุงชั่วคราว
+                                </p>
+
+                                {/* Decorative Elements */}
+                                <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+                                <div className="absolute -top-6 -left-6 w-24 h-24 bg-gray-300/20 rounded-full blur-xl" />
+                            </div>
                         </div>
                     </div>
-                </Link>
+                )}
 
                 {/* Help Animals Card */}
                 <Link href="/find-pet" className="block group">
