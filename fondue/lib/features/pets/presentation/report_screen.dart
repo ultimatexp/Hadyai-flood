@@ -51,6 +51,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   List<XFile> _imageFiles = [];
   bool _isLoading = false;
   bool _isAnalyzing = false;
+  bool _shareContactInfo = true;
 
 
 
@@ -218,7 +219,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         sex: _sex,
         lat: _lat ?? 7.005, 
         lng: _lng ?? 100.476,
-        contactInfo: _contactController.text,
+        contactInfo: (_status == 'LOST' || _shareContactInfo) ? _contactController.text : null,
         reward: _rewardController.text.isNotEmpty ? _rewardController.text : null,
         lastSeenDate: _selectedDate,
         imageFiles: _imageFiles,
@@ -448,20 +449,36 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
               const SizedBox(height: 16),
 
                 // Contact Info
-                TextFormField(
-                  controller: _contactController,
-                  decoration: const InputDecoration(
-                    labelText: 'Contact (Phone, Line ID, Facebook)', 
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone_outlined)
+                if (_status == 'FOUND')
+                  CheckboxListTile(
+                    title: const Text("Share Contact Info"),
+                    subtitle: const Text("Allow others to see your contact details"),
+                    value: _shareContactInfo, 
+                    onChanged: (val) => setState(() => _shareContactInfo = val ?? true),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Contact information is required';
-                    }
-                    return null;
-                  },
-                ),
+
+                if (_status == 'LOST' || _shareContactInfo)
+                  TextFormField(
+                    controller: _contactController,
+                    decoration: const InputDecoration(
+                      labelText: 'Contact (Phone, Line ID, Facebook)', 
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.phone_outlined)
+                    ),
+                    validator: (value) {
+                      if (_status == 'LOST') {
+                         if (value == null || value.trim().isEmpty) return 'Contact information is required for lost pets';
+                      }
+                      
+                      if (_status == 'FOUND' && _shareContactInfo) {
+                        if (value == null || value.trim().isEmpty) return 'Contact information is required if shared';
+                      }
+                      
+                      return null;
+                    },
+                  ),
 
               
 
