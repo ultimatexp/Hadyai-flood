@@ -9,9 +9,9 @@ export async function GET(request: Request) {
         //     return new Response('Unauthorized', { status: 401 });
         // }
 
-        // Calculate the date 180 days ago
+        // Calculate the date 365 days ago
         const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - 180);
+        cutoffDate.setDate(cutoffDate.getDate() - 365);
         const cutoffISO = cutoffDate.toISOString();
 
         // Delete pets created before the cutoff date

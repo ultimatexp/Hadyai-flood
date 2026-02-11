@@ -103,6 +103,9 @@ export async function POST(request: NextRequest) {
         const type = formData.get('type') as string || 'found';
         const filterStatus = type === 'found' ? 'LOST' : 'FOUND';
 
+        console.log(`🔍 Search Request: type=${type} -> looking for status=${filterStatus}`);
+
+
         // 1. Call Python service to get embedding and colors
         const pythonFormData = new FormData();
         pythonFormData.append('file', file);
@@ -127,6 +130,9 @@ export async function POST(request: NextRequest) {
                 match_count: 50,
                 filter_status: filterStatus,
             });
+
+        console.log(`📊 RPC match_pets returned ${matches?.length || 0} candidates`);
+
 
         if (matchError) {
             console.error('Match pets error:', matchError);
@@ -233,7 +239,7 @@ export async function POST(request: NextRequest) {
             // CRITICAL: Sex (wrong sex = heavy penalty)
             if (querySex) {
                 if (match.sex && match.sex !== 'unknown' && match.sex !== querySex) {
-                    featureScore *= 0.3; // 70% reduction
+                    featureScore *= 0.5; // 50% reduction (was 70%)
                 } else {
                     featureScore += 1;
                 }
@@ -319,9 +325,9 @@ export async function POST(request: NextRequest) {
             featureScore = Math.min(1.0, featureScore);
 
             // --- Combined Score ---
-            // Base weights: Embedding 40%, Color 30%, Features 30%
+            // Adjusted weights: Embedding 50%, Color 25%, Features 25% (Prioritize visual similarity)
             const embeddingSimilarity = match.similarity || 0;
-            let combinedScore = (embeddingSimilarity * 0.4) + (colorSimilarity * 0.3) + (featureScore * 0.3);
+            let combinedScore = (embeddingSimilarity * 0.50) + (colorSimilarity * 0.25) + (featureScore * 0.25);
 
             // Apply location proximity bonus (up to 20% boost)
             combinedScore = Math.min(1.0, combinedScore + locationBonus);
@@ -341,13 +347,13 @@ export async function POST(request: NextRequest) {
             };
         });
 
-        // 4. Filter for high-confidence matches only (>= 80%)
+        // 4. Filter for matches (>= 65%)
         const filteredMatches = matchesWithScores
-            .filter((match: any) => match.combined_score >= 0.80)
+            .filter((match: any) => match.combined_score >= 0.65)
             .sort((a: any, b: any) => b.combined_score - a.combined_score)
             .slice(0, 20);
 
-        console.log(`✅ Returning ${filteredMatches.length} high-confidence matches (>= 80%)`);
+        console.log(`✅ Returning ${filteredMatches.length} matches (>= 65%)`);
 
         return NextResponse.json({ success: true, matches: filteredMatches });
 
