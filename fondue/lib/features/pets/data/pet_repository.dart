@@ -202,4 +202,47 @@ class PetRepository {
       if (reward != null) 'reward': reward,
     }).eq('id', petId);
   }
+
+  // UGC: Report Content
+  Future<void> reportContent({
+    required String reporterId,
+    required String entityId,
+    required String entityType,
+    required String reason,
+    String? reportedUserId,
+  }) async {
+    await _client.from('reports').insert({
+      'reporter_id': reporterId,
+      'entity_id': entityId,
+      'entity_type': 'pet', // Explicitly setting entity_type
+      'reason': reason,
+      'reported_user_id': reportedUserId, 
+      'status': 'pending',
+    });
+  }
+
+  // UGC: Block User
+  Future<void> blockUser({
+    required String blockerId,
+    required String blockedId,
+  }) async {
+    await _client.from('blocked_users').insert({
+      'blocker_id': blockerId,
+      'blocked_id': blockedId,
+    });
+  }
+
+  // UGC: Fetch Blocked Users
+  Future<List<String>> fetchBlockedUsers(String userId) async {
+    final response = await _client
+        .from('blocked_users')
+        .select('blocked_id')
+        .eq('blocker_id', userId);
+    
+    // Check if response is null or empty
+    if (response == null) return [];
+
+    final data = response as List<dynamic>;
+    return data.map((item) => item['blocked_id'] as String).toList();
+  }
 }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../auth/presentation/login_screen.dart'; // For logout if needed
+import '../../auth/presentation/login_screen.dart';
+import '../../moderation/presentation/blocked_users_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -12,7 +13,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _notificationsEnabled = true;
-  bool _darkModeEnabled = false;
 
   @override
   Widget build(BuildContext context) {
@@ -29,18 +29,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             icon: Icons.lock_outline,
             title: 'Change Password',
             onTap: () {
-               // Navigate to ChangePasswordScreen
                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Comming Soon')));
             },
           ),
-           _buildListTile(
+          _buildListTile(
             icon: Icons.delete_outline,
             title: 'Delete Account',
             textColor: Colors.red,
             iconColor: Colors.red,
             onTap: () {
-               // Show delete confirmation dialog
                _showDeleteAccountDialog();
+            },
+          ),
+          _buildListTile(
+            icon: Icons.block,
+            title: 'Blocked Users',
+            onTap: () {
+               Navigator.push(context, MaterialPageRoute(builder: (_) => const BlockedUsersScreen()));
             },
           ),
           
@@ -54,22 +59,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               setState(() {
                 _notificationsEnabled = value;
               });
-              // Update preference in repository
-            },
-          ),
-          
-          _buildSectionHeader('Appearance'),
-          SwitchListTile(
-            secondary: const Icon(Icons.dark_mode_outlined, color: AppTheme.primaryGreen),
-            title: const Text('Dark Mode'),
-            value: _darkModeEnabled,
-             activeColor: AppTheme.primaryGreen,
-            onChanged: (bool value) {
-              setState(() {
-                _darkModeEnabled = value;
-              });
-              // Update logic needed for theme provider
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Theme switching coming soon')));
             },
           ),
 

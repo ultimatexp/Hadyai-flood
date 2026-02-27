@@ -7,6 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../domain/message.dart';
+import '../../moderation/presentation/report_dialog.dart';
+import '../../moderation/presentation/block_user_dialog.dart';
+import '../../pets/presentation/pet_providers.dart';
 
 /// Real-time chat screen
 class ChatDetailScreen extends ConsumerStatefulWidget {
@@ -16,6 +19,7 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
   final String? phoneNumber;
   final String? petStatus;
   final String? petName;
+  final String? otherUserId;
 
   const ChatDetailScreen({
     super.key,
@@ -25,6 +29,7 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
     this.phoneNumber,
     this.petStatus,
     this.petName,
+    this.otherUserId,
   });
 
   @override
@@ -84,45 +89,47 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: source,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 80,
-    );
 
-    if (pickedFile != null) {
-      setState(() => _isSending = true);
-      
-      try {
-        // Upload image to Supabase Storage
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
-        final bytes = await File(pickedFile.path).readAsBytes();
-        
-        await Supabase.instance.client.storage
-            .from('chat-images')
-            .uploadBinary(fileName, bytes);
-        
-        final imageUrl = Supabase.instance.client.storage
-            .from('chat-images')
-            .getPublicUrl(fileName);
+    try {
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 80,
+        requestFullMetadata: false,
+      );
 
-        final repo = ref.read(chatRepositoryProvider);
-        await repo.sendMessage(
-          conversationId: widget.conversationId,
-          imageUrl: imageUrl,
+      if (pickedFile == null) return;
+
+      if (mounted) setState(() => _isSending = true);
+
+      // Upload image to Supabase Storage
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
+      final bytes = await File(pickedFile.path).readAsBytes();
+
+      await Supabase.instance.client.storage
+          .from('chat-images')
+          .uploadBinary(fileName, bytes);
+
+      final imageUrl = Supabase.instance.client.storage
+          .from('chat-images')
+          .getPublicUrl(fileName);
+
+      final repo = ref.read(chatRepositoryProvider);
+      await repo.sendMessage(
+        conversationId: widget.conversationId,
+        imageUrl: imageUrl,
+      );
+
+      _scrollToBottom();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send image: $e')),
         );
-        
-        _scrollToBottom();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to send image: $e')),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _isSending = false);
       }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
@@ -136,6 +143,40 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         );
       }
     });
+  }
+
+  void _reportUser() async {
+    if (widget.otherUserId == null) return;
+
+    final reported = await ReportDialog.show(
+      context,
+      reportedUserId: widget.otherUserId,
+      entityId: widget.conversationId,
+      entityType: 'chat',
+      reportedName: widget.name,
+    );
+
+    if (reported == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report submitted. Thank you for helping keep our community safe.')),
+      );
+    }
+  }
+
+  void _blockUser() async {
+    if (widget.otherUserId == null) return;
+
+    final blocked = await BlockUserDialog.show(
+      context,
+      ref,
+      blockedUserId: widget.otherUserId!,
+      blockedUserName: widget.name,
+    );
+
+    if (blocked == true && mounted) {
+      ref.invalidate(conversationsProvider);
+      Navigator.pop(context);
+    }
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
@@ -198,9 +239,34 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
               icon: const Icon(Icons.call, color: Colors.white),
               onPressed: () => _makePhoneCall(widget.phoneNumber!),
             ),
-          IconButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
-            onPressed: () {},
+            onSelected: (value) {
+              if (value == 'report') _reportUser();
+              if (value == 'block') _blockUser();
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'report',
+                child: Row(
+                  children: [
+                    Icon(Icons.flag_outlined, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Report User'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'block',
+                child: Row(
+                  children: [
+                    Icon(Icons.block, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Block User'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

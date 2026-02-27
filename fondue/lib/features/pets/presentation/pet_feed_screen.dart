@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lottie/lottie.dart';
 import 'pet_providers.dart';
 import '../domain/pet.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/shimmer_loading.dart';
 import 'pet_detail_screen.dart';
 import 'semantic_search_screen.dart';
 import 'map_view_screen.dart';
@@ -263,29 +266,72 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
             child: lostPetsAsync.when(
               data: (pets) {
                 if (pets.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.search_off, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('No pets found matching filters.'),
+                        SizedBox(
+                          width: 180,
+                          height: 180,
+                          child: Lottie.asset('assets/lottie/Dog Paw Loading.json'),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No pets found',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Try adjusting your filters or check back later',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                          textAlign: TextAlign.center,
+                        ),
                       ],
                     ),
                   );
                 }
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: pets.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final pet = pets[index];
-                    return PetCard(pet: pet);
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    HapticFeedback.mediumImpact();
+                    ref.invalidate(lostPetsProvider);
                   },
+                  color: AppTheme.accentOrange,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: pets.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final pet = pets[index];
+                      return PetCard(pet: pet);
+                    },
+                  ),
                 );
               },
-              error: (err, stack) => Center(child: Text('Error: $err')),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 60, color: Colors.red[300]),
+                    const SizedBox(height: 16),
+                    Text('Something went wrong', style: TextStyle(color: Colors.grey[600])),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => ref.invalidate(lostPetsProvider),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+              loading: () => ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: 4,
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
+                itemBuilder: (_, __) => const PetCardSkeleton(),
+              ),
             ),
           ),
         ],

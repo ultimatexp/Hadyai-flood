@@ -15,9 +15,8 @@ const supabase = createClient(
 
 const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'https://hadyai-flood-production.up.railway.app';
 
-// Calculate color similarity using RGB distance
-// For bicolor patterns, checks if colors overlap (e.g., orange/white should match white/orange)
-function calculateColorSimilarity(
+// Calculate color similarity using RGB Euclidean distance (fallback)
+function calculateColorSimilarityRGB(
     colors1: number[][],
     percentages1: number[],
     colors2: number[][],
@@ -25,66 +24,51 @@ function calculateColorSimilarity(
 ): number {
     let totalSimilarity = 0.0;
 
-    // For each color in query image
     for (let i = 0; i < colors1.length; i++) {
         const color1 = colors1[i];
         const pct1 = percentages1[i];
-
         let bestMatch = 0.0;
 
-        // Find best matching color in database pet
         for (let j = 0; j < colors2.length; j++) {
             const color2 = colors2[j];
-
-            // Euclidean distance in RGB space
             const distance = Math.sqrt(
                 Math.pow(color1[0] - color2[0], 2) +
                 Math.pow(color1[1] - color2[1], 2) +
                 Math.pow(color1[2] - color2[2], 2)
             );
-
-            // Convert to similarity (max distance is ~441 for RGB)
             const similarity = 1 - (distance / 441);
-
-            if (similarity > bestMatch) {
-                bestMatch = similarity;
-            }
+            if (similarity > bestMatch) bestMatch = similarity;
         }
-
-        // Weight by percentage this color occupies
         totalSimilarity += bestMatch * pct1;
     }
+    return totalSimilarity;
+}
 
-    // For bicolor patterns: require at least ONE color to match well
-    // If top 2 colors, check if ANY pair has good similarity
-    if (colors1.length >= 2 && colors2.length >= 2) {
-        // Find best cross-match between any two colors
-        let hasBicolorOverlap = false;
+// Calculate color similarity using CIEDE2000 in LAB space (preferred)
+function calculateColorSimilarityLAB(
+    lab1: number[][],
+    pct1: number[],
+    lab2: number[][],
+    pct2: number[]
+): number {
+    let totalSimilarity = 0.0;
 
-        for (let i = 0; i < Math.min(2, colors1.length); i++) {
-            for (let j = 0; j < Math.min(2, colors2.length); j++) {
-                const distance = Math.sqrt(
-                    Math.pow(colors1[i][0] - colors2[j][0], 2) +
-                    Math.pow(colors1[i][1] - colors2[j][1], 2) +
-                    Math.pow(colors1[i][2] - colors2[j][2], 2)
-                );
-                const similarity = 1 - (distance / 441);
+    for (let i = 0; i < lab1.length; i++) {
+        let bestMatch = 0.0;
 
-                // Require at least 70% RGB similarity for one color pair
-                if (similarity > 0.7) {
-                    hasBicolorOverlap = true;
-                    break;
-                }
-            }
-            if (hasBicolorOverlap) break;
+        for (let j = 0; j < lab2.length; j++) {
+            // Simplified CIEDE2000 approximation using weighted Euclidean in LAB
+            const dL = lab1[i][0] - lab2[j][0];
+            const da = lab1[i][1] - lab2[j][1];
+            const db = lab1[i][2] - lab2[j][2];
+            // Weight L channel less (luminance varies with lighting)
+            const deltaE = Math.sqrt(dL * dL * 0.5 + da * da + db * db);
+            // Convert to similarity: deltaE=0 → 1.0, deltaE=100 → 0.0
+            const similarity = Math.max(0, 1 - deltaE / 100);
+            if (similarity > bestMatch) bestMatch = similarity;
         }
-
-        // Penalize if bicolor patterns don't share ANY common color
-        if (!hasBicolorOverlap) {
-            totalSimilarity *= 0.7; // 30% penalty
-        }
+        totalSimilarity += bestMatch * pct1[i];
     }
-
     return totalSimilarity;
 }
 
@@ -120,14 +104,14 @@ export async function POST(request: NextRequest) {
             throw new Error(`Embedding service error: ${embedResponse.status} ${errorText}`);
         }
 
-        const { embedding, colors: queryColors, color_percentages: queryPercentages } = await embedResponse.json();
+        const { embedding, colors: queryColors, lab_colors: queryLabColors, color_percentages: queryPercentages } = await embedResponse.json();
 
         // 2. Call match_pets RPC to get candidates based on embedding
         const { data: matches, error: matchError } = await supabase
             .rpc('match_pets', {
                 query_embedding: `[${embedding.join(',')}]`,
                 match_threshold: 0.4, // Production threshold
-                match_count: 50,
+                match_count: 80,
                 filter_status: filterStatus,
             });
 
@@ -148,9 +132,6 @@ export async function POST(request: NextRequest) {
             let colorSimilarity = 0.5; // Default neutral
             if (match.dominant_colors && match.color_percentages) {
                 try {
-                    // Use the queryColors and queryPercentages from the embedding response
-                    // The instruction snippet incorrectly referenced `queryEmbedding.colors`
-                    // which is not defined here.
                     const matchColors = typeof match.dominant_colors === 'string'
                         ? JSON.parse(match.dominant_colors)
                         : match.dominant_colors;
@@ -158,17 +139,31 @@ export async function POST(request: NextRequest) {
                         ? JSON.parse(match.color_percentages)
                         : match.color_percentages;
 
-                    colorSimilarity = calculateColorSimilarity(queryColors, queryPercentages, matchColors, matchPercentages);
+                    // Prefer LAB (CIEDE2000) color comparison when available
+                    if (queryLabColors && queryLabColors.length > 0 && match.lab_colors) {
+                        const matchLabColors = typeof match.lab_colors === 'string'
+                            ? JSON.parse(match.lab_colors)
+                            : match.lab_colors;
+                        colorSimilarity = calculateColorSimilarityLAB(
+                            queryLabColors, queryPercentages,
+                            matchLabColors, matchPercentages
+                        );
+                        console.log(`  Color comparison (LAB CIEDE2000):`);
+                    } else {
+                        // Fallback to RGB for pets embedded before the upgrade
+                        colorSimilarity = calculateColorSimilarityRGB(
+                            queryColors, queryPercentages,
+                            matchColors, matchPercentages
+                        );
+                        console.log(`  Color comparison (RGB fallback):`);
+                    }
 
-                    // Log color details for debugging (show top 2 colors for bicolor)
                     const queryColorStr = queryColors.slice(0, 2).map((c: number[], i: number) =>
                         `[${c}] ${(queryPercentages[i] * 100).toFixed(0)}%`
                     ).join(', ');
                     const matchColorStr = matchColors.slice(0, 2).map((c: number[], i: number) =>
                         `[${c}] ${(matchPercentages[i] * 100).toFixed(0)}%`
                     ).join(', ');
-
-                    console.log(`  Color comparison (RGB):`);
                     console.log(`    Query: ${queryColorStr}`);
                     console.log(`    Match: ${matchColorStr}`);
                 } catch (e) {

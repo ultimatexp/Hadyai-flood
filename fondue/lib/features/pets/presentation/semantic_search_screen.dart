@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:lottie/lottie.dart';
 import 'dart:convert';
 import '../../../../core/config/constants.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -415,9 +416,26 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const CircularProgressIndicator(),
-                        const SizedBox(height: 16),
-                        Text(_statusMessage ?? "Processing..."),
+                        SizedBox(
+                          width: 120,
+                          height: 120,
+                          child: Lottie.asset('assets/lottie/Dog Paw Loading.json'),
+                        ),
+                        const SizedBox(height: 24),
+                        // Animated Step Indicators
+                        _buildSearchStep(
+                          'Analyzing Image',
+                          Icons.camera_alt,
+                          _statusMessage?.contains('1/2') ?? false,
+                          _statusMessage?.contains('2/2') ?? false,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildSearchStep(
+                          'Searching Database',
+                          Icons.search,
+                          _statusMessage?.contains('2/2') ?? false,
+                          false,
+                        ),
                       ],
                     ),
                   )
@@ -427,7 +445,32 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
                         child: Text(_errorMessage!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
                       ))
                     : _allSearchResults.isEmpty
-                        ? const Center(child: Text("Upload photos to start searching."))
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 180,
+                                  height: 180,
+                                  child: Lottie.asset('assets/lottie/Dog Paw Loading.json'),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Upload photos to start searching',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Our AI will find potential matches',
+                                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          )
                         : _filteredResults.isEmpty
                             ? Center(
                                 child: Column(
@@ -446,7 +489,23 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
                                 separatorBuilder: (_, __) => const SizedBox(height: 16),
                                 itemBuilder: (context, index) {
                                   final match = _filteredResults[index];
-                                  return _buildMatchCard(context, match);
+                                  // Staggered entrance animation per card
+                                  return TweenAnimationBuilder<double>(
+                                    key: ValueKey(match.pet.id),
+                                    tween: Tween(begin: 0.0, end: 1.0),
+                                    duration: Duration(milliseconds: 400 + (index * 100).clamp(0, 600)),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (context, value, child) {
+                                      return Transform.translate(
+                                        offset: Offset(0, 30 * (1 - value)),
+                                        child: Opacity(
+                                          opacity: value,
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                    child: _buildMatchCard(context, match),
+                                  );
                                 },
                               ),
           ),
@@ -591,6 +650,55 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSearchStep(String label, IconData icon, bool isActive, bool isCompleted) {
+    final color = isCompleted
+        ? AppTheme.primaryGreen
+        : isActive
+            ? AppTheme.accentOrange
+            : Colors.grey[400]!;
+    
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: isCompleted || isActive ? color.withOpacity(0.15) : Colors.grey[100],
+            shape: BoxShape.circle,
+            border: Border.all(color: color, width: 2),
+          ),
+          child: Icon(
+            isCompleted ? Icons.check : icon,
+            size: 18,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isActive || isCompleted ? FontWeight.bold : FontWeight.normal,
+            color: isActive || isCompleted ? Colors.black87 : Colors.grey[500],
+          ),
+        ),
+        if (isActive && !isCompleted) ...[
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppTheme.accentOrange,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

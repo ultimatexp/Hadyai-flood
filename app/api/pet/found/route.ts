@@ -145,8 +145,8 @@ export async function POST(request: NextRequest) {
                     throw new Error(`Embedding service error: ${embedResponse.statusText}`);
                 }
 
-                const { embedding, colors, color_percentages } = await embedResponse.json();
-                return { embedding, colors, color_percentages }; // Return embedding and color data
+                const { embedding, colors, lab_colors, color_percentages } = await embedResponse.json();
+                return { embedding, colors, lab_colors, color_percentages };
             } catch (err) {
                 console.error(`Failed to generate embedding for ${url}:`, err);
                 return null; // Return null for failed embeddings
@@ -164,7 +164,8 @@ export async function POST(request: NextRequest) {
                 .update({
                     embedding: `[${embeddingData.embedding.join(',')}]`,
                     dominant_colors: JSON.stringify(embeddingData.colors),
-                    color_percentages: JSON.stringify(embeddingData.color_percentages)
+                    color_percentages: JSON.stringify(embeddingData.color_percentages),
+                    lab_colors: embeddingData.lab_colors ? JSON.stringify(embeddingData.lab_colors) : null,
                 })
                 .eq('id', petData.id);
 

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../domain/pet.dart';
 import '../pet_detail_screen.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../shared/page_transitions.dart';
 
 class PetCard extends StatelessWidget {
   final Pet pet;
@@ -16,34 +18,38 @@ class PetCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
+          HapticFeedback.lightImpact();
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => PetDetailScreen(pet: pet),
+            ScaleFadePageRoute(
+              page: PetDetailScreen(pet: pet),
             ),
           );
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image Section with Reward Badge
+            // Image Section with Hero + Reward Badge
             Stack(
               children: [
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: pet.imageUrl != null
-                      ? Image.network(
-                          pet.imageUrl!, // In production this needs full URL processing if typically stored as relative
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                Hero(
+                  tag: 'pet-image-${pet.id}',
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: pet.imageUrl != null
+                        ? Image.network(
+                            pet.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.pets, size: 64, color: Colors.grey),
+                            ),
+                          )
+                        : Container(
                             color: Colors.grey[300],
                             child: const Icon(Icons.pets, size: 64, color: Colors.grey),
                           ),
-                        )
-                      : Container(
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.pets, size: 64, color: Colors.grey),
-                        ),
+                  ),
                 ),
                 // Reward Badge
                 if (pet.reward != null && pet.reward! > 0)
@@ -95,27 +101,20 @@ class PetCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // Animated Status Badge
+                      _StatusBadge(status: pet.status),
+                      const Spacer(),
+                      // Time ago
                       Text(
-                        pet.status, 
-                        style: TextStyle(
-                          color: pet.status == 'LOST' ? Colors.red : AppTheme.primaryGreen,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
+                        _timeAgo(pet.createdAt),
+                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
                       ),
-                      if (pet.createdAt != null)
-                        Text(
-                          // Simple date formatter (add intl package for real formatting)
-                          "${pet.createdAt.day}/${pet.createdAt.month}/${pet.createdAt.year}",
-                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                        ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
-                    pet.species, // Or name if available
+                    pet.name ?? pet.species,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18),
                   ),
                   const SizedBox(height: 8),
@@ -147,5 +146,108 @@ class PetCard extends StatelessWidget {
       return '${(amount / 1000).toStringAsFixed(amount % 1000 == 0 ? 0 : 1)}K';
     }
     return amount.toStringAsFixed(0);
+  }
+
+  String _timeAgo(DateTime dateTime) {
+    final diff = DateTime.now().difference(dateTime);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+  }
+}
+
+/// Animated status badge with pulsing glow for LOST status
+class _StatusBadge extends StatefulWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  @override
+  State<_StatusBadge> createState() => _StatusBadgeState();
+}
+
+class _StatusBadgeState extends State<_StatusBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    if (widget.status == 'LOST') {
+      _controller.repeat(reverse: true);
+      _controller.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isLost = widget.status == 'LOST';
+    final color = isLost ? Colors.red : AppTheme.primaryGreen;
+
+    return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withOpacity(0.4)),
+            boxShadow: isLost
+                ? [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.3 * _animation.value),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  boxShadow: isLost
+                      ? [
+                          BoxShadow(
+                            color: Colors.red.withOpacity(0.5 * _animation.value),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                widget.status,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        );
   }
 }

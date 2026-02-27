@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_line_sdk/flutter_line_sdk.dart';
-import 'package:firebase_core/firebase_core.dart'; // Import firebase_core
+import 'package:firebase_core/firebase_core.dart';
 import 'core/config/constants.dart';
 import 'core/theme/app_theme.dart';
-import 'core/services/push_notification_service.dart'; // Import service
+import 'core/services/push_notification_service.dart';
 import 'features/dashboard/presentation/dashboard_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(); // Initialize Firebase core
+  await Firebase.initializeApp();
 
   await Supabase.initialize(
     url: AppConstants.supabaseUrl,
@@ -37,7 +37,6 @@ class FondueApp extends StatelessWidget {
       title: 'Fondue',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
       home: const DashboardScreen(),
     );

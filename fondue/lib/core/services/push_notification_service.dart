@@ -102,10 +102,15 @@ class PushNotificationService {
   }
 
   Future<void> _saveToken() async {
-    String? token = await _firebaseMessaging.getToken();
-    if (token != null) {
-      debugPrint("FCM Token: $token");
-      await _saveTokenRaw(token);
+    try {
+      String? token = await _firebaseMessaging.getToken();
+      if (token != null) {
+        debugPrint("FCM Token: $token");
+        await _saveTokenRaw(token);
+      }
+    } catch (e) {
+      // APNS token not available on iOS Simulator — silently ignore
+      debugPrint("FCM token unavailable (expected on simulator): $e");
     }
   }
 

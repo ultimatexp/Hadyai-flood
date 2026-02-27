@@ -33,15 +33,40 @@ class PetFilterNotifier extends Notifier<PetFilter> {
 
 final petFilterProvider = NotifierProvider<PetFilterNotifier, PetFilter>(PetFilterNotifier.new);
 
+// Provider for Blocked Users
+final blockedUsersProvider = FutureProvider<List<String>>((ref) async {
+  final repository = ref.watch(petRepositoryProvider);
+  final user = Supabase.instance.client.auth.currentUser;
+  
+  if (user == null) return [];
+  
+  return repository.fetchBlockedUsers(user.id);
+});
+
 // Provider for Pets Stream/Future with Filtering
 final lostPetsProvider = FutureProvider<List<Pet>>((ref) async {
   final repository = ref.watch(petRepositoryProvider);
   final filter = ref.watch(petFilterProvider);
   
-  return repository.fetchPets(
+  // Get blocked users
+  List<String> blockedUsers = [];
+  try {
+    blockedUsers = await ref.watch(blockedUsersProvider.future);
+  } catch (_) {
+    // If it fails, we default to empty block list
+  }
+  
+  final pets = await repository.fetchPets(
     status: filter.status,
     species: filter.species,
   );
+
+  // Filter blocked users
+  if (blockedUsers.isNotEmpty) {
+    return pets.where((pet) => !blockedUsers.contains(pet.userId)).toList();
+  }
+
+  return pets;
 });
 
 // Provider for User's Reports

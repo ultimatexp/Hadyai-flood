@@ -2,6 +2,7 @@
 
 import { ThaiButton } from "@/components/ui/thai-button";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/toast";
 import { CheckCircle2, XCircle, Truck, MapPin, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -13,6 +14,7 @@ interface StatusUpdateFormProps {
 
 export default function StatusUpdateForm({ caseData, token }: StatusUpdateFormProps) {
     const router = useRouter();
+    const { toastSuccess, toastError } = useToast();
     const [loading, setLoading] = useState(false);
 
     const updateStatus = async (status: string) => {
@@ -26,9 +28,9 @@ export default function StatusUpdateForm({ caseData, token }: StatusUpdateFormPr
             .eq("edit_token", token); // Double check token
 
         if (error) {
-            alert("เกิดข้อผิดพลาด: " + error.message);
+            toastError("เกิดข้อผิดพลาด: " + error.message);
         } else {
-            alert("อัปเดตสถานะเรียบร้อย");
+            toastSuccess("อัปเดตสถานะเรียบร้อย");
             router.refresh();
             router.push(`/case/${caseData.id}`);
         }

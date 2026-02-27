@@ -81,6 +81,13 @@ class TermsConditionsScreen extends StatelessWidget {
         _buildBulletPoint('แอบอ้างหรือปลอมแปลงตัวตน'),
         _buildBulletPoint('โพสต์ข้อมูลเท็จหรือทำให้เข้าใจผิด'),
         _buildBulletPoint('หลอกลวง ฉ้อโกง หรือเรียกร้องเงินโดยมิชอบ'),
+        _buildBulletPoint('โพสต์เนื้อหาที่ไม่เหมาะสม ลามกอนาจาร หรือเนื้อหาที่สร้างความเกลียดชัง'),
+        _buildBulletPoint('คุกคาม ข่มขู่ หรือกลั่นแกล้งผู้ใช้รายอื่น'),
+        const SizedBox(height: 16),
+        _buildWarningBox(
+          'นโยบายไม่ยอมรับเนื้อหาที่ไม่เหมาะสม',
+          'Fondue มีนโยบายไม่ยอมรับเนื้อหาที่ไม่เหมาะสมหรือพฤติกรรมที่ไม่เหมาะสมอย่างเด็ดขาด ผู้ใช้สามารถรายงานเนื้อหาหรือผู้ใช้ที่ไม่เหมาะสมได้ และสามารถบล็อกผู้ใช้ที่มีพฤติกรรมไม่เหมาะสมได้\n\nเนื้อหาที่ถูกรายงานจะได้รับการตรวจสอบภายใน 24 ชั่วโมง ผู้ใช้ที่ฝ่าฝืนอาจถูกระงับหรือลบบัญชีออกจากระบบ',
+        ),
         const SizedBox(height: 16),
         _buildWarningBox(
           'ข้อจำกัดความรับผิด',
@@ -112,6 +119,13 @@ class TermsConditionsScreen extends StatelessWidget {
         _buildBulletPoint('Impersonation or false representation'),
         _buildBulletPoint('Posting misleading or fraudulent content'),
         _buildBulletPoint('Scams, fraud, or unlawful solicitation of money'),
+        _buildBulletPoint('Posting obscene, offensive, or hateful content'),
+        _buildBulletPoint('Harassment, bullying, or threatening other users'),
+        const SizedBox(height: 16),
+        _buildWarningBox(
+          'Zero Tolerance for Objectionable Content',
+          'Fondue has a zero-tolerance policy for objectionable content and abusive users. Users may report content or block abusive users directly within the app.\n\nReported content is reviewed within 24 hours. Users who violate these terms may have their accounts suspended or permanently removed.',
+        ),
         const SizedBox(height: 16),
         _buildWarningBox(
           'Limitation of Liability',

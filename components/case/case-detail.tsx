@@ -3,6 +3,7 @@
 import { ThaiButton } from "@/components/ui/thai-button";
 import { MagnificentTag } from "@/components/ui/magnificent-tag";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/toast";
 import { MapPin, Phone, Clock, AlertTriangle, Navigation, CheckCircle2, Edit2 } from "lucide-react";
 import {
     Dialog,
@@ -39,6 +40,7 @@ interface CaseDetailProps {
 }
 
 export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailProps) {
+    const { toastSuccess, toastError } = useToast();
     const [status, setStatus] = useState(caseData.status);
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -137,12 +139,12 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
             .eq("id", caseData.id);
 
         if (error) {
-            alert("เกิดข้อผิดพลาด");
+            toastError("เกิดข้อผิดพลาด");
         } else {
             setStatus(newStatus);
             // Auto-post to Facebook
             postToFacebook(newStatus);
-            alert("อัปเดตสถานะเรียบร้อยแล้ว!");
+            toastSuccess("อัปเดตสถานะเรียบร้อยแล้ว!");
         }
         setLoading(false);
     };
@@ -187,11 +189,11 @@ export default function CaseDetail({ caseData, isOwner, editToken }: CaseDetailP
             // Auto-post to Facebook
             postToFacebook("RESOLVED");
 
-            alert("ขอบคุณมาก! การช่วยเหลือเสร็จสิ้นแล้ว");
+            toastSuccess("ขอบคุณมาก! การช่วยเหลือเสร็จสิ้นแล้ว");
 
         } catch (error) {
             console.error("Error resolving case:", error);
-            alert("เกิดข้อผิดพลาดในการอัปเดตสถานะ");
+            toastError("เกิดข้อผิดพลาดในการอัปเดตสถานะ");
         } finally {
             setLoading(false);
         }

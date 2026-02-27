@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lottie/lottie.dart';
 import '../data/inbox_providers.dart';
 import '../domain/notification.dart';
+import '../../../../shared/shimmer_loading.dart';
 
 /// Inbox screen for receiving messages from admin and system
 class InboxScreen extends ConsumerWidget {
@@ -56,8 +58,25 @@ class InboxScreen extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        loading: () => ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: 5,
+          itemBuilder: (_, __) => const NotificationSkeleton(),
+        ),
+        error: (err, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 60, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text('Error loading inbox', style: TextStyle(color: Colors.grey[600])),
+              TextButton(
+                onPressed: () => ref.invalidate(notificationsProvider),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -67,14 +86,18 @@ class InboxScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inbox_outlined, size: 80, color: Colors.grey[300]),
+          SizedBox(
+            width: 160,
+            height: 160,
+            child: Lottie.asset('assets/lottie/Dog Paw Loading.json'),
+          ),
           const SizedBox(height: 16),
           Text(
-            'No messages yet',
+            'All caught up!',
             style: TextStyle(
               fontSize: 18,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[700],
             ),
           ),
           const SizedBox(height: 8),

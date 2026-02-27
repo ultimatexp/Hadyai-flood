@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lottie/lottie.dart';
 import '../data/chat_providers.dart';
 import '../domain/conversation.dart';
+import '../../../../shared/shimmer_loading.dart';
 import 'chat_detail_screen.dart';
 
 /// Chat list screen showing all conversations
@@ -34,16 +36,24 @@ class ChatListScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey[300]),
+                  SizedBox(
+                    width: 160,
+                    height: 160,
+                    child: Lottie.asset('assets/lottie/ck pets world.json'),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'No conversations yet',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Start a chat by contacting a pet owner',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                    'Start a chat from a pet post!',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                   ),
                 ],
               ),
@@ -63,7 +73,10 @@ class ChatListScreen extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => ListView.builder(
+          itemCount: 6,
+          itemBuilder: (_, __) => const ChatTileSkeleton(),
+        ),
         error: (err, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -92,6 +105,7 @@ class ChatListScreen extends ConsumerWidget {
               conversationId: convo.id,
               name: convo.otherUserName ?? 'User',
               avatar: convo.otherUserAvatar ?? 'https://i.pravatar.cc/150?u=${convo.otherUserId}',
+              otherUserId: convo.otherUserId,
             ),
           ),
         ).then((_) {

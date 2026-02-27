@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/shimmer_loading.dart';
 import '../../pets/presentation/semantic_search_screen.dart';
 import '../../pets/presentation/pet_detail_screen.dart';
 import '../../pets/domain/pet.dart';
@@ -36,42 +38,60 @@ class OverviewScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. Action Buttons Row
-            Row(
-              children: [
-                Expanded(child: _buildSearchButton(context)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildFoundPetButton(context)),
-              ],
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // 2. Stats Cards
-            Text(
-              "Today's Activity",
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            statsAsync.when(
-              data: (stats) => Row(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(overviewStatsProvider);
+          ref.invalidate(latestFoundPetsProvider);
+        },
+        color: AppTheme.accentOrange,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 0. Greeting Header
+              _buildGreetingHeader(context),
+              const SizedBox(height: 20),
+
+              // 1. Action Buttons Row
+              Row(
                 children: [
-                  Expanded(child: _buildStatCard("Found", stats['today_found'] ?? 0, Colors.green)),
-                  const SizedBox(width: 12),
-                  // Use 'Searched' as placeholder or mock for now
-                  Expanded(child: _buildStatCard("Searched", stats['today_search'] ?? 0, Colors.orange)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildStatCard("Reunited", stats['today_success'] ?? 0, Colors.blue)),
+                  Expanded(child: _buildSearchButton(context)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildFoundPetButton(context)),
                 ],
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Text("Failed to load stats"),
-            ),
+              
+              const SizedBox(height: 24),
+              
+              // 2. Stats Cards
+              Text(
+                "Today's Activity",
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              statsAsync.when(
+                data: (stats) => Row(
+                  children: [
+                    Expanded(child: _buildAnimatedStatCard("Found", stats['today_found'] ?? 0, Colors.green)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildAnimatedStatCard("Searched", stats['today_search'] ?? 0, Colors.orange)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildAnimatedStatCard("Reunited", stats['today_success'] ?? 0, Colors.blue)),
+                  ],
+                ),
+                loading: () => Row(
+                  children: const [
+                    Expanded(child: StatCardSkeleton()),
+                    SizedBox(width: 12),
+                    Expanded(child: StatCardSkeleton()),
+                    SizedBox(width: 12),
+                    Expanded(child: StatCardSkeleton()),
+                  ],
+                ),
+                error: (_, __) => const Text("Failed to load stats"),
+              ),
             
             const SizedBox(height: 24),
             
@@ -96,7 +116,16 @@ class OverviewScreen extends ConsumerWidget {
             latestFoundAsync.when(
               data: (pets) {
                 if (pets.isEmpty) {
-                  return const Center(child: Text("No found pets yet."));
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        "No found pets yet. Be the first to report!",
+                        style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
                 }
                 return SizedBox(
                   height: 200,
@@ -110,12 +139,91 @@ class OverviewScreen extends ConsumerWidget {
                   ),
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => SizedBox(
+                height: 200,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: 4,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (_, __) => const PetCardSmallSkeleton(),
+                ),
+              ),
               error: (e, __) => Text("Failed to load pets: $e"),
             ),
           ],
         ),
       ),
+      ),
+    );
+  }
+
+  Widget _buildGreetingHeader(BuildContext context) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final name = user?.userMetadata?['full_name'] ?? 'Guest';
+    final firstName = name.toString().split(' ').first;
+    final hour = DateTime.now().hour;
+    String greeting;
+    String emoji;
+    if (hour < 12) {
+      greeting = 'Good morning';
+      emoji = '☀️';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+      emoji = '🐾';
+    } else {
+      greeting = 'Good evening';
+      emoji = '🌙';
+    }
+
+    return Row(
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFF9800), Color(0xFFFF6D00)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.orange.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: user?.userMetadata?['avatar_url'] != null
+              ? ClipOval(
+                  child: Image.network(
+                    user!.userMetadata!['avatar_url'],
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white),
+                  ),
+                )
+              : const Icon(Icons.person, color: Colors.white),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$greeting $emoji',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+              Text(
+                firstName,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -223,35 +331,42 @@ class OverviewScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatCard(String title, int count, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            count.toString(),
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+  Widget _buildAnimatedStatCard(String title, int count, Color color) {
+    return TweenAnimationBuilder<int>(
+      tween: IntTween(begin: 0, end: count),
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.2)),
           ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
-            ),
+          child: Column(
+            children: [
+              Text(
+                value.toString(),
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

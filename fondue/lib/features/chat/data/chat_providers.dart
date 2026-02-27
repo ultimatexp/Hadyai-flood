@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'chat_repository.dart';
 import '../domain/conversation.dart';
 import '../domain/message.dart';
+import '../../pets/presentation/pet_providers.dart';
 
 // Chat repository provider
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
@@ -13,9 +14,23 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
 final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
   // Watch for changes in unread count to trigger a refresh
   ref.watch(unreadMessagesCountProvider);
-  
+
   final repo = ref.watch(chatRepositoryProvider);
-  return repo.getConversations();
+  final conversations = await repo.getConversations();
+
+  // Filter out blocked users' conversations
+  List<String> blockedUsers = [];
+  try {
+    blockedUsers = await ref.watch(blockedUsersProvider.future);
+  } catch (_) {}
+
+  if (blockedUsers.isNotEmpty) {
+    return conversations
+        .where((c) => c.otherUserId == null || !blockedUsers.contains(c.otherUserId))
+        .toList();
+  }
+
+  return conversations;
 });
 
 // Messages stream provider for a specific conversation

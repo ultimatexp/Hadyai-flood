@@ -14,6 +14,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -24,6 +25,7 @@ interface SOSSuccessViewProps {
 
 export function SOSSuccessView({ caseData, editToken }: SOSSuccessViewProps) {
     const router = useRouter();
+    const { toastSuccess, toastError, toastInfo } = useToast();
     const [loading, setLoading] = useState(false);
     const [currentStatus, setCurrentStatus] = useState(caseData.status);
     const [isConfirming, setIsConfirming] = useState(false);
@@ -93,10 +95,10 @@ export function SOSSuccessView({ caseData, editToken }: SOSSuccessViewProps) {
 
             // Update local state immediately
             setCurrentStatus("RESOLVED");
-            alert("ขอบคุณที่แจ้งสถานะ! ขอให้ปลอดภัยครับ");
+            toastSuccess("ขอบคุณที่แจ้งสถานะ! ขอให้ปลอดภัยครับ");
         } catch (error) {
             console.error("Error updating status:", error);
-            alert("เกิดข้อผิดพลาดในการอัปเดตสถานะ");
+            toastError("เกิดข้อผิดพลาดในการอัปเดตสถานะ");
         } finally {
             setLoading(false);
         }
@@ -253,13 +255,13 @@ export function SOSSuccessView({ caseData, editToken }: SOSSuccessViewProps) {
                             if (result.success) {
                                 const url = `${window.location.origin}/case/${caseData.id}/family?token=${result.token}`;
                                 navigator.clipboard.writeText(url);
-                                alert("คัดลอกลิงก์สำหรับญาติแล้ว! (ต้องเข้าสู่ระบบเพื่อดูข้อมูล)");
+                                toastSuccess("คัดลอกลิงก์สำหรับญาติแล้ว! (ต้องเข้าสู่ระบบเพื่อดูข้อมูล)");
                             } else {
-                                alert("ไม่สามารถสร้างลิงก์ได้");
+                                toastError("ไม่สามารถสร้างลิงก์ได้");
                             }
                         } catch (e) {
                             console.error(e);
-                            alert("เกิดข้อผิดพลาด");
+                            toastError("เกิดข้อผิดพลาด");
                         } finally {
                             setLoading(false);
                         }

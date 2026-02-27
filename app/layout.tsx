@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Prompt } from "next/font/google";
 import "./globals.css";
+import { ToastProvider } from "@/components/ui/toast";
 
 const prompt = Prompt({
   weight: ["300", "400", "500", "600", "700"],
@@ -22,7 +23,9 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body className={`${prompt.variable} font-sans antialiased`} suppressHydrationWarning>
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

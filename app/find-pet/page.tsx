@@ -27,6 +27,7 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { ThaiButton } from "@/components/ui/thai-button";
+import { useToast } from "@/components/ui/toast";
 import { LostPetForm } from "@/components/pet/lost-pet-form";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -59,6 +60,7 @@ function deg2rad(deg: number) {
 
 export default function FindPetPage() {
     const router = useRouter();
+    const { toastSuccess, toastError, toastWarning, toastInfo } = useToast();
     const [mode, setMode] = useState<'found' | 'lost'>('found');
     const [user, setUser] = useState<any>(null);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -71,7 +73,7 @@ export default function FindPetPage() {
 
     const handleReportLostPetClick = () => {
         if (!user) {
-            alert('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
+            toastWarning('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
             router.push('/login');
             return;
         }
@@ -208,16 +210,16 @@ export default function FindPetPage() {
                 reader.readAsDataURL(imageToUpload);
 
                 if (filledCount > 0) {
-                    alert(`ดึงข้อมูลเรียบร้อย! (พบข้อมูล ${filledCount} รายการ)\nกรุณาตรวจสอบความถูกต้องและเติมข้อมูลที่ขาดหายไป`);
+                    toastSuccess(`ดึงข้อมูลเรียบร้อย! (พบข้อมูล ${filledCount} รายการ)\nกรุณาตรวจสอบความถูกต้องและเติมข้อมูลที่ขาดหายไป`);
                 } else {
-                    alert("วิเคราะห์รูปภาพแล้ว แต่ไม่พบข้อมูลที่ชัดเจน กรุณากรอกข้อมูลด้วยตนเอง");
+                    toastInfo("วิเคราะห์รูปภาพแล้ว แต่ไม่พบข้อมูลที่ชัดเจน กรุณากรอกข้อมูลด้วยตนเอง");
                 }
             } else {
-                alert("ไม่สามารถวิเคราะห์ข้อมูลได้ หรือไม่พบข้อมูลสัตว์เลี้ยงในภาพ");
+                toastWarning("ไม่สามารถวิเคราะห์ข้อมูลได้ หรือไม่พบข้อมูลสัตว์เลี้ยงในภาพ");
             }
         } catch (error) {
             console.error('Error analyzing social post:', error);
-            alert("เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ");
+            toastError("เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ");
         } finally {
             setAnalyzing(false);
         }

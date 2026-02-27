@@ -8,6 +8,7 @@ import { PhotoUploader } from "../ui/photo-uploader";
 import MapPicker from "../map";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { useToast } from "../ui/toast";
 import {
     MapPin,
     Phone,
@@ -21,7 +22,8 @@ import {
     HelpCircle,
     ChevronRight,
     ChevronLeft,
-    CheckCircle2
+    CheckCircle2,
+    Camera
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -37,8 +39,15 @@ const CATEGORIES = [
     { id: "อื่น ๆ", icon: HelpCircle },
 ];
 
+const STEPS = [
+    { num: 1, label: "ตำแหน่ง", icon: MapPin },
+    { num: 2, label: "ข้อมูล", icon: Phone },
+    { num: 3, label: "รายละเอียด", icon: Camera },
+];
+
 export default function SOSWizard() {
     const router = useRouter();
+    const { toastError, toastWarning } = useToast();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
 
@@ -72,7 +81,7 @@ export default function SOSWizard() {
                     .limit(1);
 
                 if (existingCases && existingCases.length > 0) {
-                    alert("เบอร์โทรศัพท์นี้มีการแจ้งเหตุเข้ามาแล้วและกำลังดำเนินการอยู่\nระบบจะพาคุณไปยังหน้ารายละเอียดเคสเดิม");
+                    toastWarning("เบอร์โทรศัพท์นี้มีการแจ้งเหตุเข้ามาแล้วและกำลังดำเนินการอยู่\nระบบจะพาคุณไปยังหน้ารายละเอียดเคสเดิม");
                     router.push(`/case/${existingCases[0].id}`);
                     setLoading(false);
                     return;
@@ -117,7 +126,7 @@ export default function SOSWizard() {
 
         } catch (error) {
             console.error("Error submitting SOS:", error);
-            alert("เกิดข้อผิดพลาดในการส่งข้อมูล กรุณาลองใหม่อีกครั้ง");
+            toastError("เกิดข้อผิดพลาดในการส่งข้อมูล กรุณาลองใหม่อีกครั้ง");
         } finally {
             setLoading(false);
         }
@@ -141,19 +150,55 @@ export default function SOSWizard() {
 
     return (
         <div className="max-w-lg mx-auto pb-20">
-            {/* Progress Bar */}
-            <div className="flex items-center justify-between mb-8 px-2">
-                {[1, 2, 3].map((s) => (
-                    <div key={s} className="flex items-center">
-                        <div className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors",
-                            step >= s ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                        )}>
-                            {s}
-                        </div>
-                        {s < 3 && <div className={cn("w-12 h-1 mx-2 rounded-full", step > s ? "bg-primary" : "bg-muted")} />}
-                    </div>
-                ))}
+            {/* Enhanced Progress Bar */}
+            <div className="mb-8 px-2">
+                {/* Step indicators */}
+                <div className="flex items-center justify-between relative">
+                    {/* Background track */}
+                    <div className="absolute top-5 left-[10%] right-[10%] h-1 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                    {/* Active track */}
+                    <div
+                        className="absolute top-5 left-[10%] h-1 bg-gradient-to-r from-red-500 to-red-400 rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${((step - 1) / (STEPS.length - 1)) * 80}%` }}
+                    />
+
+                    {STEPS.map((s) => {
+                        const StepIcon = s.icon;
+                        const isActive = step >= s.num;
+                        const isCurrent = step === s.num;
+                        return (
+                            <div key={s.num} className="flex flex-col items-center z-10">
+                                <div className={cn(
+                                    "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 border-2",
+                                    isCurrent
+                                        ? "bg-primary text-white border-primary shadow-lg shadow-red-500/30 scale-110"
+                                        : isActive
+                                            ? "bg-primary text-white border-primary"
+                                            : "bg-white dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700"
+                                )}>
+                                    {isActive && step > s.num ? (
+                                        <CheckCircle2 className="w-5 h-5" />
+                                    ) : (
+                                        <StepIcon className="w-5 h-5" />
+                                    )}
+                                </div>
+                                <span className={cn(
+                                    "text-xs mt-2 font-medium transition-colors",
+                                    isCurrent ? "text-primary" : isActive ? "text-gray-600 dark:text-gray-300" : "text-gray-400"
+                                )}>
+                                    {s.label}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Current step title */}
+                <div className="text-center mt-4">
+                    <span className="text-xs text-muted-foreground font-medium bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
+                        ขั้นตอน {step} จาก {STEPS.length}
+                    </span>
+                </div>
             </div>
 
             {/* Step 1: Location */}
@@ -324,3 +369,4 @@ export default function SOSWizard() {
         </div>
     );
 }
+

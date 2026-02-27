@@ -1,115 +1,145 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 import torch
-import torchvision.models as models
-import torchvision.transforms as transforms
+import open_clip
 from PIL import Image
 import io
 import requests
 import numpy as np
 from sklearn.cluster import KMeans
+from skimage.color import rgb2lab, deltaE_ciede2000
 
 app = FastAPI()
 
-# Load pre-trained ResNet18 model
-# We use ResNet18 for a good balance of speed and accuracy
-model = models.resnet18(pretrained=True)
-# Remove the last fully connected layer to get the embedding (512 dimensions)
-model = torch.nn.Sequential(*(list(model.children())[:-1]))
+# ──────────────────────────────────────────────
+# 1. Load CLIP ViT-B/32  (512-dim, same as old ResNet18)
+# ──────────────────────────────────────────────
+model, _, preprocess = open_clip.create_model_and_transforms(
+    'ViT-B-32', pretrained='laion2b_s34b_b79k'
+)
 model.eval()
 
-# Define image transformations
-preprocess = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
+
+# ──────────────────────────────────────────────
+# Helpers
+# ──────────────────────────────────────────────
 
 class EmbeddingRequest(BaseModel):
     image_url: str
 
+
 @app.get("/")
 def read_root():
-    return {"status": "ok", "service": "pet-detection"}
+    return {"status": "ok", "service": "pet-detection", "model": "CLIP-ViT-B-32"}
 
-def extract_dominant_colors(image_bytes, n_colors=3):
-    """Extract dominant colors from an image using K-means clustering."""
+
+def get_embedding(image_bytes: bytes) -> list[float]:
+    """Generate a 512-dim L2-normalised CLIP embedding from raw image bytes."""
     try:
         img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-        # Resize for faster processing
+        img_tensor = preprocess(img).unsqueeze(0)          # [1, 3, 224, 224]
+
+        with torch.no_grad():
+            features = model.encode_image(img_tensor)       # [1, 512]
+            features /= features.norm(dim=-1, keepdim=True) # L2-normalise
+
+        return features.squeeze().tolist()
+    except Exception as e:
+        print(f"Error processing image: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+
+
+# ──────────────────────────────────────────────
+# 2. LAB Color Extraction  (perceptually-uniform)
+# ──────────────────────────────────────────────
+
+def extract_dominant_colors(image_bytes: bytes, n_colors: int = 3):
+    """
+    Extract dominant colors using K-Means in CIELAB space.
+    Returns both LAB centroids and their RGB equivalents for display.
+    """
+    try:
+        img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
         img = img.resize((150, 150))
-        
-        # Convert to numpy array and reshape
-        img_array = np.array(img)
-        pixels = img_array.reshape(-1, 3)
-        
-        # Use K-means to find dominant colors
+
+        img_array = np.array(img, dtype=np.float64)
+
+        # Center-crop the inner 60% to reduce background influence
+        h, w = img_array.shape[:2]
+        margin_h, margin_w = int(h * 0.2), int(w * 0.2)
+        cropped = img_array[margin_h:h - margin_h, margin_w:w - margin_w]
+
+        # Convert to CIELAB (expects float64 in [0, 1])
+        lab_image = rgb2lab(cropped / 255.0)
+        lab_pixels = lab_image.reshape(-1, 3)
+
+        # K-Means in LAB space
         kmeans = KMeans(n_clusters=n_colors, random_state=42, n_init=10)
-        kmeans.fit(pixels)
-        
-        # Get colors and their proportions
-        colors = kmeans.cluster_centers_.astype(int)
+        kmeans.fit(lab_pixels)
+
+        lab_centers = kmeans.cluster_centers_   # shape (n, 3)
         labels = kmeans.labels_
         counts = np.bincount(labels)
         percentages = counts / len(labels)
-        
-        # Sort by percentage
-        sorted_indices = np.argsort(-percentages)
-        dominant_colors = colors[sorted_indices].tolist()
-        color_percentages = percentages[sorted_indices].tolist()
-        
+
+        # Sort by percentage (dominant first)
+        sorted_idx = np.argsort(-percentages)
+        lab_centers = lab_centers[sorted_idx]
+        percentages = percentages[sorted_idx]
+
+        # Also return RGB equivalents for display / backward compat
+        rgb_pixels = cropped.reshape(-1, 3)
+        rgb_centers = []
+        for cluster_id in sorted_idx:
+            mask = labels == cluster_id
+            cluster_rgb = rgb_pixels[mask].mean(axis=0).astype(int)
+            rgb_centers.append(cluster_rgb.tolist())
+
         return {
-            "colors": dominant_colors,
-            "percentages": color_percentages
+            "colors": rgb_centers,                    # RGB for display
+            "lab_colors": lab_centers.tolist(),        # LAB for matching
+            "percentages": percentages.tolist(),
         }
     except Exception as e:
         print(f"Error extracting colors: {e}")
         raise HTTPException(status_code=500, detail=f"Error extracting colors: {str(e)}")
 
-def calculate_color_similarity(colors1, percentages1, colors2, percentages2):
-    """Calculate similarity between two sets of dominant colors."""
+
+def calculate_color_similarity_lab(
+    lab1: list[list[float]], pct1: list[float],
+    lab2: list[list[float]], pct2: list[float],
+) -> float:
+    """
+    Perceptually-accurate color similarity using CIEDE2000 in LAB space.
+    Returns a float in [0, 1] where 1 = identical.
+    """
     try:
-        total_similarity = 0.0
-        
-        # Compare each dominant color from image 1 with colors from image 2
-        for i, (color1, pct1) in enumerate(zip(colors1, percentages1)):
-            color1 = np.array(color1)
-            max_color_similarity = 0.0
-            
-            # Find the most similar color in image 2
-            for color2 in colors2:
-                color2 = np.array(color2)
-                # Calculate Euclidean distance in RGB space
-                distance = np.linalg.norm(color1 - color2)
-                # Convert distance to similarity (0-1 scale, where 1 is identical)
-                # Max distance in RGB space is sqrt(3 * 255^2) ≈ 441
-                similarity = max(0, 1 - (distance / 441))
-                max_color_similarity = max(max_color_similarity, similarity)
-            
-            # Weight by the percentage of this color in image 1
-            total_similarity += max_color_similarity * pct1
-        
-        return total_similarity
+        total_sim = 0.0
+        lab1_arr = np.array(lab1)
+        lab2_arr = np.array(lab2)
+
+        for i in range(len(lab1_arr)):
+            best = 0.0
+            for j in range(len(lab2_arr)):
+                # deltaE_ciede2000 expects (L, a, b) shaped arrays
+                de = deltaE_ciede2000(
+                    lab1_arr[i].reshape(1, 3),
+                    lab2_arr[j].reshape(1, 3),
+                )[0]
+                # Convert Delta-E to similarity: DE=0 → 1.0, DE=100 → 0.0
+                sim = max(0.0, 1.0 - de / 100.0)
+                best = max(best, sim)
+            total_sim += best * pct1[i]
+
+        return float(total_sim)
     except Exception as e:
-        print(f"Error calculating color similarity: {e}")
+        print(f"Error calculating LAB color similarity: {e}")
         return 0.0
 
-def get_embedding(image_bytes):
-    try:
-        img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-        img_tensor = preprocess(img)
-        img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
 
-        with torch.no_grad():
-            embedding = model(img_tensor)
-        
-        # Flatten the embedding
-        embedding_np = embedding.squeeze().numpy()
-        return embedding_np.tolist()
-    except Exception as e:
-        print(f"Error processing image: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+# ──────────────────────────────────────────────
+# 3. API Endpoints
+# ──────────────────────────────────────────────
 
 @app.post("/embed")
 async def create_embedding_file(file: UploadFile = File(...)):
@@ -118,49 +148,51 @@ async def create_embedding_file(file: UploadFile = File(...)):
     colors_data = extract_dominant_colors(contents)
     return {
         "embedding": embedding,
-        "colors": colors_data["colors"],
-        "color_percentages": colors_data["percentages"]
+        "colors": colors_data["colors"],               # RGB (backward compat)
+        "lab_colors": colors_data["lab_colors"],        # LAB (new)
+        "color_percentages": colors_data["percentages"],
     }
+
 
 @app.post("/embed-url")
 async def create_embedding_url(request: EmbeddingRequest):
     try:
-        response = requests.get(request.image_url)
+        response = requests.get(request.image_url, timeout=30)
         response.raise_for_status()
         embedding = get_embedding(response.content)
         colors_data = extract_dominant_colors(response.content)
         return {
             "embedding": embedding,
             "colors": colors_data["colors"],
-            "color_percentages": colors_data["percentages"]
+            "lab_colors": colors_data["lab_colors"],
+            "color_percentages": colors_data["percentages"],
         }
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=400, detail=f"Error fetching image from URL: {str(e)}")
 
+
 @app.post("/color-similarity")
 async def calculate_color_similarity_endpoint(
     file1: UploadFile = File(...),
-    file2: UploadFile = File(...)
+    file2: UploadFile = File(...),
 ):
-    """Calculate color similarity between two images."""
+    """Calculate perceptual color similarity (CIEDE2000) between two images."""
     try:
         contents1 = await file1.read()
         contents2 = await file2.read()
-        
-        colors1_data = extract_dominant_colors(contents1)
-        colors2_data = extract_dominant_colors(contents2)
-        
-        similarity = calculate_color_similarity(
-            colors1_data["colors"],
-            colors1_data["percentages"],
-            colors2_data["colors"],
-            colors2_data["percentages"]
+
+        c1 = extract_dominant_colors(contents1)
+        c2 = extract_dominant_colors(contents2)
+
+        similarity = calculate_color_similarity_lab(
+            c1["lab_colors"], c1["percentages"],
+            c2["lab_colors"], c2["percentages"],
         )
-        
+
         return {
             "color_similarity": similarity,
-            "image1_colors": colors1_data,
-            "image2_colors": colors2_data
+            "image1_colors": c1,
+            "image2_colors": c2,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calculating similarity: {str(e)}")

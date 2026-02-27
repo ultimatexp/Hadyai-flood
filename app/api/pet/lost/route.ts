@@ -67,8 +67,8 @@ export async function POST(request: Request) {
                     });
 
                     if (embedResponse.ok) {
-                        const { embedding, colors, color_percentages } = await embedResponse.json();
-                        return { embedding, colors, color_percentages };
+                        const { embedding, colors, lab_colors, color_percentages } = await embedResponse.json();
+                        return { embedding, colors, lab_colors, color_percentages };
                     } else {
                         console.error('Embedding service error:', await embedResponse.text());
                         return null;
@@ -157,7 +157,8 @@ export async function POST(request: Request) {
                 .update({
                     embedding: `[${embeddingData.embedding.join(',')}]`,
                     dominant_colors: JSON.stringify(embeddingData.colors),
-                    color_percentages: JSON.stringify(embeddingData.color_percentages)
+                    color_percentages: JSON.stringify(embeddingData.color_percentages),
+                    lab_colors: embeddingData.lab_colors ? JSON.stringify(embeddingData.lab_colors) : null,
                 })
                 .eq('id', petData.id);
 

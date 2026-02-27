@@ -380,53 +380,104 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                   onPressed: _showEditDialog,
                   tooltip: 'Edit',
                 ),
+              ] else ...[
+                 PopupMenuButton<String>(
+                   onSelected: (value) {
+                     if (value == 'report') _reportPost();
+                     if (value == 'block') _blockUser();
+                   },
+                   itemBuilder: (context) => [
+                     const PopupMenuItem(
+                       value: 'report',
+                       child: Row(
+                         children: [
+                           Icon(Icons.flag_outlined, color: Colors.orange),
+                           SizedBox(width: 8),
+                           Text('Report Post'),
+                         ],
+                       ),
+                     ),
+                     const PopupMenuItem(
+                       value: 'block',
+                       child: Row(
+                         children: [
+                           Icon(Icons.block, color: Colors.red),
+                           SizedBox(width: 8),
+                           Text('Block User'),
+                         ],
+                       ),
+                     ),
+                   ],
+                 ),
               ],
             ],
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Image
-                  _currentImageUrl != null
-                      ? Image.network(
-                          _currentImageUrl!,
+                  // Image with Hero + PageView for swipe
+                  if (hasMultipleImages)
+                    PageView.builder(
+                      itemCount: _pet.images.length,
+                      onPageChanged: (index) {
+                        setState(() => _currentImageIndex = index);
+                      },
+                      itemBuilder: (context, index) {
+                        final url = _pet.images[index];
+                        // Only first image gets the Hero for smooth transition
+                        final imageWidget = Image.network(
+                          url,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
                             color: Colors.grey[300],
                             child: const Icon(Icons.pets, size: 80, color: Colors.grey),
                           ),
-                        )
-                      : Container(color: Colors.grey[300]),
+                        );
+                        if (index == 0) {
+                          return Hero(
+                            tag: 'pet-image-${_pet.id}',
+                            child: imageWidget,
+                          );
+                        }
+                        return imageWidget;
+                      },
+                    )
+                  else
+                    Hero(
+                      tag: 'pet-image-${_pet.id}',
+                      child: _currentImageUrl != null
+                          ? Image.network(
+                              _currentImageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: Colors.grey[300],
+                                child: const Icon(Icons.pets, size: 80, color: Colors.grey),
+                              ),
+                            )
+                          : Container(color: Colors.grey[300]),
+                    ),
 
-                  // Navigation Arrows
-                  if (hasMultipleImages)
-                    Positioned(
-                      left: 8,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(
-                        child: _buildNavButton(
-                          Icons.chevron_left,
-                          _currentImageIndex > 0,
-                          _previousImage,
+                  // Gradient overlay for readability
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 80,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.5),
+                            Colors.transparent,
+                          ],
                         ),
                       ),
                     ),
-                  if (hasMultipleImages)
-                    Positioned(
-                      right: 8,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(
-                        child: _buildNavButton(
-                          Icons.chevron_right,
-                          _currentImageIndex < _pet.images.length - 1,
-                          _nextImage,
-                        ),
-                      ),
-                    ),
+                  ),
 
-                  // Page Indicator
+                  // Animated Page Indicator Dots
                   if (hasMultipleImages)
                     Positioned(
                       bottom: 16,
@@ -436,16 +487,16 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
                           _pet.images.length,
-                          (index) => Container(
-                            width: 8,
+                          (index) => AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: index == _currentImageIndex ? 20 : 8,
                             height: 8,
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
+                              borderRadius: BorderRadius.circular(4),
                               color: index == _currentImageIndex
                                   ? Colors.white
                                   : Colors.white.withOpacity(0.5),
-                              border: Border.all(color: Colors.black26),
                             ),
                           ),
                         ),
@@ -1109,6 +1160,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
               phoneNumber: _pet.contactInfo,
               petStatus: _pet.status,
               petName: _pet.name,
+              otherUserId: _pet.userId,
             ),
           ),
         );
@@ -1136,6 +1188,140 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cannot make phone call')),
         );
+      }
+    }
+  }
+
+  void _reportPost() async {
+    final reasonController = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report Post'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Why are you reporting this post?'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                hintText: 'e.g., Inappropriate content, spam...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, reasonController.text),
+            child: const Text('Report'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      try {
+        final repo = ref.read(petRepositoryProvider);
+        final currentUser = Supabase.instance.client.auth.currentUser;
+        
+        if (currentUser == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please log in to report content')),
+            );
+          }
+          return;
+        }
+
+        await repo.reportContent(
+          reporterId: currentUser.id,
+          entityId: _pet.id,
+          entityType: 'pet',
+          reason: result,
+          reportedUserId: _pet.userId,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Report submitted. Thank you for helping keep our community safe.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error submitting report: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  void _blockUser() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Block User'),
+        content: const Text(
+          'Are you sure you want to block this user? You will no longer see their posts.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final repo = ref.read(petRepositoryProvider);
+        final currentUser = Supabase.instance.client.auth.currentUser;
+        
+        if (currentUser == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please log in to block users')),
+            );
+          }
+          return;
+        }
+
+        if (_pet.userId == null) return;
+
+        await repo.blockUser(
+          blockerId: currentUser.id,
+          blockedId: _pet.userId!,
+        );
+
+        // Refresh providers to hide blocked content
+        ref.invalidate(blockedUsersProvider);
+        ref.invalidate(lostPetsProvider);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User blocked.')),
+          );
+          Navigator.pop(context); // Close detail screen as context is now hidden
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error blocking user: $e')),
+          );
+        }
       }
     }
   }

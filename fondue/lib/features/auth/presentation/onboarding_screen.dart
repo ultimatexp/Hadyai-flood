@@ -47,7 +47,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    
+
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (context) => SafeArea(
@@ -71,15 +71,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     if (source == null) return;
 
-    final pickedFile = await picker.pickImage(
-      source: source,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 80,
-    );
+    try {
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 80,
+        requestFullMetadata: false,
+      );
 
-    if (pickedFile != null) {
-      setState(() => _selectedImage = File(pickedFile.path));
+      if (pickedFile != null && mounted) {
+        setState(() => _selectedImage = File(pickedFile.path));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open ${source == ImageSource.camera ? 'camera' : 'gallery'}: $e')),
+        );
+      }
     }
   }
 

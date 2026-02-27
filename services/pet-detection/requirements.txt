@@ -7,3 +7,5 @@ requests
 python-multipart
 numpy
 scikit-learn
+open-clip-torch
+scikit-image

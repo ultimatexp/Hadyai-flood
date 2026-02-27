@@ -1,4 +1,4 @@
-package com.fondue.fondue
+package com.fondue.hedfang
 
 import io.flutter.embedding.android.FlutterActivity
 
