@@ -101,9 +101,23 @@ export default function FuelPage() {
 
       const res = await fetch(`/api/fuel/stations?${params.toString()}`);
       const data = await res.json();
-      setStations(data.stations || []);
-      setTotalCount(data.total || 0);
-      if (data.fuel_types) setFuelTypes(data.fuel_types);
+
+      // Fallback: if radius returned 0 stations, retry without location filter
+      if ((data.stations || []).length === 0 && userLocation && !selectedProvince) {
+        const fallbackParams = new URLSearchParams();
+        if (selectedBrand) fallbackParams.set('brand', selectedBrand);
+        if (searchQuery) fallbackParams.set('search', searchQuery);
+        fallbackParams.set('limit', '750');
+        const fbRes = await fetch(`/api/fuel/stations?${fallbackParams.toString()}`);
+        const fbData = await fbRes.json();
+        setStations(fbData.stations || []);
+        setTotalCount(fbData.total || 0);
+        if (fbData.fuel_types) setFuelTypes(fbData.fuel_types);
+      } else {
+        setStations(data.stations || []);
+        setTotalCount(data.total || 0);
+        if (data.fuel_types) setFuelTypes(data.fuel_types);
+      }
     } catch (err) {
       console.error('Failed to fetch stations:', err);
     } finally {

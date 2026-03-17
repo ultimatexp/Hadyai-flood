@@ -29,9 +29,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   Widget build(BuildContext context) {
     final feedAsync = ref.watch(feedPostsProvider);
 
-    return Stack(
-      children: [
-        RefreshIndicator(
+    return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(feedPostsProvider);
         ref.invalidate(activeStoriesProvider);
@@ -61,6 +59,41 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   ),
                 ),
                 const Spacer(),
+                // ⛽ Fuel Tracker shortcut
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FuelMapScreen()),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.local_gas_station, color: Colors.white, size: 16),
+                        const SizedBox(width: 3),
+                        Text(
+                          'น้ำมัน',
+                          style: GoogleFonts.prompt(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 // Food Scanner shortcut
                 GestureDetector(
                   onTap: () {
@@ -271,54 +304,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
         ],
       ),
-    ),
-
-        // ═══════ EMERGENCY FUEL FAB ═══════
-        Positioned(
-          left: 16,
-          bottom: 110,
-          child: GestureDetector(
-            onTap: () {
-              HapticFeedback.mediumImpact();
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const FuelMapScreen()),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFF59E0B).withOpacity(0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.local_gas_station, color: Colors.white, size: 18),
-                  const SizedBox(width: 6),
-                  Text(
-                    'น้ำมัน',
-                    style: GoogleFonts.prompt(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
