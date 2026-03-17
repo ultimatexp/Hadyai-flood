@@ -48,7 +48,7 @@ class FuelRepository {
     }
 
     final body = json.decode(response.body);
-    final data = body['data'] as List<dynamic>? ?? [];
+    final data = body['stations'] as List<dynamic>? ?? [];
     return data
         .map((json) => GasStation.fromJson(json as Map<String, dynamic>))
         .toList();
