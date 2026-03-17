@@ -2,17 +2,18 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../pets/presentation/pet_feed_screen.dart';
-import '../../pets/presentation/map_view_screen.dart';
-import '../../auth/presentation/profile_screen.dart';
+import '../../social/presentation/user_profile_page.dart';
 import '../../pets/presentation/report_screen.dart';
 import '../../chat/presentation/chat_list_screen.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../chat/data/chat_providers.dart';
+import '../../social/presentation/feed_screen.dart';
+import '../../social/presentation/explore_screen.dart';
+import '../../social/presentation/create_post_screen.dart';
+import '../../social/data/social_providers.dart';
 import '../data/dashboard_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/presentation/onboarding_screen.dart';
-import 'overview_screen.dart';
 import '../../../shared/page_transitions.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -73,8 +74,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   void _onItemTapped(int index) {
       HapticFeedback.selectionClick();
 
-      // Chat Tab Login Check (Index 2)
-      if (index == 2) {
+      // Chat Tab Login Check (Index 3)
+      if (index == 3) {
          final user = Supabase.instance.client.auth.currentUser;
          if (user == null || user.isAnonymous) {
            _showLoginScreen();
@@ -98,14 +99,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _previousUnreadCount = unreadChatCount;
 
     final pages = [
-      const OverviewScreen(),
-      const PetFeedScreen(),
-      const ChatListScreen(),
-      const ProfileScreen(),
+      const FeedScreen(),        // 0: Feed (was Overview)
+      const ExploreScreen(),     // 1: Explore (was Pet Feed)
+      const SizedBox(),          // 2: Placeholder (FAB position)
+      const ChatListScreen(),    // 3: Chat
+      const UserProfilePage(),   // 4: Profile
     ];
 
     return Scaffold(
-      body: pages[currentIndex],
+      body: IndexedStack(
+        index: currentIndex,
+        children: pages,
+      ),
       extendBody: true,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -114,15 +119,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
              if (user == null || user.isAnonymous) {
                _showLoginScreen();
              } else {
-               Navigator.push(
-                context,
-                SlideUpPageRoute(page: const ReportScreen()),
-              );
+               _showCreateOptions(context);
              }
         },
-        elevation: 6.0,
+        elevation: 8.0,
         shape: const CircleBorder(),
-        child: const Icon(Icons.add, size: 32),
+        backgroundColor: const Color(0xFFFF9800),
+        child: const Icon(Icons.add, size: 32, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _FrostedBottomNav(
@@ -145,9 +148,75 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       }
     });
   }
+
+  void _showCreateOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40, height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF9800).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.pets, color: Color(0xFFFF9800)),
+                ),
+                title: const Text('รายงานสัตว์เลี้ยง', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('แจ้งพบ / หาสัตว์หาย', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, SlideUpPageRoute(page: const ReportScreen()));
+                },
+              ),
+              const SizedBox(height: 4),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.edit_square, color: Color(0xFF4CAF50)),
+                ),
+                title: const Text('สร้างโพสต์', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('แชร์เรื่องราว ข่าวสาร ภาพ', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    SlideUpPageRoute(page: const CreatePostScreen()),
+                  ).then((result) {
+                    if (result == true) {
+                      ref.read(dashboardTabIndexProvider.notifier).setTab(0);
+                      ref.invalidate(feedPostsProvider);
+                    }
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-/// Frosted glass bottom navigation bar with animated indicator
+/// Frosted glass bottom navigation bar with 5 tabs + center FAB
 class _FrostedBottomNav extends StatelessWidget {
   final int currentIndex;
   final int unreadChatCount;
@@ -190,11 +259,11 @@ class _FrostedBottomNav extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(0, Icons.home_rounded, 'Home'),
-                _buildNavItem(1, Icons.pets_rounded, 'Pets'),
+                _buildNavItem(0, Icons.home_rounded, 'หน้าแรก'),
+                _buildNavItem(1, Icons.explore_rounded, 'สำรวจ'),
                 const SizedBox(width: 56), // Space for FAB
                 _buildChatNavItem(),
-                _buildNavItem(3, Icons.person_rounded, 'Profile'),
+                _buildNavItem(4, Icons.person_rounded, 'โปรไฟล์'),
               ],
             ),
           ),
@@ -242,9 +311,9 @@ class _FrostedBottomNav extends StatelessWidget {
   }
 
   Widget _buildChatNavItem() {
-    final isActive = currentIndex == 2;
+    final isActive = currentIndex == 3;
     return GestureDetector(
-      onTap: () => onTap(2),
+      onTap: () => onTap(3),
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: 64,
@@ -284,7 +353,7 @@ class _FrostedBottomNav extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'Chat',
+              'แชท',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
