@@ -758,8 +758,8 @@ export default function StationPanel({
 
               return (
                 <div key={ft.id} className="fuel-card" style={{
-                  background: decisive.color === '#EF4444' ? '#FEF2F2' : undefined,
-                  borderColor: decisive.color === '#EF4444' ? '#FECACA' : undefined,
+                  background: decisive.color === '#EF4444' ? '#FEF2F2' : decisive.color === '#22C55E' ? '#F0FDF4' : undefined,
+                  borderColor: decisive.color === '#EF4444' ? '#FECACA' : decisive.color === '#22C55E' ? '#BBF7D0' : undefined,
                 }}>
                   <div className="fuel-card-header">
                     <div className="fuel-label">

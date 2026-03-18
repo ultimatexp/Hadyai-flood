@@ -237,14 +237,23 @@ class _StationPanelContentState extends ConsumerState<_StationPanelContent> {
                       final isSubmitting = _submittingKey == key;
                       final isSuccess = _successKey == key;
                       final isOut = decisive.color == const Color(0xFFEF4444);
+                      final isAvailable = decisive.color == const Color(0xFF22C55E);
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isOut ? const Color(0xFFFEF2F2) : Colors.grey[50],
+                          color: isOut
+                              ? const Color(0xFFFEF2F2)
+                              : isAvailable
+                                  ? const Color(0xFFF0FDF4)
+                                  : Colors.grey[50],
                           border: Border.all(
-                            color: isOut ? const Color(0xFFFECACA) : Colors.grey.shade200,
+                            color: isOut
+                                ? const Color(0xFFFECACA)
+                                : isAvailable
+                                    ? const Color(0xFFBBF7D0)
+                                    : Colors.grey.shade200,
                           ),
                           borderRadius: BorderRadius.circular(14),
                         ),
