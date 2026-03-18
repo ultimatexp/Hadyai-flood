@@ -107,9 +107,10 @@ function createStationCardIcon(
   const brandColor = BRAND_COLORS[station.brand] || '#64748b';
   const abbr = BRAND_ABBR[station.brand] || station.brand.substring(0, 3);
 
-  // Focus on 3 main fuel types only
-  const MAIN_FUELS = ['diesel_b7', 'gasohol_91', 'gasohol_95'];
+  // Focus on main fuel types
+  const MAIN_FUELS = ['diesel', 'diesel_b7', 'gasohol_91', 'gasohol_95'];
   const FUEL_LABELS: Record<string, string> = {
+    'diesel': 'D',
     'diesel_b7': 'D',
     'gasohol_91': '91',
     'gasohol_95': '95',
