@@ -316,10 +316,7 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
       appBar: AppBar(
         automaticallyImplyLeading: !widget.asHomeTab,
         title: Text(widget.asHomeTab ? '🐾 ค้นหาสัตว์เลี้ยง' : 'Smart Pet Search'),
-        bottom: hasResults ? null : PreferredSize(
-          preferredSize: const Size.fromHeight(52),
-          child: _buildAlgorithmPills(),
-        ),
+        // Algorithm pills hidden
       ),
       body: Column(
         children: [

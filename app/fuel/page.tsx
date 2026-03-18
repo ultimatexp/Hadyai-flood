@@ -575,7 +575,7 @@ export default function FuelPage() {
                   { icon: '📍', text: <>กดที่ <b>หมุดปั๊ม</b> บนแผนที่ เพื่อดูสถานะน้ำมัน</> },
                   { icon: '🗳️', text: <>กด <b>โหวต</b> ว่าน้ำมันแต่ละชนิด มี/หมด/เติมใหม่</> },
                   { icon: '🟢', text: <>สีเขียว = มีน้ำมัน &nbsp; 🔴 สีแดง = หมดแล้ว</> },
-                  { icon: '📢', text: <>กดปุ่ม <b>&quot;อัปเดตสถานะน้ำมัน&quot;</b> ด้านล่าง เพื่ออัปเดตหลายปั๊มพร้อมกัน</> },
+                  { icon: '📢', text: <>กดปุ่ม <b>&quot;แจ้งน้ำมันหมด&quot;</b> ด้านล่าง เพื่ออัปเดตหลายปั๊มพร้อมกัน</> },
                 ].map((step, i) => (
                   <div key={i} style={{
                     display: 'flex', alignItems: 'flex-start', gap: 12,
@@ -712,7 +712,7 @@ export default function FuelPage() {
       <div className="floating-actions-center">
         <button className="fab report" onClick={() => setShowQuickUpdate(true)}>
           <MessageSquarePlus size={20} />
-          อัปเดตสถานะน้ำมัน
+          แจ้งน้ำมันหมด
         </button>
       </div>
 

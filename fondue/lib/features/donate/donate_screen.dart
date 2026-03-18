@@ -17,6 +17,15 @@ class _DonateScreenState extends State<DonateScreen> {
   static const _promptPayNumber = '0877484066';
   bool _saving = false;
   bool _saved = false;
+  final _feedbackController = TextEditingController();
+  bool _feedbackSent = false;
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _feedbackController.dispose();
+    super.dispose();
+  }
 
   Future<void> _saveQR() async {
     setState(() => _saving = true);
@@ -27,7 +36,6 @@ class _DonateScreenState extends State<DonateScreen> {
         final file = File('${dir.path}/promptpay-donate.png');
         await file.writeAsBytes(response.bodyBytes);
         
-        // Try to save to gallery
         // ignore: unused_local_variable
         final result = await Process.run('open', [file.path]);
         
@@ -55,6 +63,26 @@ class _DonateScreenState extends State<DonateScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _sendFeedback() async {
+    final msg = _feedbackController.text.trim();
+    if (msg.isEmpty) return;
+    setState(() => _sending = true);
+    try {
+      await http.post(
+        Uri.parse('${const String.fromEnvironment('API_BASE_URL', defaultValue: 'https://hadyai-flood.vercel.app')}/api/feedback'),
+        headers: {'Content-Type': 'application/json'},
+        body: '{"message":"$msg","source":"mobile_donate"}',
+      );
+    } catch (_) {}
+    if (mounted) {
+      setState(() { _sending = false; _feedbackSent = true; });
+      _feedbackController.clear();
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _feedbackSent = false);
+      });
     }
   }
 
@@ -118,7 +146,6 @@ class _DonateScreenState extends State<DonateScreen> {
                   ),
                   child: Column(
                     children: [
-                      // Gradient top bar
                       Container(
                         height: 4,
                         decoration: const BoxDecoration(
@@ -141,7 +168,6 @@ class _DonateScreenState extends State<DonateScreen> {
                                   style: GoogleFonts.prompt(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
                             ),
                             const SizedBox(height: 16),
-                            // QR code
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -151,37 +177,25 @@ class _DonateScreenState extends State<DonateScreen> {
                               ),
                               child: Image.network(
                                 'https://promptpay.io/$_promptPayNumber.png',
-                                width: 200,
-                                height: 200,
-                                fit: BoxFit.contain,
+                                width: 200, height: 200, fit: BoxFit.contain,
                                 loadingBuilder: (_, child, progress) {
                                   if (progress == null) return child;
                                   return SizedBox(
                                     width: 200, height: 200,
                                     child: Center(child: CircularProgressIndicator(
                                       value: progress.expectedTotalBytes != null
-                                          ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                                          : null,
+                                          ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes! : null,
                                       color: const Color(0xFF6366F1),
                                     )),
                                   );
                                 },
-                                errorBuilder: (_, __, ___) => SizedBox(
+                                errorBuilder: (_, __, ___) => const SizedBox(
                                   width: 200, height: 200,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.qr_code, size: 80, color: Color(0xFFCBD5E1)),
-                                      const SizedBox(height: 8),
-                                      Text('PromptPay: $_promptPayNumber',
-                                          style: GoogleFonts.prompt(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF475569))),
-                                    ],
-                                  ),
+                                  child: Center(child: Icon(Icons.qr_code, size: 80, color: Color(0xFFCBD5E1))),
                                 ),
                               ),
                             ),
                             const SizedBox(height: 14),
-                            // Save QR button
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
@@ -228,30 +242,96 @@ class _DonateScreenState extends State<DonateScreen> {
 
                 const SizedBox(height: 24),
 
-                // Why donate
-                _MessageCard(
-                  icon: Icons.auto_awesome,
-                  iconColor: const Color(0xFFFBBF24),
-                  title: 'ทำไมต้องบริจาค?',
-                  children: [
-                    _messageP('🛢️ เช็คน้ำมัน ช่วยให้คุณรู้ว่าปั๊มไหนมีน้ำมัน ไม่ต้องวิ่งหาปั๊มเปล่า'),
-                    _messageP('🐾 ตามหาสัตว์เลี้ยง ช่วยให้สัตว์เลี้ยงที่หลุดกลับบ้านได้เร็วขึ้น'),
-                    _messageP('🌊 รายงานน้ำท่วม เตือนภัยให้พี่น้องคนไทยปลอดภัย'),
-                    _messageP('ทุกบาททำให้เราดูแลเซิร์ฟเวอร์ พัฒนาฟีเจอร์ใหม่ และทำแอปนี้ดีขึ้นเรื่อยๆ ครับ 🙏'),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Thank you
-                _MessageCard(
-                  icon: Icons.favorite,
-                  iconColor: const Color(0xFFF472B6),
-                  title: 'ขอบคุณจากใจ',
-                  children: [
-                    _messageP('แอปนี้สร้างด้วยใจโดยทีมอาสาสมัครที่รักประเทศไทย 💛 เราไม่มีโฆษณา ไม่ขายข้อมูล ไม่เก็บค่าสมาชิก'),
-                    _messageP('การสนับสนุนของคุณ ไม่ว่าจะเท่าไหร่ ล้วนมีความหมาย — มันบอกว่า "ทีมงานสู้ๆ นะ พวกเราเห็นค่านะ" 😊'),
-                  ],
+                // Feedback section
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.12)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.chat_bubble_outline, size: 18, color: Color(0xFFFBBF24)),
+                          const SizedBox(width: 8),
+                          Text('ฝากข้อความถึงทีมงาน',
+                              style: GoogleFonts.prompt(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFFFBBF24))),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (_feedbackSent) ...[
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Column(
+                              children: [
+                                const Text('💛', style: TextStyle(fontSize: 40)),
+                                const SizedBox(height: 8),
+                                Text('ขอบคุณสำหรับข้อความครับ!',
+                                    style: GoogleFonts.prompt(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.8))),
+                                const SizedBox(height: 4),
+                                Text('ทีมงานจะอ่านทุกข้อความ 🙏',
+                                    style: GoogleFonts.prompt(fontSize: 12, color: Colors.white.withOpacity(0.5))),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        Text('อยากให้เพิ่มฟีเจอร์อะไร? มีข้อเสนอแนะ? หรือแค่อยากส่งกำลังใจ — เขียนถึงเราได้เลยครับ 😊',
+                            style: GoogleFonts.prompt(fontSize: 13, color: Colors.white.withOpacity(0.6), height: 1.6)),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _feedbackController,
+                          maxLines: 3,
+                          style: GoogleFonts.prompt(color: Colors.white, fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText: 'เขียนข้อความถึงทีมงาน...',
+                            hintStyle: GoogleFonts.prompt(color: Colors.white.withOpacity(0.3), fontSize: 14),
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.08),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFFBBF24)),
+                            ),
+                            contentPadding: const EdgeInsets.all(14),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _sending ? null : _sendFeedback,
+                            icon: _sending
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E293B)))
+                                : const Icon(Icons.send, size: 14),
+                            label: Text(
+                              _sending ? 'กำลังส่ง...' : 'ส่งข้อความ',
+                              style: GoogleFonts.prompt(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFBBF24),
+                              foregroundColor: const Color(0xFF1E293B),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
 
                 const SizedBox(height: 32),
@@ -269,13 +349,6 @@ class _DonateScreenState extends State<DonateScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _messageP(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text, style: GoogleFonts.prompt(fontSize: 13, color: Colors.white.withOpacity(0.8), height: 1.7)),
     );
   }
 }
@@ -306,42 +379,6 @@ class _AmountCard extends StatelessWidget {
             Text(desc, style: GoogleFonts.prompt(fontSize: 10, color: Colors.white.withOpacity(0.5))),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _MessageCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final List<Widget> children;
-
-  const _MessageCard({required this.icon, required this.iconColor, required this.title, required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: iconColor),
-              const SizedBox(width: 8),
-              Text(title, style: GoogleFonts.prompt(fontSize: 15, fontWeight: FontWeight.w700, color: iconColor)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...children,
-        ],
       ),
     );
   }

@@ -472,7 +472,7 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
                               color: Colors.white, size: 20),
                           const SizedBox(width: 8),
                           Text(
-                            'อัปเดตสถานะน้ำมัน',
+                            'แจ้งน้ำมันหมด',
                             style: GoogleFonts.prompt(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,

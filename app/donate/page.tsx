@@ -1,12 +1,31 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Heart, Coffee, ArrowLeft, Download, Sparkles } from 'lucide-react';
+import { Heart, ArrowLeft, Download, MessageCircle, Send } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DonatePage() {
   const [saved, setSaved] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [sending, setSending] = useState(false);
   const PROMPTPAY_NUMBER = '0877484066';
+
+  const handleSendFeedback = async () => {
+    if (!feedback.trim()) return;
+    setSending(true);
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: feedback.trim(), source: 'donate_page' }),
+      });
+    } catch { /* silent fail */ }
+    setFeedbackSent(true);
+    setSending(false);
+    setFeedback('');
+    setTimeout(() => setFeedbackSent(false), 5000);
+  };
 
   const handleSaveQR = async () => {
     try {
@@ -347,39 +366,70 @@ export default function DonatePage() {
           </div>
         </div>
 
-        {/* Encouragement message */}
+        {/* Feedback section */}
         <div className="message-card">
           <div className="message-title">
-            <Sparkles size={18} /> ทำไมต้องบริจาค?
+            <MessageCircle size={18} /> ฝากข้อความถึงทีมงาน
           </div>
-          <div className="message-text">
-            <p>
-              🛢️ <strong>เช็คน้ำมัน</strong> ช่วยให้คุณรู้ว่าปั๊มไหนมีน้ำมัน ปั๊มไหนหมด — ประหยัดเวลา ไม่ต้องวิ่งหาปั๊มเปล่า
-            </p>
-            <p>
-              🐾 <strong>ตามหาสัตว์เลี้ยง</strong> ช่วยให้สัตว์เลี้ยงที่หลุดกลับบ้านได้เร็วขึ้น
-            </p>
-            <p>
-              🌊 <strong>รายงานน้ำท่วม</strong> เตือนภัยให้พี่น้องคนไทยปลอดภัย
-            </p>
-            <p>
-              ทุกบาททำให้เราดูแลเซิร์ฟเวอร์ พัฒนาฟีเจอร์ใหม่ และทำแอปนี้ดีขึ้นเรื่อยๆ ครับ 🙏
-            </p>
-          </div>
-        </div>
-
-        <div className="message-card">
-          <div className="message-title">
-            <Heart size={18} /> ขอบคุณจากใจ
-          </div>
-          <div className="message-text">
-            <p>
-              แอปนี้สร้างด้วยใจโดยทีมอาสาสมัครที่รักประเทศไทย 💛 เราไม่มีโฆษณา ไม่ขายข้อมูล ไม่เก็บค่าสมาชิก
-            </p>
-            <p>
-              การสนับสนุนของคุณ ไม่ว่าจะเท่าไหร่ ล้วนมีความหมาย — มันบอกว่า <em>&ldquo;ทีมงานสู้ๆ นะ พวกเราเห็นค่านะ&rdquo;</em> 😊
-            </p>
-          </div>
+          {feedbackSent ? (
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>💛</div>
+              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15, fontWeight: 600 }}>ขอบคุณสำหรับข้อความครับ!</div>
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 4 }}>ทีมงานจะอ่านทุกข้อความ 🙏</div>
+            </div>
+          ) : (
+            <div className="message-text">
+              <p style={{ marginBottom: 12, color: 'rgba(255,255,255,0.6)' }}>
+                อยากให้เพิ่มฟีเจอร์อะไร? มีข้อเสนอแนะ? หรือแค่อยากส่งกำลังใจ — เขียนถึงเราได้เลยครับ 😊
+              </p>
+              <textarea
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                placeholder="เขียนข้อความถึงทีมงาน..."
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: 12,
+                  color: 'white',
+                  fontSize: 14,
+                  fontFamily: 'inherit',
+                  resize: 'vertical' as const,
+                  outline: 'none',
+                  lineHeight: 1.6,
+                }}
+              />
+              <button
+                onClick={handleSendFeedback}
+                disabled={!feedback.trim() || sending}
+                style={{
+                  width: '100%',
+                  marginTop: 10,
+                  padding: '10px 20px',
+                  background: feedback.trim()
+                    ? 'linear-gradient(135deg, #fbbf24, #f59e0b)'
+                    : 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: feedback.trim() ? '#1e293b' : 'rgba(255,255,255,0.3)',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: feedback.trim() ? 'pointer' : 'default',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  transition: 'all 0.2s',
+                }}
+              >
+                <Send size={14} />
+                {sending ? 'กำลังส่ง...' : 'ส่งข้อความ'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
