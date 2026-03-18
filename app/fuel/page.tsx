@@ -11,6 +11,10 @@ import StatsBar from '@/components/fuel/stats-bar';
 import OilPriceWidget from '@/components/fuel/oil-price-widget';
 import QuickUpdateSheet from '@/components/fuel/quick-update-sheet';
 import { supabase } from '@/lib/supabase';
+import { useLoadScript } from "@react-google-maps/api";
+import { LocationSearch } from "@/components/map/location-search";
+
+const libraries: ("places")[] = ["places"];
 
 const FuelMap = dynamic(() => import('@/components/fuel/fuel-map'), { ssr: false });
 
@@ -48,7 +52,12 @@ interface FilterOption {
   count: number;
 }
 
-export default function FuelPage() {
+export default function FuelFinder() {
+  const { isLoaded } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+    libraries,
+  });
+
   const [stations, setStations] = useState<GasStation[]>([]);
   const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
   const [selectedStation, setSelectedStation] = useState<GasStation | null>(null);
@@ -70,6 +79,7 @@ export default function FuelPage() {
   const [showAddStation, setShowAddStation] = useState(false);
   const [isPickingLocation, setIsPickingLocation] = useState(false);
   const [pickerLocation, setPickerLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [searchedLocation, setSearchedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [addStationName, setAddStationName] = useState('');
   const [addStationBrand, setAddStationBrand] = useState('PTT');
   const [addingStation, setAddingStation] = useState(false);
@@ -590,6 +600,7 @@ export default function FuelPage() {
           isPickingLocation={isPickingLocation}
           pickerLocation={pickerLocation}
           onPickerLocationChange={setPickerLocation}
+          searchedLocation={searchedLocation}
         />
       </div>
 
@@ -973,6 +984,21 @@ export default function FuelPage() {
       {/* Location Picker Overlay */}
       {isPickingLocation && (
         <>
+          {/* Autocomplete Search Bar */}
+          {isLoaded && (
+            <div style={{
+              position: 'fixed', top: 80, left: '50%', transform: 'translateX(-50%)',
+              zIndex: 1500, width: '90%', maxWidth: 400
+            }}>
+              <LocationSearch 
+                onSelect={(lat, lng) => {
+                  setSearchedLocation({ lat, lng });
+                  setPickerLocation({ lat, lng });
+                }} 
+              />
+            </div>
+          )}
+          
           <div style={{
             position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)',
             zIndex: 1500, display: 'flex', flexDirection: 'column', alignItems: 'center',

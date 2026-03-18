@@ -49,6 +49,7 @@ interface FuelMapProps {
   isPickingLocation?: boolean;
   pickerLocation?: { lat: number; lng: number } | null;
   onPickerLocationChange?: (loc: { lat: number; lng: number }) => void;
+  searchedLocation?: { lat: number; lng: number } | null;
 }
 
 const BRAND_ABBR: Record<string, string> = {
@@ -245,6 +246,16 @@ function MoveEndHandler({ onMoveEnd }: { onMoveEnd?: (center: { lat: number; lng
   return null;
 }
 
+function SearchPanUpdater({ location }: { location: { lat: number; lng: number } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (location) {
+      map.flyTo([location.lat, location.lng], 16, { animate: true });
+    }
+  }, [location, map]);
+  return null;
+}
+
 const pickerIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -300,6 +311,7 @@ export default function FuelMap({
   isPickingLocation,
   pickerLocation,
   onPickerLocationChange,
+  searchedLocation,
 }: FuelMapProps) {
   const center: [number, number] = userLocation
     ? [userLocation.lat, userLocation.lng]
@@ -318,6 +330,7 @@ export default function FuelMap({
       />
 
       <LocationUpdater location={userLocation} zoom={zoom} />
+      <SearchPanUpdater location={searchedLocation || null} />
       <MoveEndHandler onMoveEnd={onMoveEnd} />
 
       <MarkerClusterGroup
