@@ -60,10 +60,10 @@ const BRAND_ABBR: Record<string, string> = {
 const BRAND_COLORS: Record<string, string> = {
   'PTT': '#2D5CA0',
   'Bangchak': '#00A651',
-  'Shell': '#DD1D21',
+  'Shell': '#FFB900',
   'Esso': '#D41E31',
   'Caltex': '#E2231A',
-  'Susco': '#E4002B',
+  'Susco': '#FF6B00',
   'PT': '#0066B3',
 };
 
