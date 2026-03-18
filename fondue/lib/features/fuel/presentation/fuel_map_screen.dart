@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lottie/lottie.dart';
 import '../../../core/config/constants.dart';
 import '../domain/gas_station.dart';
 import '../domain/fuel_status.dart';
@@ -263,23 +264,7 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
             ),
           ),
 
-          // Donate button in header area
-          Positioned(
-            right: 16,
-            top: MediaQuery.of(context).padding.top + 8,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DonateScreen())),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFFFBBF24), Color(0xFFF59E0B)]),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.3), blurRadius: 8)],
-                ),
-                child: const Text('☕', style: TextStyle(fontSize: 16)),
-              ),
-            ),
-          ),
+
 
           // Fuel type filter row with label
           SafeArea(
@@ -403,6 +388,39 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
             ),
             loading: () => const SizedBox(),
             error: (_, __) => const SizedBox(),
+          ),
+
+          // Donate FAB — above locate
+          Positioned(
+            right: 16,
+            bottom: 190,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DonateScreen())),
+              child: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFBBF24).withOpacity(0.4), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFBBF24).withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: Lottie.asset(
+                    'assets/lottie/Donaciones.json',
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
           ),
 
           // Locate me FAB

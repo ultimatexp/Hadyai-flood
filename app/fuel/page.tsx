@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Fuel, MapPin, Search, X, ChevronDown, LocateFixed, Camera, Menu, Filter, MessageSquarePlus } from 'lucide-react';
+import Lottie from 'lottie-react';
+import donateAnimation from '@/assets/json/Donaciones.json';
 import StationPanel from '@/components/fuel/station-panel';
 import StatsBar from '@/components/fuel/stats-bar';
 import OilPriceWidget from '@/components/fuel/oil-price-widget';
@@ -451,6 +453,57 @@ export default function FuelPage() {
           gap: 8px;
         }
 
+        .floating-actions-left {
+          position: absolute;
+          left: 16px;
+          bottom: 100px;
+          z-index: 1000;
+        }
+
+        .donate-fab {
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(16px);
+          border: 2px solid rgba(251, 191, 36, 0.4);
+          box-shadow: 0 4px 16px rgba(251, 191, 36, 0.3);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .donate-fab:hover {
+          transform: scale(1.1);
+          box-shadow: 0 6px 24px rgba(251, 191, 36, 0.5);
+        }
+
+        .radius-filter-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+        }
+        .radius-pill {
+          padding: 4px 12px;
+          border-radius: 16px;
+          border: 1px solid rgba(0,0,0,0.1);
+          background: rgba(255,255,255,0.8);
+          font-size: 12px;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.2s;
+        }
+        .radius-pill.active {
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          color: white;
+          border-color: transparent;
+          font-weight: 600;
+        }
+
         .floating-actions-center {
           position: absolute;
           left: 50%;
@@ -625,7 +678,6 @@ export default function FuelPage() {
             </div>
           </div>
           <div className="header-actions">
-            <a href="/donate" className="header-btn" style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)', color: '#1e293b', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>☕</a>
             <button className="header-btn locate" onClick={handleLocateMe}>
               <LocateFixed size={18} />
             </button>
@@ -701,6 +753,22 @@ export default function FuelPage() {
             )}
           </div>
         </div>
+
+        {/* Radius filter */}
+        <div className="filter-section">
+          <span className="filter-label">รัศมีค้นหา</span>
+          <div className="radius-filter-row">
+            {[5, 10, 25, 50, 100].map((r) => (
+              <button
+                key={r}
+                className={`radius-pill ${radius === r ? 'active' : ''}`}
+                onClick={() => setRadius(r)}
+              >
+                {r} กม.
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Floating Actions */}
@@ -709,6 +777,13 @@ export default function FuelPage() {
           <LocateFixed size={20} />
         </button>
       </div>
+
+      {/* Donate FAB — bottom left */}
+      <a href="/donate" className="floating-actions-left">
+        <div className="donate-fab">
+          <Lottie animationData={donateAnimation} loop autoplay style={{ width: 44, height: 44 }} />
+        </div>
+      </a>
 
       <div className="floating-actions-center">
         <button className="fab report" onClick={() => setShowQuickUpdate(true)}>
