@@ -12,10 +12,10 @@ from skimage.color import rgb2lab, deltaE_ciede2000
 app = FastAPI()
 
 # ──────────────────────────────────────────────
-# 1. Load CLIP ViT-B/32  (512-dim, same as old ResNet18)
+# 1. Load CLIP ViT-L/14  (768-dim, upgraded from ViT-B/32 512-dim)
 # ──────────────────────────────────────────────
 model, _, preprocess = open_clip.create_model_and_transforms(
-    'ViT-B-32', pretrained='laion2b_s34b_b79k'
+    'ViT-L-14', pretrained='laion2b_s32b_b82k'
 )
 model.eval()
 
@@ -30,11 +30,11 @@ class EmbeddingRequest(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "service": "pet-detection", "model": "CLIP-ViT-B-32"}
+    return {"status": "ok", "service": "pet-detection", "model": "CLIP-ViT-L-14"}
 
 
 def get_embedding(image_bytes: bytes) -> list[float]:
-    """Generate a 512-dim L2-normalised CLIP embedding from raw image bytes."""
+    """Generate a 768-dim L2-normalised CLIP embedding from raw image bytes."""
     try:
         img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
         img_tensor = preprocess(img).unsqueeze(0)          # [1, 3, 224, 224]
