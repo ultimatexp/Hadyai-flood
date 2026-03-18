@@ -62,6 +62,18 @@ export default function FuelPage() {
   const [radius, setRadius] = useState(10); // km
   const [locationReady, setLocationReady] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [showInstructions, setShowInstructions] = useState(false);
+
+  // Show instructions on first visit
+  useEffect(() => {
+    const seen = localStorage.getItem('fuel_instructions_seen');
+    if (!seen) setShowInstructions(true);
+  }, []);
+
+  const dismissInstructions = () => {
+    setShowInstructions(false);
+    localStorage.setItem('fuel_instructions_seen', '1');
+  };
 
   const RADIUS_OPTIONS = [5, 10, 25, 50, 100];
 
@@ -467,6 +479,89 @@ export default function FuelPage() {
           zoom={radiusToZoom(radius)}
         />
       </div>
+
+      {/* Instruction Popup */}
+      <AnimatePresence>
+        {showInstructions && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={dismissInstructions}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)', padding: 20,
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'white', borderRadius: 24, padding: '32px 24px',
+                maxWidth: 400, width: '100%', textAlign: 'center' as const,
+                boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              }}
+            >
+              <div style={{
+                width: 64, height: 64, margin: '0 auto 16px',
+                background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                borderRadius: 20, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: 32,
+              }}>⛽</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>
+                เช็คน้ำมัน ใกล้ฉัน
+              </div>
+              <div style={{ fontSize: 14, color: '#64748b', marginBottom: 24, lineHeight: 1.6 }}>
+                ช่วยกันรายงานสถานะน้ำมันแต่ละปั๊ม<br />
+                เพื่อให้ทุกคนรู้ว่าปั๊มไหนมี ปั๊มไหนหมด
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left' as const, marginBottom: 28 }}>
+                {[
+                  { icon: '📍', text: <>กดที่ <b>หมุดปั๊ม</b> บนแผนที่ เพื่อดูสถานะน้ำมัน</> },
+                  { icon: '🗳️', text: <>กด <b>โหวต</b> ว่าน้ำมันแต่ละชนิด มี/หมด/เติมใหม่</> },
+                  { icon: '🟢', text: <>สีเขียว = มีน้ำมัน &nbsp; 🔴 สีแดง = หมดแล้ว</> },
+                  { icon: '📢', text: <>กดปุ่ม <b>&quot;อัปเดตสถานะน้ำมัน&quot;</b> ด้านล่าง เพื่ออัปเดตหลายปั๊มพร้อมกัน</> },
+                ].map((step, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 12,
+                    padding: 12, background: '#f8fafc', borderRadius: 14,
+                    border: '1px solid #e2e8f0',
+                  }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                      color: 'white', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0,
+                    }}>{i + 1}</div>
+                    <div style={{ fontSize: 14, color: '#334155', fontWeight: 500, lineHeight: 1.5 }}>
+                      {step.icon} {step.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={dismissInstructions}
+                style={{
+                  width: '100%', padding: 14,
+                  background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                  color: 'white', border: 'none', borderRadius: 14,
+                  fontSize: 16, fontWeight: 700, fontFamily: 'inherit',
+                  cursor: 'pointer', boxShadow: '0 4px 16px rgba(245,158,11,0.3)',
+                }}
+              >
+                เข้าใจแล้ว เริ่มใช้งาน! 🚀
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Header */}
       <div className="fuel-header">
