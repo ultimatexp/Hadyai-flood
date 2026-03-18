@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Fuel, MapPin, Search, X, ChevronDown, LocateFixed, Camera, Menu, Filter, MessageSquarePlus } from 'lucide-react';
@@ -56,6 +56,7 @@ export default function FuelPage() {
   const [selectedBrand, setSelectedBrand] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [showQuickUpdate, setShowQuickUpdate] = useState(false);
+  const [selectedFuelType, setSelectedFuelType] = useState<string>('');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [provinces, setProvinces] = useState<FilterOption[]>([]);
   const [brands, setBrands] = useState<FilterOption[]>([]);
@@ -198,6 +199,12 @@ export default function FuelPage() {
     localStorage.setItem('fuel_fingerprint', fp);
     return fp;
   };
+
+  // Client-side fuel type filtering
+  const filteredStations = useMemo(() => {
+    if (!selectedFuelType) return stations;
+    return stations.filter(s => s.fuel_types.includes(selectedFuelType));
+  }, [stations, selectedFuelType]);
 
   return (
     <div className="fuel-page">
@@ -470,7 +477,7 @@ export default function FuelPage() {
       {/* Map */}
       <div className="map-container">
         <FuelMap
-          stations={stations}
+          stations={filteredStations}
           fuelTypes={fuelTypes}
           selectedStation={selectedStation}
           onSelectStation={setSelectedStation}
@@ -645,6 +652,28 @@ export default function FuelPage() {
                 </button>
               ))}
 
+              {fuelTypes.length > 0 && (
+                <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 8, marginTop: 4 }}>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>ชนิดน้ำมัน</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {fuelTypes.map((ft) => (
+                      <button
+                        key={ft.id}
+                        className={`filter-chip ${selectedFuelType === ft.id ? 'active' : ''}`}
+                        onClick={() => setSelectedFuelType(selectedFuelType === ft.id ? '' : ft.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                      >
+                        <span style={{
+                          width: 8, height: 8, borderRadius: '50%',
+                          background: ft.color, display: 'inline-block', flexShrink: 0,
+                        }} />
+                        {ft.name_th}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {totalCount > 0 && (
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', alignSelf: 'center', whiteSpace: 'nowrap' }}>
                   พบ {totalCount} สถานี
@@ -655,7 +684,7 @@ export default function FuelPage() {
         </AnimatePresence>
 
         {/* Stats */}
-        <StatsBar stations={stations} loading={loading} />
+        <StatsBar stations={filteredStations} loading={loading} />
       </div>
 
       {/* Floating Actions */}
@@ -692,7 +721,7 @@ export default function FuelPage() {
       <AnimatePresence>
         {showQuickUpdate && (
           <QuickUpdateSheet
-            stations={stations}
+            stations={filteredStations}
             fuelTypes={fuelTypes}
             userLocation={userLocation}
             onClose={() => setShowQuickUpdate(false)}

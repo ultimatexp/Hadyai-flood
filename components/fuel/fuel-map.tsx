@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -47,102 +47,126 @@ interface FuelMapProps {
   zoom?: number;
 }
 
-type DecisiveStatus = 'confirmed_available' | 'confirmed_out' | 'mixed' | 'unknown';
+const BRAND_ABBR: Record<string, string> = {
+  'PTT': 'PTT',
+  'Bangchak': 'BCP',
+  'Shell': 'Shell',
+  'Esso': 'Esso',
+  'Caltex': 'CTX',
+  'Susco': 'SSC',
+  'PT': 'PT',
+};
 
-function getDecisiveStatus(status: FuelStatus): DecisiveStatus {
+const BRAND_COLORS: Record<string, string> = {
+  'PTT': '#2D5CA0',
+  'Bangchak': '#00A651',
+  'Shell': '#DD1D21',
+  'Esso': '#D41E31',
+  'Caltex': '#E2231A',
+  'Susco': '#E4002B',
+  'PT': '#0066B3',
+};
+
+function isAvailable(status: FuelStatus): boolean {
   const now = new Date();
   const lastVote = new Date(status.last_voted_at);
   const diffHours = (now.getTime() - lastVote.getTime()) / (1000 * 60 * 60);
-
-  const isAvailable = status.consensus_status === 'available' || status.consensus_status === 'refilled';
-  const isOut = status.consensus_status === 'out_of_stock';
-
-  // 1. Stale or no data
-  if (diffHours > 24) return 'unknown';
-
-  // 2. Confirmed cases
-  if (isAvailable && diffHours < 6 && (status.confidence > 75 || status.vote_count >= 5)) {
-    return 'confirmed_available';
-  }
-  if (isOut && diffHours < 12 && status.confidence > 75) {
-    return 'confirmed_out';
-  }
-
-  // 3. Mixed or borderline
-  return 'mixed';
+  if (diffHours > 24) return false;
+  return status.consensus_status === 'available' || status.consensus_status === 'refilled';
 }
 
-function getStationColor(station: GasStation): string {
-  const fuelStatuses = Object.values(station.fuel_status);
-  if (fuelStatuses.length === 0) return '#94a3b8'; // gray - no reports
-
-  const decisiveStatuses = fuelStatuses.map(getDecisiveStatus);
-
-  // If any fuel is confirmed out, prioritize making the marker red
-  if (decisiveStatuses.includes('confirmed_out')) return '#EF4444'; 
-  
-  // If all reported fuels are confirmed available
-  if (decisiveStatuses.every(s => s === 'confirmed_available')) return '#22C55E';
-
-  // If we have some availability but also mixed/unknown
-  if (decisiveStatuses.includes('confirmed_available')) return '#F59E0B'; // yellow/orange
-
-  return '#94a3b8'; // gray default
+function isOutOfStock(status: FuelStatus): boolean {
+  const now = new Date();
+  const lastVote = new Date(status.last_voted_at);
+  const diffHours = (now.getTime() - lastVote.getTime()) / (1000 * 60 * 60);
+  if (diffHours > 24) return false;
+  return status.consensus_status === 'out_of_stock';
 }
 
-function createStationIcon(station: GasStation, isSelected: boolean): L.DivIcon {
-  const color = getStationColor(station);
-  const size = isSelected ? 44 : 34;
-  const borderWidth = isSelected ? 3 : 2;
+function getOverallColor(station: GasStation): string {
+  const statuses = Object.values(station.fuel_status);
+  if (statuses.length === 0) return '#94a3b8';
+  const hasOut = statuses.some(isOutOfStock);
+  const allAvail = statuses.length > 0 && statuses.every(isAvailable);
+  if (allAvail) return '#22C55E';
+  if (hasOut) return '#EF4444';
+  if (statuses.some(isAvailable)) return '#F59E0B';
+  return '#94a3b8';
+}
 
-  const fuelStatuses = Object.values(station.fuel_status);
-  const voteCount = fuelStatuses.reduce((sum, s) => sum + s.vote_count, 0);
+function createStationCardIcon(
+  station: GasStation,
+  fuelTypes: FuelType[],
+  isSelected: boolean
+): L.DivIcon {
+  const brandColor = BRAND_COLORS[station.brand] || '#64748b';
+  const abbr = BRAND_ABBR[station.brand] || station.brand.substring(0, 3);
+  const overallColor = getOverallColor(station);
+
+  // Build fuel dots — only show fuels this station carries
+  const stationFuelTypes = fuelTypes.filter(ft => station.fuel_types.includes(ft.id));
+  const dotsHtml = stationFuelTypes.slice(0, 4).map(ft => {
+    const status = station.fuel_status[ft.id];
+    let dotColor = '#d1d5db'; // gray - unknown
+    if (status) {
+      if (isAvailable(status)) dotColor = '#22C55E';
+      else if (isOutOfStock(status)) dotColor = '#EF4444';
+      else dotColor = '#F59E0B';
+    }
+    return `<div style="width:6px;height:6px;border-radius:50%;background:${dotColor};"></div>`;
+  }).join('');
+
+  const scale = isSelected ? 1.1 : 1;
+  const shadow = isSelected
+    ? `0 3px 12px rgba(0,0,0,0.35), 0 0 0 3px ${overallColor}40`
+    : '0 2px 8px rgba(0,0,0,0.25)';
 
   return L.divIcon({
-    className: 'custom-station-marker',
+    className: 'station-card-marker',
     html: `
       <div style="
-        width: ${size}px;
-        height: ${size}px;
-        background: ${color};
-        border: ${borderWidth}px solid white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.4), 0 0 0 ${isSelected ? '4' : '0'}px ${color}40;
-        transition: all 0.2s;
+        transform: scale(${scale});
+        transition: transform 0.2s;
         cursor: pointer;
-        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       ">
-        <svg width="${size * 0.45}" height="${size * 0.45}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 22V6c0-1.1.9-2 2-2h6c1.1 0 2 .9 2 2v16"/>
-          <path d="M14 10h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2 2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/>
-          <path d="M3 22h10"/>
-          <path d="M7 10h4"/>
-          <path d="M7 14h4"/>
-        </svg>
-        ${voteCount > 0 ? `<div style="
-          position: absolute;
-          top: -4px;
-          right: -4px;
-          min-width: 18px;
-          height: 18px;
+        <div style="
           background: white;
-          color: ${color};
-          border-radius: 9px;
-          font-size: 10px;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0 4px;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-        ">${voteCount}</div>` : ''}
+          border-radius: 8px;
+          padding: 3px 6px;
+          box-shadow: ${shadow};
+          border-left: 3px solid ${brandColor};
+          min-width: 38px;
+          text-align: center;
+        ">
+          <div style="
+            font-size: 9px;
+            font-weight: 800;
+            color: ${brandColor};
+            line-height: 1.2;
+            letter-spacing: -0.3px;
+            white-space: nowrap;
+          ">${abbr}</div>
+          <div style="
+            display: flex;
+            gap: 2px;
+            justify-content: center;
+            margin-top: 2px;
+          ">${dotsHtml}</div>
+        </div>
+        <div style="
+          width: 0; height: 0;
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 5px solid white;
+          filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
+        "></div>
       </div>
     `,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    iconSize: [50, 36],
+    iconAnchor: [25, 36],
   });
 }
 
@@ -195,7 +219,6 @@ export default function FuelMap({
   loading,
   zoom = 13,
 }: FuelMapProps) {
-  // Use user location or fallback to Thailand center
   const center: [number, number] = userLocation
     ? [userLocation.lat, userLocation.lng]
     : [13.7563, 100.5018];
@@ -225,7 +248,7 @@ export default function FuelMap({
           <Marker
             key={station.id}
             position={[station.lat, station.lng]}
-            icon={createStationIcon(station, selectedStation?.id === station.id)}
+            icon={createStationCardIcon(station, fuelTypes, selectedStation?.id === station.id)}
             eventHandlers={{
               click: () => onSelectStation(station),
             }}
