@@ -124,7 +124,12 @@ final filteredStationsProvider = Provider<AsyncValue<List<GasStation>>>((ref) {
   return stationsAsync.whenData((stations) {
     var result = stations;
     if (fuelType.isNotEmpty) {
-      result = result.where((s) => s.fuelTypes.contains(fuelType)).toList();
+      if (fuelType == 'diesel') {
+        // Match any diesel variant
+        result = result.where((s) => s.fuelTypes.any((f) => f.startsWith('diesel'))).toList();
+      } else {
+        result = result.where((s) => s.fuelTypes.contains(fuelType)).toList();
+      }
     }
     if (brand.isNotEmpty) {
       result = result.where((s) => s.brand == brand).toList();

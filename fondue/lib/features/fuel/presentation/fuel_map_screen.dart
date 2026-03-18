@@ -24,6 +24,7 @@ const _brandColors = <String, Color>{
   'PT': Color(0xFF0066B3),
   'Sinopec': Color(0xFFC8102E),
   'IRPC': Color(0xFF6A1B9A),
+  'Other': Color(0xFF64748B),
 };
 
 class FuelMapScreen extends ConsumerStatefulWidget {
@@ -282,10 +283,10 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
                         const SizedBox(width: 6),
                         _FilterPill(
                           label: '🟡 ดีเซล',
-                          active: selectedFuelType == 'diesel_b7',
+                          active: selectedFuelType == 'diesel' || selectedFuelType == 'diesel_b7',
                           isFuel: true,
                           onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
-                              selectedFuelType == 'diesel_b7' ? '' : 'diesel_b7'),
+                              (selectedFuelType == 'diesel' || selectedFuelType == 'diesel_b7') ? '' : 'diesel'),
                         ),
                         const SizedBox(width: 6),
                         _FilterPill(
@@ -329,7 +330,7 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
-                        ...['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((b) => Padding(
+                        ...['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec', 'Other'].map((b) => Padding(
                               padding: const EdgeInsets.only(right: 6),
                               child: _FilterPill(
                                 label: b,
@@ -605,6 +606,7 @@ const _brandAbbr = <String, String>{
   'Esso': 'ESSO',
   'Susco': 'SSC',
   'IRPC': 'IRPC',
+  'Other': 'อื่นๆ',
 };
 
 const _fuelLabels = <String, String>{

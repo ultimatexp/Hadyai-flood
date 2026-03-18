@@ -14,6 +14,7 @@ const _brandColors = <String, Color>{
   'Esso': Color(0xFFD41E31),
   'Caltex': Color(0xFFE2231A),
   'Susco': Color(0xFFE4002B),
+  'Other': Color(0xFF64748B),
 };
 
 void showStationPanel(BuildContext context, WidgetRef ref, GasStation station) {

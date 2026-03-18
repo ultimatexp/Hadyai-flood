@@ -106,7 +106,7 @@ class _OilPriceWidgetState extends State<OilPriceWidget> {
     }
 
     final keyFuels = _prices!.where((p) =>
-        ['gasohol_91', 'gasohol_95', 'diesel_b7'].contains(p.fuelId)).toList();
+        ['gasohol_91', 'gasohol_95', 'diesel_b7', 'diesel'].contains(p.fuelId)).toList();
     final hasTomorrowChanges = _prices!.any((p) => p.diffTomorrow != 0);
 
     return Positioned(
