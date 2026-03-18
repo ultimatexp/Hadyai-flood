@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Fuel, MapPin, Search, X, ChevronDown, LocateFixed, Camera, Menu, Filter, MessageSquarePlus } from 'lucide-react';
+import { Fuel, MapPin, Search, X, ChevronDown, LocateFixed, Camera, Menu, Filter, MessageSquarePlus, Plus } from 'lucide-react';
 import Lottie from 'lottie-react';
 import donateAnimation from '@/assets/json/Donaciones.json';
 import StationPanel from '@/components/fuel/station-panel';
@@ -67,6 +67,10 @@ export default function FuelPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [showInstructions, setShowInstructions] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [showAddStation, setShowAddStation] = useState(false);
+  const [addStationName, setAddStationName] = useState('');
+  const [addStationBrand, setAddStationBrand] = useState('PTT');
+  const [addingStation, setAddingStation] = useState(false);
   const moveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Show instructions on first visit
@@ -455,7 +459,7 @@ export default function FuelPage() {
         }
 
         .floating-actions-right {
-          position: absolute;
+          position: fixed;
           right: 16px;
           bottom: 100px;
           z-index: 1000;
@@ -465,7 +469,7 @@ export default function FuelPage() {
         }
 
         .floating-actions-left {
-          position: absolute;
+          position: fixed;
           left: 16px;
           bottom: 100px;
           z-index: 1000;
@@ -506,7 +510,7 @@ export default function FuelPage() {
         }
 
         .floating-actions-center {
-          position: absolute;
+          position: fixed;
           left: 50%;
           transform: translateX(-50%);
           bottom: 110px;
@@ -773,6 +777,9 @@ export default function FuelPage() {
         <button className="fab locate" onClick={handleLocateMe}>
           <LocateFixed size={20} />
         </button>
+        <button className="fab" onClick={() => setShowAddStation(true)} title="เพิ่มสถานีใหม่" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none' }}>
+          <Plus size={22} />
+        </button>
       </div>
 
       {/* Donate FAB — bottom left */}
@@ -816,6 +823,137 @@ export default function FuelPage() {
             onVoteSuccess={handleVoteSuccess}
             getFingerprint={getFingerprint}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Add Station Modal */}
+      <AnimatePresence>
+        {showAddStation && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowAddStation(false)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+              zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 16,
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'white', borderRadius: 16, padding: 24,
+                width: '100%', maxWidth: 400, boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1e293b' }}>
+                  📍 เพิ่มสถานีใหม่
+                </h3>
+                <button onClick={() => setShowAddStation(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                  <X size={20} color="#94a3b8" />
+                </button>
+              </div>
+
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 12, marginBottom: 16, fontSize: 13, color: '#15803d' }}>
+                📌 ตำแหน่งจะถูกบันทึกจากจุดกลางแผนที่ปัจจุบัน<br/>
+                <strong>เลื่อนแผนที่ไปยังตำแหน่งสถานีก่อนกดเพิ่ม</strong>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 4, display: 'block' }}>
+                    ชื่อสถานี
+                  </label>
+                  <input
+                    value={addStationName}
+                    onChange={(e) => setAddStationName(e.target.value)}
+                    placeholder="เช่น ปั๊ม PTT สาขาหาดใหญ่ใน"
+                    style={{
+                      width: '100%', padding: '10px 14px', borderRadius: 10,
+                      border: '1px solid #e2e8f0', fontSize: 14, outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 4, display: 'block' }}>
+                    แบรนด์
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec', 'อื่นๆ'].map((b) => (
+                      <button
+                        key={b}
+                        onClick={() => setAddStationBrand(b)}
+                        style={{
+                          padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                          border: addStationBrand === b ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                          background: addStationBrand === b ? '#eff6ff' : 'white',
+                          color: addStationBrand === b ? '#2563eb' : '#64748b',
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >
+                        {b}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  disabled={!addStationName.trim() || addingStation}
+                  onClick={async () => {
+                    const center = mapCenter || userLocation;
+                    if (!center) {
+                      alert('ไม่สามารถระบุตำแหน่งได้ กรุณาเลื่อนแผนที่');
+                      return;
+                    }
+                    setAddingStation(true);
+                    try {
+                      const res = await fetch('/api/fuel/stations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          name: addStationName.trim(),
+                          brand: addStationBrand === 'อื่นๆ' ? 'Other' : addStationBrand,
+                          lat: center.lat,
+                          lng: center.lng,
+                        }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        setShowAddStation(false);
+                        setAddStationName('');
+                        setAddStationBrand('PTT');
+                        // Refresh stations
+                        fetchStations();
+                        alert('✅ เพิ่มสถานีสำเร็จ! สถานีจะแสดงบนแผนที่');
+                      } else {
+                        alert('เกิดข้อผิดพลาด: ' + (data.error || 'ลองใหม่อีกครั้ง'));
+                      }
+                    } catch {
+                      alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
+                    } finally {
+                      setAddingStation(false);
+                    }
+                  }}
+                  style={{
+                    marginTop: 8, padding: '12px', borderRadius: 12, border: 'none',
+                    background: addStationName.trim() ? 'linear-gradient(135deg, #22c55e, #16a34a)' : '#e2e8f0',
+                    color: addStationName.trim() ? 'white' : '#94a3b8',
+                    fontSize: 15, fontWeight: 700, cursor: addStationName.trim() ? 'pointer' : 'default',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {addingStation ? '⏳ กำลังเพิ่ม...' : '✅ เพิ่มสถานี'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

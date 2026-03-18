@@ -138,3 +138,40 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
+
+// POST: Add a new gas station (community-submitted)
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { name, brand, lat, lng, address, province, district, fuel_types } = body;
+
+    if (!name || !brand || !lat || !lng) {
+      return NextResponse.json({ error: 'name, brand, lat, lng are required' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('gas_stations')
+      .insert({
+        name,
+        brand,
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        address: address || '',
+        province: province || '',
+        district: district || '',
+        fuel_types: fuel_types || ['diesel', 'gasohol_95', 'gasohol_91'],
+        is_verified: false,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, station: data });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
