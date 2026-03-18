@@ -11,6 +11,7 @@ import '../../chat/data/chat_providers.dart';
 import '../../social/presentation/feed_screen.dart';
 import '../../social/presentation/create_post_screen.dart';
 import '../../social/data/social_providers.dart';
+import '../../fuel/presentation/fuel_map_screen.dart';
 import '../data/dashboard_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/presentation/onboarding_screen.dart';
@@ -27,6 +28,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with TickerProviderStateMixin {
   late AnimationController _badgeController;
   late Animation<double> _badgeBounce;
+  late AnimationController _fuelPulseController;
+  late Animation<double> _fuelPulse;
   int _previousUnreadCount = 0;
 
   @override
@@ -39,6 +42,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _badgeBounce = Tween<double>(begin: 1.0, end: 1.3).animate(
       CurvedAnimation(parent: _badgeController, curve: Curves.elasticOut),
     );
+    _fuelPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _fuelPulse = Tween<double>(begin: 0.95, end: 1.08).animate(
+      CurvedAnimation(parent: _fuelPulseController, curve: Curves.easeInOut),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkOnboarding();
     });
@@ -47,6 +57,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   @override
   void dispose() {
     _badgeController.dispose();
+    _fuelPulseController.dispose();
     super.dispose();
   }
 
@@ -107,9 +118,85 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: currentIndex,
-        children: pages,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: currentIndex,
+            children: pages,
+          ),
+          // Fuel Quick Access — animated floating button
+          Positioned(
+            right: 16,
+            top: MediaQuery.of(context).padding.top + 8,
+            child: ScaleTransition(
+              scale: _fuelPulse,
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FuelMapScreen()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFEF4444).withOpacity(0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                    border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset('assets/images/fuel.png', width: 28, height: 28),
+                      const SizedBox(width: 6),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'เช็คน้ำมัน',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1E293B),
+                              height: 1.2,
+                            ),
+                          ),
+                          Text(
+                            'สถานีใกล้คุณ',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Color(0xFF94A3B8),
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 4),
+                      // Alert dot
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       extendBody: true,
       floatingActionButton: FloatingActionButton(
