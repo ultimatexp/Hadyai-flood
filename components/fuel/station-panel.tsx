@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, MapPin, Navigation, Clock, MessageCircle, AlertTriangle, Upload, Image as ImageIcon, CheckCircle, XCircle, RefreshCw, Send, Edit2, Camera } from 'lucide-react';
 
@@ -720,33 +720,6 @@ export default function StationPanel({
         )}
 
         {/* Image Upload + Note */}
-        <div className="note-section">
-          <div className="section-title">📷 แนบรูป / หมายเหตุ (ไม่จำเป็น)</div>
-          <div className="image-actions">
-            <button className="upload-btn" onClick={() => fileInputRef.current?.click()}>
-              <Camera size={14} />
-              {uploadingImage ? 'กำลังอัพโหลด...' : 'ถ่ายรูป / เลือกรูป'}
-            </button>
-            {imagePreview && (
-              <img src={imagePreview} alt="preview" className="image-preview" />
-            )}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleImageUpload}
-            style={{ display: 'none' }}
-          />
-          <textarea
-            className="note-input"
-            placeholder="เพิ่มหมายเหตุ เช่น คิวยาว, ปั๊มปิดแล้ว..."
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-          />
-        </div>
 
         {/* Fuel Grid */}
         <div style={{ marginTop: 16 }}>
@@ -836,7 +809,165 @@ export default function StationPanel({
             })}
           </div>
         </div>
+
+        {/* Photo / Note — moved to bottom */}
+        <div className="note-section" style={{ marginTop: 20 }}>
+          <div className="section-title">📷 แนบรูป / หมายเหตุ (ไม่จำเป็น)</div>
+          <div className="image-actions">
+            <button className="upload-btn" onClick={() => fileInputRef.current?.click()}>
+              <Camera size={14} />
+              {uploadingImage ? 'กำลังอัพโหลด...' : 'ถ่ายรูป / เลือกรูป'}
+            </button>
+            {imagePreview && (
+              <img src={imagePreview} alt="preview" className="image-preview" />
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleImageUpload}
+            style={{ display: 'none' }}
+          />
+          <textarea
+            className="note-input"
+            placeholder="เพิ่มหมายเหตุ เช่น คิวยาว, ปั๊มปิดแล้ว..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+          />
+        </div>
+
+        {/* Comments Section */}
+        <CommentsSection stationId={station.id} getFingerprint={getFingerprint} />
       </div>
     </motion.div>
+  );
+}
+
+// ——— Comments Section ———
+interface Comment {
+  id: string;
+  message: string;
+  image_url: string | null;
+  created_at: string;
+}
+
+function CommentsSection({ stationId, getFingerprint }: { stationId: string; getFingerprint: () => string }) {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/fuel/comments?station_id=${stationId}`)
+      .then(r => r.json())
+      .then(d => setComments(d.comments || []))
+      .catch(() => {})
+      .finally(() => setLoadingComments(false));
+  }, [stationId]);
+
+  const postComment = async () => {
+    if (!newComment.trim() || posting) return;
+    setPosting(true);
+    try {
+      const res = await fetch('/api/fuel/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          station_id: stationId,
+          message: newComment.trim(),
+          fingerprint: getFingerprint(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.comment) {
+        setComments(prev => [data.comment, ...prev]);
+        setNewComment('');
+      }
+    } catch { /* ignore */ }
+    setPosting(false);
+  };
+
+  const commentTimeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'เมื่อสักครู่';
+    if (mins < 60) return `${mins} นาทีที่แล้ว`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} ชม. ที่แล้ว`;
+    return `${Math.floor(hrs / 24)} วันที่แล้ว`;
+  };
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', marginBottom: 10 }}>
+        💬 ความคิดเห็น ({comments.length})
+      </div>
+
+      {/* Post form */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <input
+          type="text"
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          placeholder="แสดงความคิดเห็น เช่น คิวยาว, ปิดก่อนเวลา..."
+          onKeyDown={(e) => e.key === 'Enter' && postComment()}
+          style={{
+            flex: 1, padding: '10px 14px', borderRadius: 12,
+            border: '1px solid #e2e8f0', fontSize: 13,
+            fontFamily: 'inherit', outline: 'none',
+            background: '#f8fafc',
+          }}
+        />
+        <button
+          onClick={postComment}
+          disabled={posting || !newComment.trim()}
+          style={{
+            padding: '10px 16px', borderRadius: 12, border: 'none',
+            background: posting || !newComment.trim() ? '#e2e8f0' : 'linear-gradient(135deg, #f59e0b, #ef4444)',
+            color: posting || !newComment.trim() ? '#94a3b8' : 'white',
+            fontWeight: 700, fontSize: 13, cursor: 'pointer',
+            fontFamily: 'inherit', whiteSpace: 'nowrap',
+          }}
+        >
+          <Send size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+          ส่ง
+        </button>
+      </div>
+
+      {/* Comments list */}
+      {loadingComments ? (
+        <div style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8', padding: 16 }}>กำลังโหลด...</div>
+      ) : comments.length === 0 ? (
+        <div style={{
+          textAlign: 'center', fontSize: 13, color: '#94a3b8', padding: 20,
+          background: '#f8fafc', borderRadius: 12, border: '1px dashed #e2e8f0',
+        }}>ยังไม่มีความคิดเห็น — เป็นคนแรกที่แสดงความคิดเห็น!</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {comments.map((c) => (
+            <div key={c.id} style={{
+              padding: '10px 14px', borderRadius: 12,
+              background: '#f8fafc', border: '1px solid #f1f5f9',
+            }}>
+              <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5 }}>
+                {c.message}
+              </div>
+              {c.image_url && (
+                <img src={c.image_url} alt="" style={{
+                  marginTop: 8, maxWidth: '100%', borderRadius: 8,
+                  maxHeight: 150, objectFit: 'cover',
+                }} />
+              )}
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
+                🕐 {commentTimeAgo(c.created_at)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
