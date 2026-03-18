@@ -642,20 +642,14 @@ export default function FuelPage() {
 
           <span className="qf-divider" />
 
-          {/* Brand pills */}
-          <button
-            className={`qf-pill brand-pill ${selectedBrand === '' ? 'active' : ''}`}
-            onClick={() => setSelectedBrand('')}
-          >
-            ทุกแบรนด์
-          </button>
-          {brands.map((brand) => (
+          {/* Brand pills — hardcoded major Thai brands */}
+          {['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((brand) => (
             <button
-              key={brand.name}
-              className={`qf-pill brand-pill ${selectedBrand === brand.name ? 'active' : ''}`}
-              onClick={() => setSelectedBrand(selectedBrand === brand.name ? '' : brand.name)}
+              key={brand}
+              className={`qf-pill brand-pill ${selectedBrand === brand ? 'active' : ''}`}
+              onClick={() => setSelectedBrand(selectedBrand === brand ? '' : brand)}
             >
-              {brand.name}
+              {brand}
             </button>
           ))}
 
@@ -668,9 +662,6 @@ export default function FuelPage() {
             </button>
           )}
         </div>
-
-        {/* Stats */}
-        <StatsBar stations={filteredStations} loading={loading} />
       </div>
 
       {/* Floating Actions */}

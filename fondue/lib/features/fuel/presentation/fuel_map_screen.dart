@@ -265,14 +265,7 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
               padding: const EdgeInsets.only(left: 16, right: 16, top: 60),
               child: SizedBox(
                 height: 38,
-                child: stationsAsync.when(
-                  data: (allStations) {
-                    final brands = allStations
-                        .map((s) => s.brand)
-                        .toSet()
-                        .toList()
-                      ..sort();
-                    return ListView(
+                child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
                         // Fuel pills
@@ -311,15 +304,9 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                           child: Container(width: 1, color: Colors.black12),
                         ),
-                        // Brand pills
-                        _FilterPill(
-                          label: 'ทุกแบรนด์',
-                          active: selectedBrand.isEmpty,
-                          isFuel: false,
-                          onTap: () => ref.read(selectedBrandProvider.notifier).set(''),
-                        ),
-                        ...brands.map((b) => Padding(
-                              padding: const EdgeInsets.only(left: 6),
+                        // Brand pills — hardcoded major Thai brands
+                        ...['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((b) => Padding(
+                              padding: const EdgeInsets.only(right: 6),
                               child: _FilterPill(
                                 label: b,
                                 active: selectedBrand == b,
@@ -329,11 +316,7 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
                               ),
                             )),
                       ],
-                    );
-                  },
-                  loading: () => const SizedBox(),
-                  error: (_, __) => const SizedBox(),
-                ),
+                    ),
               ),
             ),
           ),
