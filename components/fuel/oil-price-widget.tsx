@@ -56,6 +56,9 @@ export default function OilPriceWidget() {
     ['gasohol_91', 'gasohol_95', 'diesel_b7'].includes(p.fuel_id || '')
   );
 
+  // Check if any fuel has a different tomorrow price
+  const hasTomorrowChanges = data.prices.some(p => p.diff_tomorrow !== 0);
+
   return (
     <div style={styles.container}>
       {/* Mini ticker bar */}
@@ -74,7 +77,9 @@ export default function OilPriceWidget() {
                 {i > 0 && <span style={styles.tickerDivider}>·</span>}
                 <span style={styles.tickerName}>{shortName(fuel.name)}</span>
                 <span style={styles.tickerPrice}>฿{fuel.price_today.toFixed(2)}</span>
-                <PriceChange diff={fuel.diff_yesterday} />
+                {fuel.diff_tomorrow !== 0 && (
+                  <PriceChange diff={fuel.diff_tomorrow} label="พรุ่งนี้" />
+                )}
               </span>
             ))}
           </div>
@@ -97,10 +102,23 @@ export default function OilPriceWidget() {
             style={styles.expandedPanel}
           >
             <div style={styles.panelHeader}>
-              <span style={styles.panelTitle}>💰 ราคาน้ำมันวันนี้</span>
+              <span style={styles.panelTitle}>💰 ราคาน้ำมัน</span>
               <span style={styles.panelMeta}>
                 {data.metadata.remark}
               </span>
+            </div>
+
+            {/* Column headers */}
+            <div style={{ ...styles.priceRow, padding: '4px 16px 2px', borderBottom: '2px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>ชนิด</span>
+              </div>
+              <div style={{ width: 90, textAlign: 'right' as const }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6' }}>วันนี้</span>
+              </div>
+              <div style={{ width: 110, textAlign: 'right' as const }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>พรุ่งนี้</span>
+              </div>
             </div>
 
             <div style={styles.priceGrid}>
@@ -109,13 +127,35 @@ export default function OilPriceWidget() {
                   <div style={styles.priceNameCol}>
                     <span style={styles.priceName}>{fuel.name}</span>
                   </div>
-                  <div style={styles.priceValueCol}>
+                  {/* Today */}
+                  <div style={{ width: 90, textAlign: 'right' as const }}>
                     <span style={styles.priceValue}>฿{fuel.price_today.toFixed(2)}</span>
-                    <PriceChange diff={fuel.diff_yesterday} showValue />
+                  </div>
+                  {/* Tomorrow */}
+                  <div style={{ width: 110, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                    <span style={{ 
+                      fontSize: 14, 
+                      fontWeight: 700, 
+                      fontVariantNumeric: 'tabular-nums',
+                      color: fuel.diff_tomorrow > 0 ? '#EF4444' : fuel.diff_tomorrow < 0 ? '#22C55E' : '#64748b',
+                    }}>
+                      ฿{fuel.price_tomorrow.toFixed(2)}
+                    </span>
+                    {fuel.diff_tomorrow !== 0 && (
+                      <PriceChange diff={fuel.diff_tomorrow} showValue />
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+
+            {hasTomorrowChanges && (
+              <div style={{ padding: '6px 16px 8px', background: 'rgba(245,158,11,0.06)', borderTop: '1px solid rgba(245,158,11,0.1)' }}>
+                <span style={{ fontSize: 11, color: '#b45309', fontWeight: 600 }}>
+                  ⚠️ ราคาน้ำมันพรุ่งนี้มีการเปลี่ยนแปลง
+                </span>
+              </div>
+            )}
 
             <div style={styles.panelFooter}>
               <span style={styles.sourceText}>
@@ -138,7 +178,7 @@ function shortName(name: string): string {
     .trim();
 }
 
-function PriceChange({ diff, showValue }: { diff: number; showValue?: boolean }) {
+function PriceChange({ diff, showValue, label }: { diff: number; showValue?: boolean; label?: string }) {
   if (diff === 0) {
     return (
       <span style={{ ...styles.changeTag, background: 'rgba(107,114,128,0.15)', color: '#9CA3AF' }}>
@@ -157,6 +197,7 @@ function PriceChange({ diff, showValue }: { diff: number; showValue?: boolean })
         color: isUp ? '#EF4444' : '#22C55E',
       }}
     >
+      {label && <span style={{ fontSize: 9, marginRight: 2 }}>{label}</span>}
       {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
       {showValue && ` ${isUp ? '+' : ''}${diff.toFixed(2)}`}
     </span>
