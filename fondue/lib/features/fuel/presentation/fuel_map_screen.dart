@@ -263,6 +263,24 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
             ),
           ),
 
+          // Donate button in header area
+          Positioned(
+            right: 16,
+            top: MediaQuery.of(context).padding.top + 8,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DonateScreen())),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFFFBBF24), Color(0xFFF59E0B)]),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.3), blurRadius: 8)],
+                ),
+                child: const Text('☕', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+          ),
+
           // Fuel type filter row with label
           SafeArea(
             child: Padding(
@@ -415,24 +433,6 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
                     );
                   }
                 },
-              ),
-            ),
-          ),
-
-          // Donate button
-          Positioned(
-            right: 16,
-            bottom: 178,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DonateScreen())),
-              child: Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.95),
-                  shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8)],
-                ),
-                child: const Center(child: Text('☕', style: TextStyle(fontSize: 18))),
               ),
             ),
           ),

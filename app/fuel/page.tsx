@@ -625,6 +625,7 @@ export default function FuelPage() {
             </div>
           </div>
           <div className="header-actions">
+            <a href="/donate" className="header-btn" style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)', color: '#1e293b', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>☕</a>
             <button className="header-btn locate" onClick={handleLocateMe}>
               <LocateFixed size={18} />
             </button>
