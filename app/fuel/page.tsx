@@ -901,7 +901,7 @@ export default function FuelFinder() {
                     style={{
                       width: '100%', padding: '10px 14px', borderRadius: 10,
                       border: '1px solid #e2e8f0', fontSize: 14, outline: 'none',
-                      boxSizing: 'border-box',
+                      boxSizing: 'border-box', backgroundColor: 'white', color: '#1e293b'
                     }}
                   />
                 </div>
