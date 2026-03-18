@@ -342,6 +342,21 @@ export default function FuelPage() {
           color: #94a3b8;
         }
 
+        .filter-section {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .filter-label {
+          font-size: 11px;
+          font-weight: 600;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          padding-left: 2px;
+        }
+
         .quick-filter-row {
           display: flex;
           gap: 6px;
@@ -612,51 +627,57 @@ export default function FuelPage() {
           )}
         </div>
 
-        {/* Fuel type pills */}
-        <div className="quick-filter-row">
-          <button
-            className={`qf-pill fuel-pill ${selectedFuelType === '' ? 'active' : ''}`}
-            onClick={() => setSelectedFuelType('')}
-          >
-            ⛽ ทั้งหมด
-          </button>
-          <button
-            className={`qf-pill fuel-pill ${selectedFuelType === 'diesel_b7' ? 'active' : ''}`}
-            onClick={() => setSelectedFuelType(selectedFuelType === 'diesel_b7' ? '' : 'diesel_b7')}
-          >
-            🟡 ดีเซล
-          </button>
-          <button
-            className={`qf-pill fuel-pill ${selectedFuelType === 'gasohol_91' ? 'active' : ''}`}
-            onClick={() => setSelectedFuelType(selectedFuelType === 'gasohol_91' ? '' : 'gasohol_91')}
-          >
-            🟢 91
-          </button>
-          <button
-            className={`qf-pill fuel-pill ${selectedFuelType === 'gasohol_95' ? 'active' : ''}`}
-            onClick={() => setSelectedFuelType(selectedFuelType === 'gasohol_95' ? '' : 'gasohol_95')}
-          >
-            🔵 95
-          </button>
-          {selectedFuelType && (
-            <button className="qf-pill clear-pill" onClick={() => setSelectedFuelType('')}>✕</button>
-          )}
+        {/* Fuel type row */}
+        <div className="filter-section">
+          <span className="filter-label">ประเภทน้ำมัน</span>
+          <div className="quick-filter-row">
+            <button
+              className={`qf-pill fuel-pill ${selectedFuelType === '' ? 'active' : ''}`}
+              onClick={() => setSelectedFuelType('')}
+            >
+              ⛽ ทั้งหมด
+            </button>
+            <button
+              className={`qf-pill fuel-pill ${selectedFuelType === 'diesel_b7' ? 'active' : ''}`}
+              onClick={() => setSelectedFuelType(selectedFuelType === 'diesel_b7' ? '' : 'diesel_b7')}
+            >
+              🟡 ดีเซล
+            </button>
+            <button
+              className={`qf-pill fuel-pill ${selectedFuelType === 'gasohol_91' ? 'active' : ''}`}
+              onClick={() => setSelectedFuelType(selectedFuelType === 'gasohol_91' ? '' : 'gasohol_91')}
+            >
+              🟢 91
+            </button>
+            <button
+              className={`qf-pill fuel-pill ${selectedFuelType === 'gasohol_95' ? 'active' : ''}`}
+              onClick={() => setSelectedFuelType(selectedFuelType === 'gasohol_95' ? '' : 'gasohol_95')}
+            >
+              🔵 95
+            </button>
+            {selectedFuelType && (
+              <button className="qf-pill clear-pill" onClick={() => setSelectedFuelType('')}>✕</button>
+            )}
+          </div>
         </div>
 
-        {/* Brand pills */}
-        <div className="quick-filter-row">
-          {['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((brand) => (
-            <button
-              key={brand}
-              className={`qf-pill brand-pill ${selectedBrand === brand ? 'active' : ''}`}
-              onClick={() => setSelectedBrand(selectedBrand === brand ? '' : brand)}
-            >
-              {brand}
-            </button>
-          ))}
-          {selectedBrand && (
-            <button className="qf-pill clear-pill" onClick={() => setSelectedBrand('')}>✕</button>
-          )}
+        {/* Brand row */}
+        <div className="filter-section">
+          <span className="filter-label">แบรนด์</span>
+          <div className="quick-filter-row">
+            {['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((brand) => (
+              <button
+                key={brand}
+                className={`qf-pill brand-pill ${selectedBrand === brand ? 'active' : ''}`}
+                onClick={() => setSelectedBrand(selectedBrand === brand ? '' : brand)}
+              >
+                {brand}
+              </button>
+            ))}
+            {selectedBrand && (
+              <button className="qf-pill clear-pill" onClick={() => setSelectedBrand('')}>✕</button>
+            )}
+          </div>
         </div>
       </div>
 
