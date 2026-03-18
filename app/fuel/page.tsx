@@ -808,9 +808,14 @@ export default function FuelFinder() {
               setPickerLocation(mapCenter || userLocation || { lat: 13.7563, lng: 100.5018 });
             }}
             title="เพิ่มสถานีใหม่"
-            style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none' }}
+            style={{
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+              padding: '10px 14px', borderRadius: 16, height: 'auto', width: 'auto',
+            }}
           >
-            <Plus size={22} />
+            <Plus size={20} />
+            <span style={{ fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1 }}>ไม่เจอในแผนที่?</span>
           </button>
         </div>
       )}

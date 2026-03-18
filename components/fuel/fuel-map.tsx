@@ -60,6 +60,7 @@ const BRAND_ABBR: Record<string, string> = {
   'Caltex': 'CTX',
   'Susco': 'SSC',
   'PT': 'PT',
+  'Other': 'อื่นๆ',
 };
 
 const BRAND_COLORS: Record<string, string> = {
