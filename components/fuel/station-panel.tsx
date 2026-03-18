@@ -810,36 +810,7 @@ export default function StationPanel({
           </div>
         </div>
 
-        {/* Photo / Note — moved to bottom */}
-        <div className="note-section" style={{ marginTop: 20 }}>
-          <div className="section-title">📷 แนบรูป / หมายเหตุ (ไม่จำเป็น)</div>
-          <div className="image-actions">
-            <button className="upload-btn" onClick={() => fileInputRef.current?.click()}>
-              <Camera size={14} />
-              {uploadingImage ? 'กำลังอัพโหลด...' : 'ถ่ายรูป / เลือกรูป'}
-            </button>
-            {imagePreview && (
-              <img src={imagePreview} alt="preview" className="image-preview" />
-            )}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleImageUpload}
-            style={{ display: 'none' }}
-          />
-          <textarea
-            className="note-input"
-            placeholder="เพิ่มหมายเหตุ เช่น คิวยาว, ปั๊มปิดแล้ว..."
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-          />
-        </div>
-
-        {/* Comments Section */}
+        {/* Comments + Photo Section (merged) */}
         <CommentsSection stationId={station.id} getFingerprint={getFingerprint} />
       </div>
     </motion.div>
@@ -859,6 +830,9 @@ function CommentsSection({ stationId, getFingerprint }: { stationId: string; get
   const [newComment, setNewComment] = useState('');
   const [posting, setPosting] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
+  const [commentImage, setCommentImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const commentFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`/api/fuel/comments?station_id=${stationId}`)
@@ -868,8 +842,23 @@ function CommentsSection({ stationId, getFingerprint }: { stationId: string; get
       .finally(() => setLoadingComments(false));
   }, [stationId]);
 
+  const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/fuel/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.url) setCommentImage(data.url);
+    } catch { /* ignore */ }
+    setUploading(false);
+    if (commentFileRef.current) commentFileRef.current.value = '';
+  };
+
   const postComment = async () => {
-    if (!newComment.trim() || posting) return;
+    if ((!newComment.trim() && !commentImage) || posting) return;
     setPosting(true);
     try {
       const res = await fetch('/api/fuel/comments', {
@@ -877,14 +866,16 @@ function CommentsSection({ stationId, getFingerprint }: { stationId: string; get
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           station_id: stationId,
-          message: newComment.trim(),
+          message: newComment.trim() || '📷 รูปภาพ',
           fingerprint: getFingerprint(),
+          image_url: commentImage || null,
         }),
       });
       const data = await res.json();
       if (data.success && data.comment) {
         setComments(prev => [data.comment, ...prev]);
         setNewComment('');
+        setCommentImage(null);
       }
     } catch { /* ignore */ }
     setPosting(false);
@@ -900,19 +891,61 @@ function CommentsSection({ stationId, getFingerprint }: { stationId: string; get
     return `${Math.floor(hrs / 24)} วันที่แล้ว`;
   };
 
+  const canPost = newComment.trim() || commentImage;
+
   return (
     <div style={{ marginTop: 20 }}>
       <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', marginBottom: 10 }}>
-        💬 ความคิดเห็น ({comments.length})
+        💬 ความคิดเห็น / แนบรูป ({comments.length})
       </div>
 
+      {/* Image preview */}
+      {commentImage && (
+        <div style={{ marginBottom: 10, position: 'relative', display: 'inline-block' }}>
+          <img src={commentImage} alt="preview" style={{
+            maxWidth: '100%', maxHeight: 120, borderRadius: 10,
+            border: '1px solid #e2e8f0', objectFit: 'cover',
+          }} />
+          <button
+            onClick={() => setCommentImage(null)}
+            style={{
+              position: 'absolute', top: -6, right: -6,
+              width: 22, height: 22, borderRadius: '50%',
+              background: '#ef4444', color: 'white', border: 'none',
+              fontSize: 12, cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >✕</button>
+        </div>
+      )}
+
       {/* Post form */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center' }}>
+        <button
+          onClick={() => commentFileRef.current?.click()}
+          disabled={uploading}
+          style={{
+            width: 40, height: 40, borderRadius: 12, border: '1px solid #e2e8f0',
+            background: uploading ? '#f1f5f9' : '#f8fafc', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, color: '#64748b',
+          }}
+        >
+          {uploading ? '...' : <Camera size={18} />}
+        </button>
+        <input
+          ref={commentFileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleImagePick}
+          style={{ display: 'none' }}
+        />
         <input
           type="text"
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
-          placeholder="แสดงความคิดเห็น เช่น คิวยาว, ปิดก่อนเวลา..."
+          placeholder="แสดงความคิดเห็น หรือ แนบรูป..."
           onKeyDown={(e) => e.key === 'Enter' && postComment()}
           style={{
             flex: 1, padding: '10px 14px', borderRadius: 12,
@@ -923,11 +956,11 @@ function CommentsSection({ stationId, getFingerprint }: { stationId: string; get
         />
         <button
           onClick={postComment}
-          disabled={posting || !newComment.trim()}
+          disabled={posting || !canPost}
           style={{
             padding: '10px 16px', borderRadius: 12, border: 'none',
-            background: posting || !newComment.trim() ? '#e2e8f0' : 'linear-gradient(135deg, #f59e0b, #ef4444)',
-            color: posting || !newComment.trim() ? '#94a3b8' : 'white',
+            background: posting || !canPost ? '#e2e8f0' : 'linear-gradient(135deg, #f59e0b, #ef4444)',
+            color: posting || !canPost ? '#94a3b8' : 'white',
             fontWeight: 700, fontSize: 13, cursor: 'pointer',
             fontFamily: 'inherit', whiteSpace: 'nowrap',
           }}
