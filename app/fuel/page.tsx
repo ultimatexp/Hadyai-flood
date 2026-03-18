@@ -491,28 +491,18 @@ export default function FuelPage() {
           box-shadow: 0 6px 24px rgba(251, 191, 36, 0.5);
         }
 
-        .radius-filter-row {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          flex-wrap: nowrap;
-          overflow-x: auto;
-        }
-        .radius-pill {
-          padding: 4px 12px;
-          border-radius: 16px;
-          border: 1px solid rgba(0,0,0,0.1);
-          background: rgba(255,255,255,0.8);
-          font-size: 12px;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: all 0.2s;
-        }
-        .radius-pill.active {
-          background: linear-gradient(135deg, #3b82f6, #2563eb);
-          color: white;
-          border-color: transparent;
+        .radius-select {
+          padding: 6px 8px;
+          border: none;
+          border-left: 1px solid rgba(0,0,0,0.08);
+          background: transparent;
+          font-size: 13px;
           font-weight: 600;
+          color: #3b82f6;
+          cursor: pointer;
+          outline: none;
+          appearance: auto;
+          min-width: 90px;
         }
 
         .floating-actions-center {
@@ -710,6 +700,15 @@ export default function FuelPage() {
               <X size={16} color="#94a3b8" />
             </button>
           )}
+          <select
+            className="radius-select"
+            value={radius}
+            onChange={(e) => setRadius(Number(e.target.value))}
+          >
+            {[5, 10, 25, 50, 100].map((r) => (
+              <option key={r} value={r}>{r} กม.</option>
+            ))}
+          </select>
         </div>
 
         {/* Fuel type row */}
@@ -766,21 +765,7 @@ export default function FuelPage() {
           </div>
         </div>
 
-        {/* Radius filter */}
-        <div className="filter-section">
-          <span className="filter-label">รัศมีค้นหา</span>
-          <div className="radius-filter-row">
-            {[5, 10, 25, 50, 100].map((r) => (
-              <button
-                key={r}
-                className={`radius-pill ${radius === r ? 'active' : ''}`}
-                onClick={() => setRadius(r)}
-              >
-                {r} กม.
-              </button>
-            ))}
-          </div>
-        </div>
+
       </div>
 
       {/* Floating Actions */}
