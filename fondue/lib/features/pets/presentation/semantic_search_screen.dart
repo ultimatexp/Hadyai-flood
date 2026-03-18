@@ -69,7 +69,7 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
     try {
       final response = await Supabase.instance.client
           .from('pets')
-          .select('id, name, species, image_url, status, created_at')
+          .select('id, pet_name, species, image_url, status, created_at')
           .order('created_at', ascending: false)
           .limit(6);
       setState(() {
@@ -844,7 +844,7 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
 
   Widget _buildRecentPetCard(Map<String, dynamic> pet) {
     final imageUrl = pet['image_url'] as String?;
-    final name = pet['name'] as String? ?? pet['species'] as String? ?? 'Pet';
+    final name = pet['pet_name'] as String? ?? pet['species'] as String? ?? 'Pet';
     final species = pet['species'] as String? ?? '';
     final status = pet['status'] as String? ?? '';
     final isLost = status.toUpperCase() == 'LOST';
