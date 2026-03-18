@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import '../../../../core/config/constants.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -19,23 +20,36 @@ class SemanticSearchScreen extends StatefulWidget {
   State<SemanticSearchScreen> createState() => _SemanticSearchScreenState();
 }
 
-class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
+class _SemanticSearchScreenState extends State<SemanticSearchScreen>
+    with SingleTickerProviderStateMixin {
   final List<XFile> _selectedImages = [];
   bool _isSearching = false;
-  List<SearchMatch> _allSearchResults = []; // Original unfiltered results
-  List<SearchMatch> _filteredResults = [];  // Filtered results to display
+  List<SearchMatch> _allSearchResults = [];
+  List<SearchMatch> _filteredResults = [];
   String? _errorMessage;
   String? _statusMessage;
-  
+
   // Filter state
-  double _radiusKm = 50; // Default 50km
-  String? _selectedSex; // null = Any, 'male', 'female'
-  
+  double _radiusKm = 50;
+  String? _selectedSex;
+
   final GeminiService _gemini = GeminiService();
+
+  // Social proof: recent pets
+  List<Map<String, dynamic>> _recentPets = [];
+  bool _loadingRecentPets = false;
+
+  // Animation
+  late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _fetchRecentPets();
     if (widget.initialImage != null) {
       _selectedImages.add(widget.initialImage!);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -44,17 +58,41 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
     }
   }
 
-  Future<void> _pickImages() async {
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchRecentPets() async {
+    setState(() => _loadingRecentPets = true);
+    try {
+      final response = await Supabase.instance.client
+          .from('pets')
+          .select('id, name, species, image_url, status, created_at')
+          .order('created_at', ascending: false)
+          .limit(6);
+      setState(() {
+        _recentPets = List<Map<String, dynamic>>.from(response);
+        _loadingRecentPets = false;
+      });
+    } catch (e) {
+      print('Failed to fetch recent pets: $e');
+      setState(() => _loadingRecentPets = false);
+    }
+  }
+
+  Future<void> _pickImages({ImageSource source = ImageSource.gallery}) async {
     final picker = ImagePicker();
     try {
       final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         imageQuality: 80,
         maxWidth: 1024,
         maxHeight: 1024,
         requestFullMetadata: false,
       );
-      
+
       if (image != null) {
         setState(() {
           _selectedImages.add(image);
@@ -85,33 +123,26 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
 
       for (int i = 0; i < _selectedImages.length; i++) {
         final image = _selectedImages[i];
-        
-        // Step 1: Analyze with Gemini to get features
-        setState(() => _statusMessage = "Step 1/2: Extracting features from image ${i+1}...");
-        
+
+        setState(() => _statusMessage = "Step 1/2: Extracting features from image ${i + 1}...");
+
         Map<String, dynamic> features = {};
         try {
           features = await _gemini.analyzePetImage(image);
           print("Gemini extracted: $features");
         } catch (e) {
           print("Gemini analysis failed: $e");
-          // Continue without features
         }
-        
-        // Step 2: Send to search API with features
+
         setState(() => _statusMessage = "Step 2/2: Searching database...");
-        
+
         final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/pet/search');
         print('🚀 Sending search request to: $uri');
-        final request = http.MultipartRequest(
-          'POST', 
-          uri
-        );
-        
+        final request = http.MultipartRequest('POST', uri);
+
         request.files.add(await http.MultipartFile.fromPath('image', image.path));
         request.fields['type'] = 'lost';
-        
-        // Add extracted features to improve matching
+
         if (features['species'] != null) {
           request.fields['species'] = features['species'].toString().toLowerCase();
         }
@@ -124,11 +155,10 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
         if (features['fur_length'] != null) {
           request.fields['fur_length'] = features['fur_length'].toString().toLowerCase();
         }
-        // Only override sex from Gemini if user didn't explicitly select one
         if (_selectedSex == null && features['sex'] != null && features['sex'] != 'Unknown') {
           request.fields['sex'] = features['sex'].toString().toLowerCase();
         }
-        
+
         final streamedResponse = await request.send();
         final response = await http.Response.fromStream(streamedResponse);
 
@@ -136,18 +166,15 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
           final data = json.decode(response.body);
           print('✅ API Response: ${data['matches']?.length ?? 0} matches found');
           if (data['success'] == true) {
-            final matches = (data['matches'] as List)
-                .map((m) => SearchMatch.fromJson(m))
-                .toList();
+            final matches = (data['matches'] as List).map((m) => SearchMatch.fromJson(m)).toList();
             allMatches.addAll(matches);
           }
         } else {
-           print("❌ API Error (${response.statusCode}): ${response.body}");
-           _errorMessage = "API Error: ${response.statusCode}";
+          print("❌ API Error (${response.statusCode}): ${response.body}");
+          _errorMessage = "API Error: ${response.statusCode}";
         }
       }
 
-      // Deduplicate by pet ID, keeping highest score
       final Map<String, SearchMatch> uniqueMatches = {};
       for (var match in allMatches) {
         final existing = uniqueMatches[match.pet.id];
@@ -156,7 +183,6 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
         }
       }
 
-      // Sort by combined score descending
       final sortedMatches = uniqueMatches.values.toList()
         ..sort((a, b) => b.combinedScore.compareTo(a.combinedScore));
 
@@ -168,7 +194,6 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
           _errorMessage = "No matching pets found (Try adjusting filters).";
         }
       });
-
     } catch (e) {
       setState(() {
         _errorMessage = "Search failed: $e";
@@ -181,13 +206,10 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
 
   void _applyFilters() {
     _filteredResults = _allSearchResults.where((match) {
-      // Sex filter
       if (_selectedSex != null) {
         final petSex = match.pet.sex?.toLowerCase();
         if (petSex != _selectedSex) return false;
       }
-      // Note: Radius filtering would require pet location data
-      // For now, we filter only by sex client-side
       return true;
     }).toList();
   }
@@ -211,311 +233,642 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
         automaticallyImplyLeading: !widget.asHomeTab,
         title: Text(widget.asHomeTab ? '🐾 ค้นหาสัตว์เลี้ยง' : 'Smart Pet Search'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            color: Colors.grey[100],
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, size: 16, color: Colors.grey),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Algorithm: 40% AI Vision + 30% Color + 30% Features',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          preferredSize: const Size.fromHeight(52),
+          child: _buildAlgorithmPills(),
         ),
       ),
       body: Column(
         children: [
           // 1. Image Selection Area
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.grey[50],
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  "Upload photos of your lost pet",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Tap multiple times to add more photos",
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                
-                if (_selectedImages.isNotEmpty)
-                  SizedBox(
-                    height: 100,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _selectedImages.length + 1,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        if (index == _selectedImages.length) {
-                          return GestureDetector(
-                            onTap: _pickImages,
-                            child: Container(
-                              width: 80,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(color: Colors.grey[300]!),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.add_a_photo, color: Colors.grey),
-                            ),
-                          );
-                        }
-                        return Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                File(_selectedImages[index].path),
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Positioned(
-                              right: 0,
-                              top: 0,
-                              child: GestureDetector(
-                                onTap: () => _removeImage(index),
-                                child: Container(
-                                  color: Colors.black54,
-                                  child: const Icon(Icons.close, color: Colors.white, size: 20),
-                                ),
-                              ),
-                            )
-                          ],
-                        );
-                      },
-                    ),
-                  )
-                else
-                  GestureDetector(
-                    onTap: _pickImages,
-                    child: Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: Colors.grey[300]!, style: BorderStyle.solid),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.cloud_upload_outlined, size: 40, color: AppTheme.primaryGreen),
-                          SizedBox(height: 8),
-                          Text("Tap to upload photos"),
-                        ],
-                      ),
-                    ),
-                  ),
+          _buildUploadSection(),
 
-                const SizedBox(height: 16),
-                
-                const SizedBox(height: 16),
-                
-                // Search Button (Always visible)
-                ElevatedButton.icon(
-                  onPressed: _isSearching || _selectedImages.isEmpty ? null : _performSearch,
-                  icon: _isSearching 
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                      : const Icon(Icons.search),
-                  label: Text(_isSearching ? "SEARCHING..." : "FIND MATCHES"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentOrange,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-                
-                // Filter Section (Only visible after search)
-                if (_allSearchResults.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[200]!),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.tune, size: 18, color: Colors.grey[600]),
-                            const SizedBox(width: 8),
-                            Text("Filters", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700])),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // Radius Filter
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on, size: 16, color: Colors.orange),
-                            const SizedBox(width: 6),
-                            Text("Radius: ", style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                            Text("${_radiusKm.round()} km", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                        Slider(
-                          value: _radiusKm,
-                          min: 5,
-                          max: 200,
-                          divisions: 39,
-                          activeColor: AppTheme.accentOrange,
-                          onChanged: (value) {
-                            setState(() => _radiusKm = value);
-                            _onFilterChanged();
-                          },
-                        ),
-                        
-                        const SizedBox(height: 8),
-                        
-                        // Sex Filter
-                        Row(
-                          children: [
-                            const Icon(Icons.pets, size: 16, color: Colors.blue),
-                            const SizedBox(width: 6),
-                            Text("Sex: ", style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Wrap(
-                                spacing: 8,
-                                children: [
-                                  _buildSexChip("Any", null),
-                                  _buildSexChip("Male", "male"),
-                                  _buildSexChip("Female", "female"),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // 2. Results Area
+          // 2. Results / Empty State
           Expanded(
             child: _isSearching
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 120,
-                          height: 120,
-                          child: Lottie.asset('assets/lottie/Dog Paw Loading.json'),
-                        ),
-                        const SizedBox(height: 24),
-                        // Animated Step Indicators
-                        _buildSearchStep(
-                          'Analyzing Image',
-                          Icons.camera_alt,
-                          _statusMessage?.contains('1/2') ?? false,
-                          _statusMessage?.contains('2/2') ?? false,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildSearchStep(
-                          'Searching Database',
-                          Icons.search,
-                          _statusMessage?.contains('2/2') ?? false,
-                          false,
-                        ),
-                      ],
-                    ),
-                  )
+                ? _buildSearchingState()
                 : _errorMessage != null
-                    ? Center(child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(_errorMessage!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
-                      ))
+                    ? _buildErrorState()
                     : _allSearchResults.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 180,
-                                  height: 180,
-                                  child: Lottie.asset('assets/lottie/Dog Paw Loading.json'),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Upload photos to start searching',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.grey[700],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Our AI will find potential matches',
-                                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                                ),
-                              ],
-                            ),
-                          )
+                        ? _buildEmptyState()
                         : _filteredResults.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.filter_list_off, size: 48, color: Colors.grey),
-                                    const SizedBox(height: 12),
-                                    Text("No results match your filters", style: TextStyle(color: Colors.grey[600])),
-                                    Text("Found ${_allSearchResults.length} results before filtering", style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                                  ],
-                                ),
-                              )
-                            : ListView.separated(
-                                padding: const EdgeInsets.all(16),
-                                itemCount: _filteredResults.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 16),
-                                itemBuilder: (context, index) {
-                                  final match = _filteredResults[index];
-                                  // Staggered entrance animation per card
-                                  return TweenAnimationBuilder<double>(
-                                    key: ValueKey(match.pet.id),
-                                    tween: Tween(begin: 0.0, end: 1.0),
-                                    duration: Duration(milliseconds: 400 + (index * 100).clamp(0, 600)),
-                                    curve: Curves.easeOutCubic,
-                                    builder: (context, value, child) {
-                                      return Transform.translate(
-                                        offset: Offset(0, 30 * (1 - value)),
-                                        child: Opacity(
-                                          opacity: value,
-                                          child: child,
-                                        ),
-                                      );
-                                    },
-                                    child: _buildMatchCard(context, match),
-                                  );
-                                },
-                              ),
+                            ? _buildNoFilterResultsState()
+                            : _buildResultsList(),
           ),
         ],
       ),
     );
   }
 
+  // ── 1. Algorithm Pill Chips ─────────────────────────────────
+  Widget _buildAlgorithmPills() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.grey[50]!, Colors.grey[100]!],
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _algorithmPill('🧠', 'AI Vision', '40%', const Color(0xFF9C27B0)),
+          const SizedBox(width: 8),
+          Container(width: 1, height: 20, color: Colors.grey[300]),
+          const SizedBox(width: 8),
+          _algorithmPill('🎨', 'Color', '30%', AppTheme.accentOrange),
+          const SizedBox(width: 8),
+          Container(width: 1, height: 20, color: Colors.grey[300]),
+          const SizedBox(width: 8),
+          _algorithmPill('📐', 'Features', '30%', const Color(0xFF42A5F5)),
+        ],
+      ),
+    );
+  }
+
+  Widget _algorithmPill(String emoji, String label, String percent, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 4),
+          Text(
+            '$label $percent',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 2. Upload Section ──────────────────────────────────────
+  Widget _buildUploadSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.white, Colors.orange.withOpacity(0.03)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header row with camera button
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "อัพโหลดรูปสัตว์เลี้ยง",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "รูปหลายรูป = ค้นหาแม่นยำขึ้น 📸",
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              ),
+              // Camera quick-action button
+              Material(
+                color: AppTheme.accentOrange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _pickImages(source: ImageSource.camera),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    child: Icon(
+                      Icons.camera_alt_rounded,
+                      color: AppTheme.accentOrange,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Upload area
+          if (_selectedImages.isNotEmpty)
+            SizedBox(
+              height: 100,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _selectedImages.length + 1,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  if (index == _selectedImages.length) {
+                    return GestureDetector(
+                      onTap: () => _pickImages(),
+                      child: Container(
+                        width: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: AppTheme.accentOrange.withOpacity(0.3)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_photo_alternate_rounded,
+                                color: AppTheme.accentOrange, size: 28),
+                            const SizedBox(height: 4),
+                            Text('เพิ่มรูป',
+                                style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          File(_selectedImages[index].path),
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: GestureDetector(
+                          onTap: () => _removeImage(index),
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.close, color: Colors.white, size: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: () => _pickImages(),
+              child: Container(
+                height: 110,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.accentOrange.withOpacity(0.05),
+                      AppTheme.primaryGreen.withOpacity(0.05),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: AppTheme.accentOrange.withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentOrange.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.cloud_upload_rounded,
+                        size: 32,
+                        color: AppTheme.accentOrange,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'แตะเพื่ออัพโหลดรูปภาพ',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'หรือถ่ายรูปจากกล้อง 📷',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 12),
+
+          // Search Button - Full width, bold orange
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final scale = _selectedImages.isNotEmpty && !_isSearching
+                  ? 1.0 + (_pulseController.value * 0.015)
+                  : 1.0;
+              return Transform.scale(scale: scale, child: child);
+            },
+            child: SizedBox(
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: _isSearching || _selectedImages.isEmpty ? null : _performSearch,
+                icon: _isSearching
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.search_rounded, size: 22),
+                label: Text(
+                  _isSearching ? 'กำลังค้นหา...' : 'ค้นหาสัตว์เลี้ยง',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentOrange,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey[300],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: _selectedImages.isNotEmpty ? 4 : 0,
+                  shadowColor: AppTheme.accentOrange.withOpacity(0.4),
+                ),
+              ),
+            ),
+          ),
+
+          // Filter Section (Only visible after search)
+          if (_allSearchResults.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.tune, size: 18, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Text("Filters",
+                          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 16, color: Colors.orange),
+                      const SizedBox(width: 6),
+                      Text("Radius: ", style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                      Text("${_radiusKm.round()} km",
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  Slider(
+                    value: _radiusKm,
+                    min: 5,
+                    max: 200,
+                    divisions: 39,
+                    activeColor: AppTheme.accentOrange,
+                    onChanged: (value) {
+                      setState(() => _radiusKm = value);
+                      _onFilterChanged();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.pets, size: 16, color: Colors.blue),
+                      const SizedBox(width: 6),
+                      Text("Sex: ", style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          children: [
+                            _buildSexChip("Any", null),
+                            _buildSexChip("Male", "male"),
+                            _buildSexChip("Female", "female"),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── 3. Empty State with Step Indicators + Social Proof ────
+  Widget _buildEmptyState() {
+    final bottomPad = MediaQuery.of(context).padding.bottom + 90;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, bottomPad),
+      child: Column(
+        children: [
+          // Colorful Lottie
+          SizedBox(
+            width: 120,
+            height: 120,
+            child: Lottie.asset('assets/lottie/ck pets world.json'),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'ค้นหาสัตว์เลี้ยงด้วย AI',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'อัพโหลดรูปสัตว์เลี้ยงเพื่อค้นหาสัตว์ที่คล้ายกัน',
+            style: TextStyle(color: Colors.grey[500], fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 16),
+          // Step Indicators
+          _buildStepIndicators(),
+
+          // Social Proof Section
+          if (_recentPets.isNotEmpty || _loadingRecentPets) ...[
+            const SizedBox(height: 20),
+            _buildSocialProofSection(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepIndicators() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _stepPill('①', 'อัพโหลด', AppTheme.accentOrange),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey[400]),
+        ),
+        _stepPill('②', 'วิเคราะห์', const Color(0xFF9C27B0)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey[400]),
+        ),
+        _stepPill('③', 'จับคู่', AppTheme.primaryGreen),
+      ],
+    );
+  }
+
+  Widget _stepPill(String number, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(number, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+        ],
+      ),
+    );
+  }
+
+  // ── 6. Social Proof Section ────────────────────────────────
+  Widget _buildSocialProofSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.verified, size: 18, color: AppTheme.primaryGreen),
+            const SizedBox(width: 6),
+            Text(
+              'สัตว์เลี้ยงที่ลงทะเบียนล่าสุด',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_loadingRecentPets)
+          const Center(child: CircularProgressIndicator(strokeWidth: 2))
+        else
+          SizedBox(
+            height: 100,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _recentPets.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final pet = _recentPets[index];
+                return _buildRecentPetCard(pet);
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRecentPetCard(Map<String, dynamic> pet) {
+    final imageUrl = pet['image_url'] as String?;
+    final name = pet['name'] as String? ?? pet['species'] as String? ?? 'Pet';
+    final species = pet['species'] as String? ?? '';
+    final status = pet['status'] as String? ?? '';
+    final isLost = status.toUpperCase() == 'LOST';
+
+    return Container(
+      width: 85,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      width: 85,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          Container(color: Colors.grey[200], child: const Icon(Icons.pets, size: 24)),
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.pets, size: 24, color: Colors.grey),
+                    ),
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            decoration: BoxDecoration(
+              color: isLost ? Colors.red.withOpacity(0.05) : AppTheme.primaryGreen.withOpacity(0.05),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+                if (species.isNotEmpty)
+                  Text(
+                    species,
+                    style: TextStyle(fontSize: 9, color: Colors.grey[500]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Searching State ────────────────────────────────────────
+  Widget _buildSearchingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 120,
+            height: 120,
+            child: Lottie.asset('assets/lottie/Dog Paw Loading.json'),
+          ),
+          const SizedBox(height: 24),
+          _buildSearchStep(
+            'Analyzing Image',
+            Icons.camera_alt,
+            _statusMessage?.contains('1/2') ?? false,
+            _statusMessage?.contains('2/2') ?? false,
+          ),
+          const SizedBox(height: 12),
+          _buildSearchStep(
+            'Searching Database',
+            Icons.search,
+            _statusMessage?.contains('2/2') ?? false,
+            false,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Error State ────────────────────────────────────────────
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(_errorMessage!,
+            style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+      ),
+    );
+  }
+
+  // ── No Filter Results ──────────────────────────────────────
+  Widget _buildNoFilterResultsState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.filter_list_off, size: 48, color: Colors.grey),
+          const SizedBox(height: 12),
+          Text("No results match your filters", style: TextStyle(color: Colors.grey[600])),
+          Text("Found ${_allSearchResults.length} results before filtering",
+              style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  // ── Results List ───────────────────────────────────────────
+  Widget _buildResultsList() {
+    final bottomPad = MediaQuery.of(context).padding.bottom + 90;
+    return ListView.separated(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPad),
+      itemCount: _filteredResults.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final match = _filteredResults[index];
+        return TweenAnimationBuilder<double>(
+          key: ValueKey(match.pet.id),
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: Duration(milliseconds: 400 + (index * 100).clamp(0, 600)),
+          curve: Curves.easeOutCubic,
+          builder: (context, value, child) {
+            return Transform.translate(
+              offset: Offset(0, 30 * (1 - value)),
+              child: Opacity(opacity: value, child: child),
+            );
+          },
+          child: _buildMatchCard(context, match),
+        );
+      },
+    );
+  }
+
+  // ── Match Card ─────────────────────────────────────────────
   Widget _buildMatchCard(BuildContext context, SearchMatch match) {
     return Card(
       elevation: 3,
@@ -529,15 +882,15 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
           children: [
             Row(
               children: [
-                // Image
                 SizedBox(
                   width: 110,
                   height: 110,
-                  child: match.pet.imageUrl != null 
+                  child: match.pet.imageUrl != null
                       ? Image.network(match.pet.imageUrl!, fit: BoxFit.cover)
-                      : Container(color: Colors.grey[300], child: const Icon(Icons.pets, color: Colors.grey, size: 40)),
+                      : Container(
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.pets, color: Colors.grey, size: 40)),
                 ),
-                // Info
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(12),
@@ -552,7 +905,9 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
                                 color: match.pet.status == 'LOST' ? Colors.red : AppTheme.primaryGreen,
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text(match.pet.status, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                              child: Text(match.pet.status,
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                             ),
                             const Spacer(),
                             Container(
@@ -563,7 +918,8 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
                               ),
                               child: Text(
                                 "${match.matchPercent}% Match",
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                style: const TextStyle(
+                                    color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                               ),
                             ),
                           ],
@@ -583,7 +939,6 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
                 ),
               ],
             ),
-            // Algorithm Breakdown
             Container(
               color: Colors.grey[100],
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -614,7 +969,8 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: color.withOpacity(0.3)),
           ),
-          child: Text("$percent%", style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+          child: Text("$percent%",
+              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
         ),
       ],
     );
@@ -661,7 +1017,7 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
         : isActive
             ? AppTheme.accentOrange
             : Colors.grey[400]!;
-    
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

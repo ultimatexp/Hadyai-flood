@@ -9,14 +9,17 @@ import '../domain/fuel_status.dart';
 import 'fuel_providers.dart';
 import 'station_panel.dart';
 import 'quick_update_sheet.dart';
+import 'oil_price_widget.dart';
 
 const _brandColors = <String, Color>{
   'PTT': Color(0xFF2D5CA0),
   'Bangchak': Color(0xFF00A651),
-  'Shell': Color(0xFFFFB81C),
+  'Shell': Color(0xFFFFB900),
   'Esso': Color(0xFFD41E31),
   'Caltex': Color(0xFFE2231A),
-  'Susco': Color(0xFFE4002B),
+  'Susco': Color(0xFFFF6B00),
+  'PT': Color(0xFF0066B3),
+  'Sinopec': Color(0xFFC8102E),
 };
 
 class FuelMapScreen extends ConsumerStatefulWidget {
@@ -259,72 +262,95 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
             ),
           ),
 
-          // Fuel type filter row
+          // Fuel type filter row with label
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, top: 60),
-              child: SizedBox(
-                height: 34,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    _FilterPill(
-                      label: '⛽ ทั้งหมด',
-                      active: selectedFuelType.isEmpty,
-                      isFuel: true,
-                      onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(''),
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 56),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2, bottom: 4),
+                    child: Text('ประเภทน้ำมัน',
+                      style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF64748B), letterSpacing: 0.5)),
+                  ),
+                  SizedBox(
+                    height: 32,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _FilterPill(
+                          label: '⛽ ทั้งหมด',
+                          active: selectedFuelType.isEmpty,
+                          isFuel: true,
+                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(''),
+                        ),
+                        const SizedBox(width: 6),
+                        _FilterPill(
+                          label: '🟡 ดีเซล',
+                          active: selectedFuelType == 'diesel_b7',
+                          isFuel: true,
+                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
+                              selectedFuelType == 'diesel_b7' ? '' : 'diesel_b7'),
+                        ),
+                        const SizedBox(width: 6),
+                        _FilterPill(
+                          label: '🟢 91',
+                          active: selectedFuelType == 'gasohol_91',
+                          isFuel: true,
+                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
+                              selectedFuelType == 'gasohol_91' ? '' : 'gasohol_91'),
+                        ),
+                        const SizedBox(width: 6),
+                        _FilterPill(
+                          label: '🔵 95',
+                          active: selectedFuelType == 'gasohol_95',
+                          isFuel: true,
+                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
+                              selectedFuelType == 'gasohol_95' ? '' : 'gasohol_95'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    _FilterPill(
-                      label: '🟡 ดีเซล',
-                      active: selectedFuelType == 'diesel_b7',
-                      isFuel: true,
-                      onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
-                          selectedFuelType == 'diesel_b7' ? '' : 'diesel_b7'),
-                    ),
-                    const SizedBox(width: 6),
-                    _FilterPill(
-                      label: '🟢 91',
-                      active: selectedFuelType == 'gasohol_91',
-                      isFuel: true,
-                      onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
-                          selectedFuelType == 'gasohol_91' ? '' : 'gasohol_91'),
-                    ),
-                    const SizedBox(width: 6),
-                    _FilterPill(
-                      label: '🔵 95',
-                      active: selectedFuelType == 'gasohol_95',
-                      isFuel: true,
-                      onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
-                          selectedFuelType == 'gasohol_95' ? '' : 'gasohol_95'),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
 
-          // Brand filter row
+          // Brand filter row with label
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, top: 98),
-              child: SizedBox(
-                height: 34,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    ...['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((b) => Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: _FilterPill(
-                            label: b,
-                            active: selectedBrand == b,
-                            isFuel: false,
-                            onTap: () => ref.read(selectedBrandProvider.notifier).set(
-                                selectedBrand == b ? '' : b),
-                          ),
-                        )),
-                  ],
-                ),
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 106),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2, bottom: 4),
+                    child: Text('แบรนด์',
+                      style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF64748B), letterSpacing: 0.5)),
+                  ),
+                  SizedBox(
+                    height: 32,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        ...['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((b) => Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: _FilterPill(
+                                label: b,
+                                active: selectedBrand == b,
+                                isFuel: false,
+                                brandName: b,
+                                onTap: () => ref.read(selectedBrandProvider.notifier).set(
+                                    selectedBrand == b ? '' : b),
+                              ),
+                            )),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -444,6 +470,8 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
               ),
             ),
           ),
+          // Oil price widget
+          const OilPriceWidget(),
         ],
       ),
     );
@@ -454,6 +482,7 @@ class _FilterPill extends StatelessWidget {
   final String label;
   final bool active;
   final bool isFuel;
+  final String? brandName;
   final VoidCallback onTap;
 
   const _FilterPill({
@@ -461,13 +490,51 @@ class _FilterPill extends StatelessWidget {
     required this.active,
     required this.isFuel,
     required this.onTap,
+    this.brandName,
   });
 
   @override
   Widget build(BuildContext context) {
-    final activeColors = isFuel
-        ? [const Color(0xFFF59E0B), const Color(0xFFEA580C)]
-        : [const Color(0xFF3B82F6), const Color(0xFF6366F1)];
+    final brandColor = brandName != null ? _brandColors[brandName] : null;
+
+    // Determine colors based on type
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+    List<BoxShadow> shadows;
+
+    if (active) {
+      if (isFuel) {
+        // Fuel active: orange gradient-like solid
+        bgColor = const Color(0xFFF59E0B);
+        borderColor = Colors.transparent;
+        textColor = Colors.white;
+        shadows = [BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))];
+      } else if (brandColor != null) {
+        // Brand active: solid brand color
+        bgColor = brandColor;
+        borderColor = Colors.transparent;
+        textColor = brandColor == const Color(0xFFFFB900) ? const Color(0xFF333333) : Colors.white;
+        shadows = [BoxShadow(color: brandColor.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 2))];
+      } else {
+        bgColor = const Color(0xFF3B82F6);
+        borderColor = Colors.transparent;
+        textColor = Colors.white;
+        shadows = [BoxShadow(color: const Color(0xFF3B82F6).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))];
+      }
+    } else {
+      if (brandColor != null) {
+        // Brand inactive: tinted background
+        bgColor = brandColor.withOpacity(0.08);
+        borderColor = brandColor.withOpacity(0.25);
+        textColor = brandColor;
+      } else {
+        bgColor = Colors.white.withOpacity(0.95);
+        borderColor = Colors.black.withOpacity(0.08);
+        textColor = const Color(0xFF64748B);
+      }
+      shadows = [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 3, offset: const Offset(0, 1))];
+    }
 
     return Material(
       color: Colors.transparent,
@@ -475,31 +542,19 @@ class _FilterPill extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           decoration: BoxDecoration(
-            gradient: active ? LinearGradient(colors: activeColors) : null,
-            color: active ? null : Colors.white.withOpacity(0.95),
+            color: bgColor,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: active ? Colors.transparent : Colors.black.withOpacity(0.08),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: active
-                    ? activeColors[0].withOpacity(0.3)
-                    : Colors.black.withOpacity(0.06),
-                blurRadius: active ? 8 : 3,
-                offset: const Offset(0, 1),
-              ),
-            ],
+            border: Border.all(color: borderColor, width: 1.5),
+            boxShadow: shadows,
           ),
           child: Text(
             label,
             style: GoogleFonts.prompt(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: active ? Colors.white : const Color(0xFF64748B),
+              color: textColor,
             ),
           ),
         ),
