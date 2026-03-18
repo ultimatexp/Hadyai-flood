@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('station_id', stationId)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(10);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -77,6 +77,23 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Cleanup: keep only latest 10 comments per station
+    const { data: keepIds } = await supabase
+      .from('fuel_station_comments')
+      .select('id')
+      .eq('station_id', station_id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (keepIds && keepIds.length >= 10) {
+      const idsToKeep = keepIds.map((r: { id: string }) => r.id);
+      await supabase
+        .from('fuel_station_comments')
+        .delete()
+        .eq('station_id', station_id)
+        .not('id', 'in', `(${idsToKeep.join(',')})`);
     }
 
     return NextResponse.json({ success: true, comment: data });
