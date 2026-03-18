@@ -1,17 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { Heart, Coffee, ArrowLeft, Copy, Check, Sparkles } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Heart, Coffee, ArrowLeft, Download, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DonatePage() {
-  const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
   const PROMPTPAY_NUMBER = '0877484066';
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(PROMPTPAY_NUMBER);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleSaveQR = async () => {
+    try {
+      const res = await fetch(`https://promptpay.io/${PROMPTPAY_NUMBER}.png`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'promptpay-donate.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      // Fallback: open in new tab
+      window.open(`https://promptpay.io/${PROMPTPAY_NUMBER}.png`, '_blank');
+    }
   };
 
   return (
@@ -156,23 +170,34 @@ export default function DonatePage() {
           font-variant-numeric: tabular-nums;
         }
 
-        .copy-btn {
+        .save-btn {
           display: flex;
           align-items: center;
-          gap: 4px;
-          padding: 6px 12px;
-          background: rgba(99,102,241,0.1);
-          border: 1px solid rgba(99,102,241,0.2);
-          border-radius: 8px;
-          color: #6366f1;
-          font-size: 12px;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          padding: 12px 20px;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          border: none;
+          border-radius: 12px;
+          color: white;
+          font-size: 14px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
           font-family: inherit;
+          margin-top: 12px;
         }
-        .copy-btn:hover { background: rgba(99,102,241,0.2); }
-        .copy-btn.copied { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.2); color: #22c55e; }
+        .save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.4); }
+        .save-btn.saved { background: linear-gradient(135deg, #22c55e, #16a34a); }
+
+        .qr-instruction {
+          font-size: 12px;
+          color: #9ca3af;
+          margin-top: 12px;
+          line-height: 1.6;
+          text-align: center;
+        }
 
         .message-card {
           background: rgba(255,255,255,0.08);
@@ -272,7 +297,7 @@ export default function DonatePage() {
           <span className="donate-emoji">☕</span>
           <h1 className="donate-title">ซื้อกาแฟให้ทีมงาน</h1>
           <p className="donate-subtitle">
-            เราสร้างแอปนี้เพื่อชาวหาดใหญ่ทุกคน 💛<br />
+            เราสร้างแอปนี้เพื่อคนไทยทุกคน 💛<br />
             น้ำใจของคุณช่วยให้เราพัฒนาต่อไปได้ครับ
           </p>
         </div>
@@ -291,14 +316,15 @@ export default function DonatePage() {
               height={220}
             />
           </div>
-          <div className="qr-number">
-            <span className="qr-number-text">087-748-4066</span>
-            <button
-              className={`copy-btn ${copied ? 'copied' : ''}`}
-              onClick={handleCopy}
-            >
-              {copied ? <><Check size={12} /> คัดลอกแล้ว</> : <><Copy size={12} /> คัดลอก</>}
-            </button>
+          <button
+            className={`save-btn ${saved ? 'saved' : ''}`}
+            onClick={handleSaveQR}
+          >
+            <Download size={16} />
+            {saved ? 'บันทึกแล้ว ✓' : 'บันทึก QR เพื่อโอนผ่าน Mobile Banking'}
+          </button>
+          <div className="qr-instruction">
+            📱 บันทึกรูป QR → เปิดแอปธนาคาร → สแกน QR จากรูปภาพ
           </div>
         </div>
 
@@ -334,7 +360,7 @@ export default function DonatePage() {
               🐾 <strong>ตามหาสัตว์เลี้ยง</strong> ช่วยให้สัตว์เลี้ยงที่หลุดกลับบ้านได้เร็วขึ้น
             </p>
             <p>
-              🌊 <strong>รายงานน้ำท่วม</strong> เตือนภัยให้ชาวหาดใหญ่ปลอดภัย
+              🌊 <strong>รายงานน้ำท่วม</strong> เตือนภัยให้พี่น้องคนไทยปลอดภัย
             </p>
             <p>
               ทุกบาททำให้เราดูแลเซิร์ฟเวอร์ พัฒนาฟีเจอร์ใหม่ และทำแอปนี้ดีขึ้นเรื่อยๆ ครับ 🙏
@@ -348,7 +374,7 @@ export default function DonatePage() {
           </div>
           <div className="message-text">
             <p>
-              แอปนี้สร้างด้วยใจโดยทีมอาสาสมัครที่รักหาดใหญ่ 💛 เราไม่มีโฆษณา ไม่ขายข้อมูล ไม่เก็บค่าสมาชิก
+              แอปนี้สร้างด้วยใจโดยทีมอาสาสมัครที่รักประเทศไทย 💛 เราไม่มีโฆษณา ไม่ขายข้อมูล ไม่เก็บค่าสมาชิก
             </p>
             <p>
               การสนับสนุนของคุณ ไม่ว่าจะเท่าไหร่ ล้วนมีความหมาย — มันบอกว่า <em>&ldquo;ทีมงานสู้ๆ นะ พวกเราเห็นค่านะ&rdquo;</em> 😊
@@ -359,7 +385,7 @@ export default function DonatePage() {
         {/* Footer */}
         <div className="donate-footer">
           <span className="donate-heart">❤️</span> ขอบคุณทุกน้ำใจ<br />
-          Made with love for หาดใหญ่
+          Made with love for Thailand 🇹🇭
         </div>
       </div>
     </div>

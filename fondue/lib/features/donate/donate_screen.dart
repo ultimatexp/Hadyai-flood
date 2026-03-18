@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:typed_data';
+import 'package:http/http.dart' as http;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class DonateScreen extends StatefulWidget {
   const DonateScreen({super.key});
@@ -11,21 +15,47 @@ class DonateScreen extends StatefulWidget {
 
 class _DonateScreenState extends State<DonateScreen> {
   static const _promptPayNumber = '0877484066';
-  bool _copied = false;
+  bool _saving = false;
+  bool _saved = false;
 
-  void _copyNumber() {
-    Clipboard.setData(const ClipboardData(text: _promptPayNumber));
-    setState(() => _copied = true);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('คัดลอกเลข PromptPay แล้ว', style: GoogleFonts.prompt()),
-        backgroundColor: const Color(0xFF22C55E),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _copied = false);
-    });
+  Future<void> _saveQR() async {
+    setState(() => _saving = true);
+    try {
+      final response = await http.get(Uri.parse('https://promptpay.io/$_promptPayNumber.png'));
+      if (response.statusCode == 200) {
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/promptpay-donate.png');
+        await file.writeAsBytes(response.bodyBytes);
+        
+        // Try to save to gallery
+        // ignore: unused_local_variable
+        final result = await Process.run('open', [file.path]);
+        
+        if (mounted) {
+          setState(() { _saving = false; _saved = true; });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('บันทึก QR สำเร็จ! เปิดแอปธนาคารแล้วสแกนจากรูปภาพได้เลย', style: GoogleFonts.prompt()),
+              backgroundColor: const Color(0xFF22C55E),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) setState(() => _saved = false);
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('กรุณากดค้างที่รูป QR เพื่อบันทึก', style: GoogleFonts.prompt()),
+            backgroundColor: const Color(0xFFF59E0B),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -71,7 +101,7 @@ class _DonateScreenState extends State<DonateScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'เราสร้างแอปนี้เพื่อชาวหาดใหญ่ทุกคน 💛\nน้ำใจของคุณช่วยให้เราพัฒนาต่อไปได้ครับ',
+                  'เราสร้างแอปนี้เพื่อคนไทยทุกคน 💛\nน้ำใจของคุณช่วยให้เราพัฒนาต่อไปได้ครับ',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.prompt(fontSize: 14, color: Colors.white.withOpacity(0.7), height: 1.6),
                 ),
@@ -151,36 +181,31 @@ class _DonateScreenState extends State<DonateScreen> {
                               ),
                             ),
                             const SizedBox(height: 14),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('087-748-4066',
-                                    style: GoogleFonts.prompt(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B), letterSpacing: 1.5)),
-                                const SizedBox(width: 10),
-                                GestureDetector(
-                                  onTap: _copyNumber,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                    decoration: BoxDecoration(
-                                      color: _copied ? const Color(0xFF22C55E).withOpacity(0.1) : const Color(0xFF6366F1).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: _copied ? const Color(0xFF22C55E).withOpacity(0.2) : const Color(0xFF6366F1).withOpacity(0.2)),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(_copied ? Icons.check : Icons.copy, size: 12,
-                                            color: _copied ? const Color(0xFF22C55E) : const Color(0xFF6366F1)),
-                                        const SizedBox(width: 4),
-                                        Text(_copied ? 'แล้ว' : 'คัดลอก',
-                                            style: GoogleFonts.prompt(fontSize: 11, fontWeight: FontWeight.w600,
-                                                color: _copied ? const Color(0xFF22C55E) : const Color(0xFF6366F1))),
-                                      ],
-                                    ),
-                                  ),
+                            // Save QR button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _saving ? null : _saveQR,
+                                icon: _saving
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : Icon(_saved ? Icons.check : Icons.download, size: 16),
+                                label: Text(
+                                  _saved ? 'บันทึกแล้ว ✓' : 'บันทึก QR เพื่อโอนผ่าน Mobile Banking',
+                                  style: GoogleFonts.prompt(fontSize: 13, fontWeight: FontWeight.w600),
                                 ),
-                              ],
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _saved ? const Color(0xFF22C55E) : const Color(0xFF6366F1),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  elevation: 0,
+                                ),
+                              ),
                             ),
+                            const SizedBox(height: 10),
+                            Text('📱 บันทึกรูป QR → เปิดแอปธนาคาร → สแกน QR จากรูปภาพ',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.prompt(fontSize: 11, color: const Color(0xFF9CA3AF), height: 1.5)),
                           ],
                         ),
                       ),
@@ -211,7 +236,7 @@ class _DonateScreenState extends State<DonateScreen> {
                   children: [
                     _messageP('🛢️ เช็คน้ำมัน ช่วยให้คุณรู้ว่าปั๊มไหนมีน้ำมัน ไม่ต้องวิ่งหาปั๊มเปล่า'),
                     _messageP('🐾 ตามหาสัตว์เลี้ยง ช่วยให้สัตว์เลี้ยงที่หลุดกลับบ้านได้เร็วขึ้น'),
-                    _messageP('🌊 รายงานน้ำท่วม เตือนภัยให้ชาวหาดใหญ่ปลอดภัย'),
+                    _messageP('🌊 รายงานน้ำท่วม เตือนภัยให้พี่น้องคนไทยปลอดภัย'),
                     _messageP('ทุกบาททำให้เราดูแลเซิร์ฟเวอร์ พัฒนาฟีเจอร์ใหม่ และทำแอปนี้ดีขึ้นเรื่อยๆ ครับ 🙏'),
                   ],
                 ),
@@ -224,7 +249,7 @@ class _DonateScreenState extends State<DonateScreen> {
                   iconColor: const Color(0xFFF472B6),
                   title: 'ขอบคุณจากใจ',
                   children: [
-                    _messageP('แอปนี้สร้างด้วยใจโดยทีมอาสาสมัครที่รักหาดใหญ่ 💛 เราไม่มีโฆษณา ไม่ขายข้อมูล ไม่เก็บค่าสมาชิก'),
+                    _messageP('แอปนี้สร้างด้วยใจโดยทีมอาสาสมัครที่รักประเทศไทย 💛 เราไม่มีโฆษณา ไม่ขายข้อมูล ไม่เก็บค่าสมาชิก'),
                     _messageP('การสนับสนุนของคุณ ไม่ว่าจะเท่าไหร่ ล้วนมีความหมาย — มันบอกว่า "ทีมงานสู้ๆ นะ พวกเราเห็นค่านะ" 😊'),
                   ],
                 ),
@@ -235,7 +260,7 @@ class _DonateScreenState extends State<DonateScreen> {
                 Text('❤️ ขอบคุณทุกน้ำใจ',
                     style: GoogleFonts.prompt(fontSize: 13, color: Colors.white.withOpacity(0.4))),
                 const SizedBox(height: 4),
-                Text('Made with love for หาดใหญ่',
+                Text('Made with love for Thailand 🇹🇭',
                     style: GoogleFonts.prompt(fontSize: 11, color: Colors.white.withOpacity(0.3))),
 
                 const SizedBox(height: 24),

@@ -82,11 +82,11 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         _useCurrentLocation = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('📍 Location updated to current position!')),
+        const SnackBar(content: Text('📍 อัปเดตตำแหน่งปัจจุบันแล้ว!')),
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error getting location: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("ไม่สามารถระบุตำแหน่ง: $e")));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -111,7 +111,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         _useCurrentLocation = false; 
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('📍 Location selected from map!')),
+        const SnackBar(content: Text('📍 เลือกตำแหน่งจากแผนที่แล้ว!')),
       );
     }
   }
@@ -186,10 +186,10 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
           if (data['contact_info'] != null) _contactController.text = data['contact_info'];
           if (data['reward'] != null) _rewardController.text = data['reward'].toString();
         });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✨ Extracted data from image!')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✨ วิเคราะห์ข้อมูลจากรูปเรียบร้อย!')));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI Analysis failed: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('วิเคราะห์ไม่สำเร็จ: $e')));
     } finally {
       if (mounted) setState(() => _isAnalyzing = false);
     }
@@ -200,7 +200,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     
     if (_imageFiles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please upload at least one image of the pet.')),
+        const SnackBar(content: Text('กรุณาอัพโหลดรูปสัตว์เลี้ยงอย่างน้อย 1 รูป')),
       );
       return;
     }
@@ -238,7 +238,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         }
         
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Report submitted! +$pointsAwarded points earned 🎉')),
+          SnackBar(content: Text('ส่งรายงานสำเร็จ! +$pointsAwarded แต้ม 🎉')),
         );
         ref.refresh(lostPetsProvider);
 
@@ -248,17 +248,17 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
             context: context,
             barrierDismissible: false,
             builder: (ctx) => AlertDialog(
-              title: const Text('Start Semantic Search?'),
-              content: const Text('Would you like to search for other pets that look similar to the one you just reported?'),
+              title: const Text('ค้นหาสัตว์เลี้ยงที่คล้ายกัน?'),
+              content: const Text('ต้องการค้นหาสัตว์เลี้ยงที่คล้ายกับตัวที่เพิ่งรายงานหรือไม่?'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('No, thanks'),
+                  child: const Text('ไม่ ขอบคุณ'),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.pop(ctx, true),
                   style: FilledButton.styleFrom(backgroundColor: AppTheme.accentOrange),
-                  child: const Text('Yes, Search Now'),
+                  child: const Text('ค้นหาเลย'),
                 ),
               ],
             ),
@@ -279,7 +279,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         if (mounted) Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -288,7 +288,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Report Pet')),
+      appBar: AppBar(title: const Text('รายงานสัตว์เลี้ยง')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -299,8 +299,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                // Toggle
               SegmentedButton<String>(
                 segments: const [
-                  ButtonSegment(value: 'LOST', label: Text('Lost Pet'), icon: Icon(Icons.search)),
-                  ButtonSegment(value: 'FOUND', label: Text('Found Pet'), icon: Icon(Icons.pets)),
+                  ButtonSegment(value: 'LOST', label: Text('สัตว์เลี้ยงหาย'), icon: Icon(Icons.search)),
+                  ButtonSegment(value: 'FOUND', label: Text('พบสัตว์เลี้ยง'), icon: Icon(Icons.pets)),
                 ],
                 selected: {_status},
                 onSelectionChanged: (Set<String> newSelection) {
@@ -327,7 +327,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(Icons.add_photo_alternate, size: 40, color: AppTheme.primaryGreen),
-                                Text('Tap to Upload Photos (Max 5)', style: TextStyle(color: Colors.grey)),
+                                Text('แตะเพื่ออัพโหลดรูป (สูงสุด 5 รูป)', style: TextStyle(color: Colors.grey)),
                               ],
                             ),
                           ),
@@ -390,7 +390,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 ),
               const SizedBox(height: 8),
               const Text(
-                "Tip: Make sure your first photo is the clearest one! ✨",
+                "เคล็ดลับ: รูปแรกควรเป็นรูปที่ชัดที่สุด! ✨",
                 style: TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w500),
                 textAlign: TextAlign.center,
               ),
@@ -403,7 +403,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _pickLocation,
                       icon: const Icon(Icons.my_location),
-                      label: const Text('Current Loc'),
+                      label: const Text('ตำแหน่งปัจจุบัน'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: BorderSide(color: _useCurrentLocation ? AppTheme.primaryGreen : Colors.grey),
@@ -416,7 +416,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _pickLocationFromMap,
                       icon: const Icon(Icons.map),
-                      label: const Text('Pick on Map'),
+                      label: const Text('เลือกจากแผนที่'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
@@ -428,7 +428,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Selected: ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}',
+                    'ตำแหน่ง: ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}',
                     style: const TextStyle(color: Colors.grey, fontSize: 12),
                     textAlign: TextAlign.center,
                   ),
@@ -441,7 +441,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 readOnly: true,
                 onTap: _pickDate,
                 decoration: const InputDecoration(
-                  labelText: 'Date and Time Found', 
+                  labelText: 'วันที่และเวลาที่พบ', 
                   border: OutlineInputBorder(),
                   suffixIcon: Icon(Icons.calendar_today),
                 ),
@@ -451,8 +451,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 // Contact Info
                 if (_status == 'FOUND')
                   CheckboxListTile(
-                    title: const Text("Share Contact Info"),
-                    subtitle: const Text("Allow others to see your contact details"),
+                    title: const Text('แชร์ข้อมูลติดต่อ'),
+                    subtitle: const Text('อนุญาตให้ผู้อื่นเห็นข้อมูลติดต่อของคุณ'),
                     value: _shareContactInfo, 
                     onChanged: (val) => setState(() => _shareContactInfo = val ?? true),
                     controlAffinity: ListTileControlAffinity.leading,
@@ -463,17 +463,17 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                   TextFormField(
                     controller: _contactController,
                     decoration: const InputDecoration(
-                      labelText: 'Contact (Phone, Line ID, Facebook)', 
+                      labelText: 'ข้อมูลติดต่อ (โทรศัพท์, Line, Facebook)', 
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.phone_outlined)
                     ),
                     validator: (value) {
                       if (_status == 'LOST') {
-                         if (value == null || value.trim().isEmpty) return 'Contact information is required for lost pets';
+                         if (value == null || value.trim().isEmpty) return 'กรุณากรอกข้อมูลติดต่อ';
                       }
                       
                       if (_status == 'FOUND' && _shareContactInfo) {
-                        if (value == null || value.trim().isEmpty) return 'Contact information is required if shared';
+                        if (value == null || value.trim().isEmpty) return 'กรุณากรอกข้อมูลติดต่อ';
                       }
                       
                       return null;
@@ -487,8 +487,11 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
               // Sex
               DropdownButtonFormField<String>(
                 value: _sex,
-                decoration: const InputDecoration(labelText: 'Sex', border: OutlineInputBorder()),
-                items: ['Unknown', 'Male', 'Female'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                decoration: const InputDecoration(labelText: 'เพศ', border: OutlineInputBorder()),
+                items: ['Unknown', 'Male', 'Female'].map((s) {
+                  final thLabel = s == 'Unknown' ? 'ไม่ทราบ' : s == 'Male' ? 'ผู้' : 'เมีย';
+                  return DropdownMenuItem(value: s, child: Text(thLabel));
+                }).toList(),
                 onChanged: (v) => setState(() => _sex = v!),
               ),
               const SizedBox(height: 16),
@@ -499,8 +502,11 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _species,
-                      decoration: const InputDecoration(labelText: 'Species', border: OutlineInputBorder()),
-                      items: ['Cat', 'Dog', 'Bird', 'Other'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                      decoration: const InputDecoration(labelText: 'ประเภท', border: OutlineInputBorder()),
+                      items: ['Cat', 'Dog', 'Bird', 'Other'].map((s) {
+                        final thLabel = s == 'Cat' ? 'แมว' : s == 'Dog' ? 'สุนัข' : s == 'Bird' ? 'นก' : 'อื่นๆ';
+                        return DropdownMenuItem(value: s, child: Text(thLabel));
+                      }).toList(),
                       onChanged: (v) => setState(() => _species = v!),
                     ),
                   ),
@@ -508,29 +514,31 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                   Expanded(
                     child: TextFormField(
                       controller: _colorController,
-                      decoration: const InputDecoration(labelText: 'Color', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(labelText: 'สี', border: OutlineInputBorder()),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
 
-              // Reward Field
-              TextFormField(
-                controller: _rewardController,
-                decoration: const InputDecoration(
-                  labelText: 'Reward (Optional)', 
-                  hintText: 'e.g., 5,000 THB',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.monetization_on_outlined),
+              // Reward Field (only for LOST pets)
+              if (_status == 'LOST') ...[
+                TextFormField(
+                  controller: _rewardController,
+                  decoration: const InputDecoration(
+                    labelText: 'ค่าตอบแทน (ไม่บังคับ)', 
+                    hintText: 'เช่น 5,000 บาท',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.monetization_on_outlined),
+                  ),
+                  keyboardType: TextInputType.text,
                 ),
-                keyboardType: TextInputType.text,
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
 
               TextFormField(
                 controller: _descController,
-                decoration: const InputDecoration(labelText: 'Additional Details (Collar, etc.)', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'รายละเอียดเพิ่มเติม (ปลอกคอ, ลักษณะเด่น ฯลฯ)', border: OutlineInputBorder()),
                 maxLines: 3,
               ),
               const SizedBox(height: 24),
@@ -543,7 +551,10 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                 ),
                 child: _isLoading 
                   ? const CircularProgressIndicator(color: Colors.white) 
-                  : const Text('SUBMIT REPORT', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  : Text(
+                      _status == 'LOST' ? 'ส่งรายงานสัตว์หาย' : 'ส่งรายงานสัตว์ที่พบ',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
               ),
             ],
           ),
