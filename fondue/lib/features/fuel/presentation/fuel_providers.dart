@@ -90,3 +90,41 @@ final fingerprintProvider = FutureProvider<String>((ref) async {
   await prefs.setString('fuel_fingerprint', fp);
   return fp;
 });
+
+// Filter: selected fuel type
+class SelectedFuelTypeNotifier extends Notifier<String> {
+  @override
+  String build() => '';
+  void set(String value) => state = value;
+}
+
+final selectedFuelTypeProvider =
+    NotifierProvider<SelectedFuelTypeNotifier, String>(SelectedFuelTypeNotifier.new);
+
+// Filter: selected brand
+class SelectedBrandNotifier extends Notifier<String> {
+  @override
+  String build() => '';
+  void set(String value) => state = value;
+}
+
+final selectedBrandProvider =
+    NotifierProvider<SelectedBrandNotifier, String>(SelectedBrandNotifier.new);
+
+// Filtered stations
+final filteredStationsProvider = Provider<AsyncValue<List<GasStation>>>((ref) {
+  final stationsAsync = ref.watch(stationsProvider);
+  final fuelType = ref.watch(selectedFuelTypeProvider);
+  final brand = ref.watch(selectedBrandProvider);
+
+  return stationsAsync.whenData((stations) {
+    var result = stations;
+    if (fuelType.isNotEmpty) {
+      result = result.where((s) => s.fuelTypes.contains(fuelType)).toList();
+    }
+    if (brand.isNotEmpty) {
+      result = result.where((s) => s.brand == brand).toList();
+    }
+    return result;
+  });
+});

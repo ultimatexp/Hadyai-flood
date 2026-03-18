@@ -200,11 +200,17 @@ export default function FuelPage() {
     return fp;
   };
 
-  // Client-side fuel type filtering
+  // Client-side filtering by fuel type and brand
   const filteredStations = useMemo(() => {
-    if (!selectedFuelType) return stations;
-    return stations.filter(s => s.fuel_types.includes(selectedFuelType));
-  }, [stations, selectedFuelType]);
+    let result = stations;
+    if (selectedFuelType) {
+      result = result.filter(s => s.fuel_types.includes(selectedFuelType));
+    }
+    if (selectedBrand) {
+      result = result.filter(s => s.brand === selectedBrand);
+    }
+    return result;
+  }, [stations, selectedFuelType, selectedBrand]);
 
   return (
     <div className="fuel-page">
@@ -336,57 +342,58 @@ export default function FuelPage() {
           color: #94a3b8;
         }
 
-        .fuel-filters {
+        .quick-filter-row {
           display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
+          gap: 6px;
+          overflow-x: auto;
+          padding: 2px 0;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
         }
+        .quick-filter-row::-webkit-scrollbar { display: none; }
 
-        .filter-chip {
+        .qf-pill {
           display: flex;
           align-items: center;
-          gap: 6px;
-          padding: 6px 14px;
-          background: rgba(255, 255, 255, 0.92);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(0, 0, 0, 0.08);
+          gap: 4px;
+          padding: 7px 14px;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(20px);
+          border: 1.5px solid rgba(0, 0, 0, 0.08);
           border-radius: 20px;
-          color: #475569;
+          color: #64748b;
           font-size: 13px;
+          font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
           white-space: nowrap;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+          flex-shrink: 0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+          font-family: inherit;
         }
-
-        .filter-chip:hover {
-          border-color: rgba(0, 0, 0, 0.15);
-          color: #1e293b;
+        .qf-pill:hover { border-color: rgba(0,0,0,0.2); color: #334155; }
+        .qf-pill.active {
+          background: linear-gradient(135deg, #f59e0b, #ef4444);
+          border-color: transparent;
+          color: white;
+          box-shadow: 0 2px 8px rgba(245,158,11,0.3);
         }
-
-        .filter-chip.active {
-          background: rgba(245, 158, 11, 0.1);
-          border-color: #f59e0b;
-          color: #d97706;
+        .fuel-pill.active { background: linear-gradient(135deg, #f59e0b, #ea580c); }
+        .brand-pill.active { background: linear-gradient(135deg, #3b82f6, #6366f1); box-shadow: 0 2px 8px rgba(59,130,246,0.3); }
+        .clear-pill {
+          background: rgba(239,68,68,0.08) !important;
+          border-color: rgba(239,68,68,0.2) !important;
+          color: #ef4444 !important;
+          font-weight: 700;
         }
+        .clear-pill:hover { background: rgba(239,68,68,0.15) !important; }
 
-        .filter-select {
-          padding: 6px 12px;
-          background: rgba(255, 255, 255, 0.92);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(0, 0, 0, 0.08);
-          border-radius: 12px;
-          color: #475569;
-          font-size: 13px;
-          cursor: pointer;
-          outline: none;
-          appearance: none;
-          -webkit-appearance: none;
-          padding-right: 28px;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 10px center;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        .qf-divider {
+          width: 1px;
+          background: rgba(0,0,0,0.1);
+          flex-shrink: 0;
+          margin: 4px 2px;
         }
 
         .filter-select option {
@@ -583,12 +590,6 @@ export default function FuelPage() {
             </div>
           </div>
           <div className="header-actions">
-            <button
-              className={`header-btn ${showFilters ? 'active' : ''}`}
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter size={18} />
-            </button>
             <button className="header-btn locate" onClick={handleLocateMe}>
               <LocateFixed size={18} />
             </button>
@@ -611,77 +612,62 @@ export default function FuelPage() {
           )}
         </div>
 
-        {/* Filters */}
-        <AnimatePresence>
-          {showFilters && (
-            <motion.div
-              className="fuel-filters"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
+        {/* Quick Filters — horizontal scrollable pills */}
+        <div className="quick-filter-row">
+          {/* Fuel type pills */}
+          <button
+            className={`qf-pill fuel-pill ${selectedFuelType === '' ? 'active' : ''}`}
+            onClick={() => setSelectedFuelType('')}
+          >
+            ⛽ ทั้งหมด
+          </button>
+          <button
+            className={`qf-pill fuel-pill ${selectedFuelType === 'diesel_b7' ? 'active' : ''}`}
+            onClick={() => setSelectedFuelType(selectedFuelType === 'diesel_b7' ? '' : 'diesel_b7')}
+          >
+            🟡 ดีเซล
+          </button>
+          <button
+            className={`qf-pill fuel-pill ${selectedFuelType === 'gasohol_91' ? 'active' : ''}`}
+            onClick={() => setSelectedFuelType(selectedFuelType === 'gasohol_91' ? '' : 'gasohol_91')}
+          >
+            🟢 91
+          </button>
+          <button
+            className={`qf-pill fuel-pill ${selectedFuelType === 'gasohol_95' ? 'active' : ''}`}
+            onClick={() => setSelectedFuelType(selectedFuelType === 'gasohol_95' ? '' : 'gasohol_95')}
+          >
+            🔵 95
+          </button>
+
+          <span className="qf-divider" />
+
+          {/* Brand pills */}
+          <button
+            className={`qf-pill brand-pill ${selectedBrand === '' ? 'active' : ''}`}
+            onClick={() => setSelectedBrand('')}
+          >
+            ทุกแบรนด์
+          </button>
+          {brands.map((brand) => (
+            <button
+              key={brand.name}
+              className={`qf-pill brand-pill ${selectedBrand === brand.name ? 'active' : ''}`}
+              onClick={() => setSelectedBrand(selectedBrand === brand.name ? '' : brand.name)}
             >
-              <select
-                className="filter-select"
-                value={radius.toString()}
-                onChange={(e) => setRadius(parseInt(e.target.value))}
-              >
-                {RADIUS_OPTIONS.map((r) => (
-                  <option key={r} value={r}>รัศมี {r} กม.</option>
-                ))}
-              </select>
+              {brand.name}
+            </button>
+          ))}
 
-              <select
-                className="filter-select"
-                value={selectedProvince}
-                onChange={(e) => setSelectedProvince(e.target.value)}
-              >
-                <option value="">ทุกจังหวัด</option>
-                {provinces.map((p) => (
-                  <option key={p.name} value={p.name}>{p.name} ({p.count})</option>
-                ))}
-              </select>
-
-              {brands.map((brand) => (
-                <button
-                  key={brand.name}
-                  className={`filter-chip ${selectedBrand === brand.name ? 'active' : ''}`}
-                  onClick={() => setSelectedBrand(selectedBrand === brand.name ? '' : brand.name)}
-                >
-                  {brand.name}
-                </button>
-              ))}
-
-              {fuelTypes.length > 0 && (
-                <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 8, marginTop: 4 }}>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>ชนิดน้ำมัน</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {fuelTypes.map((ft) => (
-                      <button
-                        key={ft.id}
-                        className={`filter-chip ${selectedFuelType === ft.id ? 'active' : ''}`}
-                        onClick={() => setSelectedFuelType(selectedFuelType === ft.id ? '' : ft.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-                      >
-                        <span style={{
-                          width: 8, height: 8, borderRadius: '50%',
-                          background: ft.color, display: 'inline-block', flexShrink: 0,
-                        }} />
-                        {ft.name_th}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {totalCount > 0 && (
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', alignSelf: 'center', whiteSpace: 'nowrap' }}>
-                  พบ {totalCount} สถานี
-                </span>
-              )}
-            </motion.div>
+          {(selectedFuelType || selectedBrand) && (
+            <button
+              className="qf-pill clear-pill"
+              onClick={() => { setSelectedFuelType(''); setSelectedBrand(''); }}
+            >
+              ✕ ล้าง
+            </button>
           )}
-        </AnimatePresence>
+        </div>
 
         {/* Stats */}
         <StatsBar stations={filteredStations} loading={loading} />

@@ -60,9 +60,12 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredAsync = ref.watch(filteredStationsProvider);
     final stationsAsync = ref.watch(stationsProvider);
     final locationAsync = ref.watch(userLocationProvider);
     final radius = ref.watch(selectedRadiusProvider);
+    final selectedFuelType = ref.watch(selectedFuelTypeProvider);
+    final selectedBrand = ref.watch(selectedBrandProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -113,7 +116,7 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
                       ],
                     ),
                   // Station markers
-                  stationsAsync.when(
+                  filteredAsync.when(
                     data: (stations) => MarkerLayer(
                       markers: stations.map((station) {
                         final color = _getStationColor(station);
@@ -256,8 +259,87 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
             ),
           ),
 
+          // Quick filter row
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 60),
+              child: SizedBox(
+                height: 38,
+                child: stationsAsync.when(
+                  data: (allStations) {
+                    final brands = allStations
+                        .map((s) => s.brand)
+                        .toSet()
+                        .toList()
+                      ..sort();
+                    return ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        // Fuel pills
+                        _FilterPill(
+                          label: '⛽ ทั้งหมด',
+                          active: selectedFuelType.isEmpty,
+                          isFuel: true,
+                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(''),
+                        ),
+                        const SizedBox(width: 6),
+                        _FilterPill(
+                          label: '🟡 ดีเซล',
+                          active: selectedFuelType == 'diesel_b7',
+                          isFuel: true,
+                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
+                              selectedFuelType == 'diesel_b7' ? '' : 'diesel_b7'),
+                        ),
+                        const SizedBox(width: 6),
+                        _FilterPill(
+                          label: '🟢 91',
+                          active: selectedFuelType == 'gasohol_91',
+                          isFuel: true,
+                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
+                              selectedFuelType == 'gasohol_91' ? '' : 'gasohol_91'),
+                        ),
+                        const SizedBox(width: 6),
+                        _FilterPill(
+                          label: '🔵 95',
+                          active: selectedFuelType == 'gasohol_95',
+                          isFuel: true,
+                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
+                              selectedFuelType == 'gasohol_95' ? '' : 'gasohol_95'),
+                        ),
+                        // Divider
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                          child: Container(width: 1, color: Colors.black12),
+                        ),
+                        // Brand pills
+                        _FilterPill(
+                          label: 'ทุกแบรนด์',
+                          active: selectedBrand.isEmpty,
+                          isFuel: false,
+                          onTap: () => ref.read(selectedBrandProvider.notifier).set(''),
+                        ),
+                        ...brands.map((b) => Padding(
+                              padding: const EdgeInsets.only(left: 6),
+                              child: _FilterPill(
+                                label: b,
+                                active: selectedBrand == b,
+                                isFuel: false,
+                                onTap: () => ref.read(selectedBrandProvider.notifier).set(
+                                    selectedBrand == b ? '' : b),
+                              ),
+                            )),
+                      ],
+                    );
+                  },
+                  loading: () => const SizedBox(),
+                  error: (_, __) => const SizedBox(),
+                ),
+              ),
+            ),
+          ),
+
           // Station count badge
-          stationsAsync.when(
+          filteredAsync.when(
             data: (stations) => Positioned(
               left: 16,
               bottom: 130,
@@ -372,6 +454,64 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FilterPill extends StatelessWidget {
+  final String label;
+  final bool active;
+  final bool isFuel;
+  final VoidCallback onTap;
+
+  const _FilterPill({
+    required this.label,
+    required this.active,
+    required this.isFuel,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColors = isFuel
+        ? [const Color(0xFFF59E0B), const Color(0xFFEA580C)]
+        : [const Color(0xFF3B82F6), const Color(0xFF6366F1)];
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            gradient: active ? LinearGradient(colors: activeColors) : null,
+            color: active ? null : Colors.white.withOpacity(0.95),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: active ? Colors.transparent : Colors.black.withOpacity(0.08),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: active
+                    ? activeColors[0].withOpacity(0.3)
+                    : Colors.black.withOpacity(0.06),
+                blurRadius: active ? 8 : 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.prompt(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: active ? Colors.white : const Color(0xFF64748B),
+            ),
+          ),
+        ),
       ),
     );
   }

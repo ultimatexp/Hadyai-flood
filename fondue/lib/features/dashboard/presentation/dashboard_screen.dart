@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../social/presentation/user_profile_page.dart';
 import '../../pets/presentation/report_screen.dart';
+import '../../pets/presentation/semantic_search_screen.dart';
 import '../../chat/presentation/chat_list_screen.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../chat/data/chat_providers.dart';
 import '../../social/presentation/feed_screen.dart';
-import '../../social/presentation/explore_screen.dart';
 import '../../social/presentation/create_post_screen.dart';
 import '../../social/data/social_providers.dart';
 import '../data/dashboard_providers.dart';
@@ -99,8 +99,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _previousUnreadCount = unreadChatCount;
 
     final pages = [
-      const FeedScreen(),        // 0: Feed (was Overview)
-      const ExploreScreen(),     // 1: Explore (was Pet Feed)
+      const SemanticSearchScreen(asHomeTab: true),  // 0: Pet Search (Home)
+      const FeedScreen(),        // 1: Feed
       const SizedBox(),          // 2: Placeholder (FAB position)
       const ChatListScreen(),    // 3: Chat
       const UserProfilePage(),   // 4: Profile
@@ -259,8 +259,8 @@ class _FrostedBottomNav extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(0, Icons.home_rounded, 'หน้าแรก'),
-                _buildNavItem(1, Icons.explore_rounded, 'สำรวจ'),
+                _buildNavItem(0, Icons.search_rounded, 'ค้นหา'),
+                _buildNavItem(1, Icons.dynamic_feed_rounded, 'ฟีด'),
                 const SizedBox(width: 56), // Space for FAB
                 _buildChatNavItem(),
                 _buildNavItem(4, Icons.person_rounded, 'โปรไฟล์'),

@@ -12,7 +12,8 @@ import 'pet_detail_screen.dart';
 
 class SemanticSearchScreen extends StatefulWidget {
   final XFile? initialImage;
-  const SemanticSearchScreen({super.key, this.initialImage});
+  final bool asHomeTab;
+  const SemanticSearchScreen({super.key, this.initialImage, this.asHomeTab = false});
 
   @override
   State<SemanticSearchScreen> createState() => _SemanticSearchScreenState();
@@ -207,7 +208,8 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Smart Pet Search'),
+        automaticallyImplyLeading: !widget.asHomeTab,
+        title: Text(widget.asHomeTab ? '🐾 ค้นหาสัตว์เลี้ยง' : 'Smart Pet Search'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
