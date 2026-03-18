@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import { useEffect, useRef, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -46,6 +46,9 @@ interface FuelMapProps {
   loading: boolean;
   zoom?: number;
   onMoveEnd?: (center: { lat: number; lng: number }) => void;
+  isPickingLocation?: boolean;
+  pickerLocation?: { lat: number; lng: number } | null;
+  onPickerLocationChange?: (loc: { lat: number; lng: number }) => void;
 }
 
 const BRAND_ABBR: Record<string, string> = {
@@ -242,6 +245,49 @@ function MoveEndHandler({ onMoveEnd }: { onMoveEnd?: (center: { lat: number; lng
   return null;
 }
 
+const pickerIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+function DraggableMarker({
+  position,
+  setPosition,
+}: {
+  position: { lat: number; lng: number };
+  setPosition: (pos: { lat: number; lng: number }) => void;
+}) {
+  const markerRef = useRef<L.Marker>(null);
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (marker != null) {
+          setPosition(marker.getLatLng());
+        }
+      },
+    }),
+    [setPosition]
+  );
+
+  return (
+    <Marker
+      draggable={true}
+      eventHandlers={eventHandlers}
+      position={[position.lat, position.lng]}
+      ref={markerRef}
+      icon={pickerIcon}
+      zIndexOffset={2000}
+    >
+      <Popup minWidth={90}>📍 เลื่อนหมุดเพื่อระบุตำแหน่ง</Popup>
+    </Marker>
+  );
+}
+
 export default function FuelMap({
   stations,
   fuelTypes,
@@ -251,6 +297,9 @@ export default function FuelMap({
   loading,
   zoom = 13,
   onMoveEnd,
+  isPickingLocation,
+  pickerLocation,
+  onPickerLocationChange,
 }: FuelMapProps) {
   const center: [number, number] = userLocation
     ? [userLocation.lat, userLocation.lng]
@@ -289,6 +338,10 @@ export default function FuelMap({
           />
         ))}
       </MarkerClusterGroup>
+
+      {isPickingLocation && pickerLocation && onPickerLocationChange && (
+        <DraggableMarker position={pickerLocation} setPosition={onPickerLocationChange} />
+      )}
 
       {/* User location marker */}
       {userLocation && (

@@ -69,6 +69,7 @@ export default function FuelPage() {
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [showAddStation, setShowAddStation] = useState(false);
   const [isPickingLocation, setIsPickingLocation] = useState(false);
+  const [pickerLocation, setPickerLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [addStationName, setAddStationName] = useState('');
   const [addStationBrand, setAddStationBrand] = useState('PTT');
   const [addingStation, setAddingStation] = useState(false);
@@ -586,6 +587,9 @@ export default function FuelPage() {
           loading={loading}
           zoom={radiusToZoom(radius)}
           onMoveEnd={handleMapMoveEnd}
+          isPickingLocation={isPickingLocation}
+          pickerLocation={pickerLocation}
+          onPickerLocationChange={setPickerLocation}
         />
       </div>
 
@@ -779,7 +783,15 @@ export default function FuelPage() {
           <button className="fab locate" onClick={handleLocateMe}>
             <LocateFixed size={20} />
           </button>
-          <button className="fab" onClick={() => setIsPickingLocation(true)} title="เพิ่มสถานีใหม่" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none' }}>
+          <button
+            className="fab"
+            onClick={() => {
+              setIsPickingLocation(true);
+              setPickerLocation(mapCenter || userLocation || { lat: 13.7563, lng: 100.5018 });
+            }}
+            title="เพิ่มสถานีใหม่"
+            style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none' }}
+          >
             <Plus size={22} />
           </button>
         </div>
@@ -909,8 +921,7 @@ export default function FuelPage() {
                 <button
                   disabled={!addStationName.trim() || addingStation}
                   onClick={async () => {
-                    const center = mapCenter || userLocation;
-                    if (!center) {
+                    if (!pickerLocation) {
                       alert('ไม่สามารถระบุตำแหน่งได้ กรุณาเลื่อนแผนที่');
                       return;
                     }
@@ -922,8 +933,8 @@ export default function FuelPage() {
                         body: JSON.stringify({
                           name: addStationName.trim(),
                           brand: addStationBrand === 'อื่นๆ' ? 'Other' : addStationBrand,
-                          lat: center.lat,
-                          lng: center.lng,
+                          lat: pickerLocation.lat,
+                          lng: pickerLocation.lng,
                         }),
                       });
                       const data = await res.json();
@@ -963,13 +974,6 @@ export default function FuelPage() {
       {isPickingLocation && (
         <>
           <div style={{
-            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -100%)',
-            zIndex: 1500, pointerEvents: 'none',
-          }}>
-            <MapPin size={48} color="#dc2626" fill="#fecaca" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))' }} />
-          </div>
-          
-          <div style={{
             position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)',
             zIndex: 1500, display: 'flex', flexDirection: 'column', alignItems: 'center',
             gap: 12, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
@@ -978,7 +982,7 @@ export default function FuelPage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1e293b', fontWeight: 600 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s infinite' }} />
-              เลื่อนแผนที่เพื่อระบุตำแหน่งสถานี
+              ลากหมุดบนแผนที่เพื่อระบุตำแหน่งสถานี
             </div>
             <div style={{ display: 'flex', gap: 12, width: '100%' }}>
               <button
