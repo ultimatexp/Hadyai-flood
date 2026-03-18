@@ -68,6 +68,7 @@ export default function FuelPage() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [showAddStation, setShowAddStation] = useState(false);
+  const [isPickingLocation, setIsPickingLocation] = useState(false);
   const [addStationName, setAddStationName] = useState('');
   const [addStationBrand, setAddStationBrand] = useState('PTT');
   const [addingStation, setAddingStation] = useState(false);
@@ -773,28 +774,34 @@ export default function FuelPage() {
       </div>
 
       {/* Floating Actions */}
-      <div className="floating-actions-right">
-        <button className="fab locate" onClick={handleLocateMe}>
-          <LocateFixed size={20} />
-        </button>
-        <button className="fab" onClick={() => setShowAddStation(true)} title="เพิ่มสถานีใหม่" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none' }}>
-          <Plus size={22} />
-        </button>
-      </div>
+      {!isPickingLocation && (
+        <div className="floating-actions-right">
+          <button className="fab locate" onClick={handleLocateMe}>
+            <LocateFixed size={20} />
+          </button>
+          <button className="fab" onClick={() => setIsPickingLocation(true)} title="เพิ่มสถานีใหม่" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none' }}>
+            <Plus size={22} />
+          </button>
+        </div>
+      )}
 
       {/* Donate FAB — bottom left */}
-      <a href="/donate" className="floating-actions-left">
-        <div className="donate-fab">
-          <Lottie animationData={donateAnimation} loop autoplay style={{ width: 44, height: 44 }} />
-        </div>
-      </a>
+      {!isPickingLocation && (
+        <a href="/donate" className="floating-actions-left">
+          <div className="donate-fab">
+            <Lottie animationData={donateAnimation} loop autoplay style={{ width: 44, height: 44 }} />
+          </div>
+        </a>
+      )}
 
-      <div className="floating-actions-center">
-        <button className="fab report" onClick={() => setShowQuickUpdate(true)}>
-          <MessageSquarePlus size={20} />
-          แจ้งน้ำมันหมด
-        </button>
-      </div>
+      {!isPickingLocation && (
+        <div className="floating-actions-center">
+          <button className="fab report" onClick={() => setShowQuickUpdate(true)}>
+            <MessageSquarePlus size={20} />
+            แจ้งน้ำมันหมด
+          </button>
+        </div>
+      )}
 
       {/* Oil Price Widget — hide when station panel is open */}
       {!selectedStation && <OilPriceWidget />}
@@ -857,11 +864,6 @@ export default function FuelPage() {
                 <button onClick={() => setShowAddStation(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                   <X size={20} color="#94a3b8" />
                 </button>
-              </div>
-
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 12, marginBottom: 16, fontSize: 13, color: '#15803d' }}>
-                📌 ตำแหน่งจะถูกบันทึกจากจุดกลางแผนที่ปัจจุบัน<br/>
-                <strong>เลื่อนแผนที่ไปยังตำแหน่งสถานีก่อนกดเพิ่ม</strong>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -956,6 +958,55 @@ export default function FuelPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Location Picker Overlay */}
+      {isPickingLocation && (
+        <>
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -100%)',
+            zIndex: 1500, pointerEvents: 'none',
+          }}>
+            <MapPin size={48} color="#dc2626" fill="#fecaca" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))' }} />
+          </div>
+          
+          <div style={{
+            position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 1500, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            gap: 12, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
+            padding: '16px 24px', borderRadius: 20, boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+            border: '1px solid rgba(0,0,0,0.1)', width: 'max-content',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1e293b', fontWeight: 600 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s infinite' }} />
+              เลื่อนแผนที่เพื่อระบุตำแหน่งสถานี
+            </div>
+            <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+              <button
+                onClick={() => setIsPickingLocation(false)}
+                style={{
+                  flex: 1, padding: '10px 16px', borderRadius: 12, border: '1px solid #e2e8f0',
+                  background: 'white', color: '#64748b', fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => {
+                  setIsPickingLocation(false);
+                  setShowAddStation(true);
+                }}
+                style={{
+                  flex: 1, padding: '10px 16px', borderRadius: 12, border: 'none',
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white',
+                  fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(34,197,94,0.3)',
+                }}
+              >
+                ยืนยันตำแหน่ง
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
