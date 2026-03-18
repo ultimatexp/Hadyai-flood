@@ -59,13 +59,17 @@ final stationsProvider = FutureProvider<List<GasStation>>((ref) async {
   final location = await ref.watch(userLocationProvider.future);
   final radius = ref.watch(selectedRadiusProvider);
 
-  if (location == null) return [];
+  // Use user location if within Thailand, otherwise fallback to Hat Yai
+  double lat = 7.0058;
+  double lng = 100.4745;
+  if (location != null &&
+      location.latitude >= 5.5 && location.latitude <= 20.5 &&
+      location.longitude >= 97.3 && location.longitude <= 105.7) {
+    lat = location.latitude;
+    lng = location.longitude;
+  }
 
-  return repo.fetchStations(
-    lat: location.latitude,
-    lng: location.longitude,
-    radius: radius,
-  );
+  return repo.fetchStations(lat: lat, lng: lng, radius: radius);
 });
 
 // Selected station
