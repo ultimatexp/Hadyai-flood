@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -45,6 +45,7 @@ interface FuelMapProps {
   userLocation: { lat: number; lng: number } | null;
   loading: boolean;
   zoom?: number;
+  onMoveEnd?: (center: { lat: number; lng: number }) => void;
 }
 
 const BRAND_ABBR: Record<string, string> = {
@@ -229,6 +230,18 @@ function LocationUpdater({ location, zoom }: { location: { lat: number; lng: num
   return null;
 }
 
+function MoveEndHandler({ onMoveEnd }: { onMoveEnd?: (center: { lat: number; lng: number }) => void }) {
+  useMapEvents({
+    moveend: (e) => {
+      if (onMoveEnd) {
+        const center = e.target.getCenter();
+        onMoveEnd({ lat: center.lat, lng: center.lng });
+      }
+    },
+  });
+  return null;
+}
+
 export default function FuelMap({
   stations,
   fuelTypes,
@@ -237,6 +250,7 @@ export default function FuelMap({
   userLocation,
   loading,
   zoom = 13,
+  onMoveEnd,
 }: FuelMapProps) {
   const center: [number, number] = userLocation
     ? [userLocation.lat, userLocation.lng]
@@ -255,6 +269,7 @@ export default function FuelMap({
       />
 
       <LocationUpdater location={userLocation} zoom={zoom} />
+      <MoveEndHandler onMoveEnd={onMoveEnd} />
 
       <MarkerClusterGroup
         chunkedLoading

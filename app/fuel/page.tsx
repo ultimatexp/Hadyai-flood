@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Fuel, MapPin, Search, X, ChevronDown, LocateFixed, Camera, Menu, Filter, MessageSquarePlus } from 'lucide-react';
@@ -66,6 +66,8 @@ export default function FuelPage() {
   const [locationReady, setLocationReady] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const moveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Show instructions on first visit
   useEffect(() => {
@@ -106,10 +108,11 @@ export default function FuelPage() {
       if (selectedBrand) params.set('brand', selectedBrand);
       if (searchQuery) params.set('search', searchQuery);
 
-      // Use radius search from user location
-      if (userLocation && !selectedProvince) {
-        params.set('lat', userLocation.lat.toString());
-        params.set('lng', userLocation.lng.toString());
+      // Use radius search from map center (follows pan) or user location
+      const center = mapCenter || userLocation;
+      if (center && !selectedProvince) {
+        params.set('lat', center.lat.toString());
+        params.set('lng', center.lng.toString());
         params.set('radius', radius.toString());
       }
       params.set('limit', '750');
@@ -138,7 +141,7 @@ export default function FuelPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedProvince, selectedBrand, searchQuery, userLocation, radius]);
+  }, [selectedProvince, selectedBrand, searchQuery, userLocation, mapCenter, radius]);
 
   // Fetch when filters, location, or radius change
   useEffect(() => {
@@ -188,6 +191,14 @@ export default function FuelPage() {
       { enableHighAccuracy: true }
     );
   };
+
+  // When user pans/zooms the map, refetch based on new center
+  const handleMapMoveEnd = useCallback((center: { lat: number; lng: number }) => {
+    if (moveDebounceRef.current) clearTimeout(moveDebounceRef.current);
+    moveDebounceRef.current = setTimeout(() => {
+      setMapCenter(center);
+    }, 400);
+  }, []);
 
   const handleVoteSuccess = () => {
     fetchStations();
@@ -579,6 +590,7 @@ export default function FuelPage() {
           userLocation={userLocation}
           loading={loading}
           zoom={radiusToZoom(radius)}
+          onMoveEnd={handleMapMoveEnd}
         />
       </div>
 
