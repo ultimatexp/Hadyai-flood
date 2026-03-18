@@ -101,40 +101,45 @@ function createStationCardIcon(
 ): L.DivIcon {
   const brandColor = BRAND_COLORS[station.brand] || '#64748b';
   const abbr = BRAND_ABBR[station.brand] || station.brand.substring(0, 3);
-  const overallColor = getOverallColor(station);
 
-  // Short labels for fuel types
+  // Focus on 3 main fuel types only
+  const MAIN_FUELS = ['diesel_b7', 'gasohol_91', 'gasohol_95'];
   const FUEL_LABELS: Record<string, string> = {
+    'diesel_b7': 'D',
     'gasohol_91': '91',
     'gasohol_95': '95',
-    'gasohol_e20': 'E20',
-    'gasohol_e85': 'E85',
-    'diesel_b7': 'D',
-    'diesel_b20': 'D20',
-    'diesel_premium': 'DP',
-    'benzin_95': 'B95',
-    'lpg': 'LP',
-    'ngv': 'NG',
   };
 
-  // Build fuel labels — only show fuels this station carries
-  const stationFuelTypes = fuelTypes.filter(ft => station.fuel_types.includes(ft.id));
-  const labelsHtml = stationFuelTypes.slice(0, 4).map(ft => {
-    const status = station.fuel_status[ft.id];
-    let color = '#d1d5db'; // gray - unknown
-    if (status) {
-      if (isAvailable(status)) color = '#22C55E';
-      else if (isOutOfStock(status)) color = '#EF4444';
-      else color = '#F59E0B';
-    }
-    const label = FUEL_LABELS[ft.id] || ft.name_en.substring(0, 2);
-    return `<div style="font-size:11px;font-weight:700;color:${color};line-height:1;">${label}</div>`;
-  }).join('');
+  // Build fuel badge pills — large colored badges
+  const badgesHtml = MAIN_FUELS.map(fuelId => {
+    const hasType = station.fuel_types.includes(fuelId);
+    if (!hasType) return ''; // skip fuels this station doesn't carry
 
-  const scale = isSelected ? 1.1 : 1;
+    const status = station.fuel_status[fuelId];
+    let bg = '#e2e8f0'; let textColor = '#94a3b8'; // gray = no data
+    if (status) {
+      if (isAvailable(status)) { bg = '#22C55E'; textColor = '#fff'; }
+      else if (isOutOfStock(status)) { bg = '#EF4444'; textColor = '#fff'; }
+      else { bg = '#F59E0B'; textColor = '#fff'; }
+    }
+    const label = FUEL_LABELS[fuelId] || fuelId;
+    return `<div style="
+      background:${bg};
+      color:${textColor};
+      font-size:12px;
+      font-weight:800;
+      padding:2px 7px;
+      border-radius:6px;
+      line-height:1.3;
+      min-width:20px;
+      text-align:center;
+    ">${label}</div>`;
+  }).filter(Boolean).join('');
+
+  const scale = isSelected ? 1.15 : 1;
   const shadow = isSelected
-    ? `0 3px 12px rgba(0,0,0,0.35), 0 0 0 3px ${overallColor}40`
-    : '0 2px 8px rgba(0,0,0,0.25)';
+    ? '0 4px 16px rgba(0,0,0,0.3), 0 0 0 2px ' + brandColor + '60'
+    : '0 2px 8px rgba(0,0,0,0.2)';
 
   return L.divIcon({
     className: 'station-card-marker',
@@ -150,38 +155,36 @@ function createStationCardIcon(
         <div style="
           background: white;
           border-radius: 10px;
-          padding: 6px 10px;
+          padding: 5px 6px 4px;
           box-shadow: ${shadow};
-          border-left: 4px solid ${brandColor};
-          min-width: 60px;
           text-align: center;
         ">
           <div style="
-            font-size: 14px;
-            font-weight: 800;
-            color: ${brandColor};
-            line-height: 1.2;
-            letter-spacing: -0.3px;
-            white-space: nowrap;
+            font-size:9px;
+            font-weight:700;
+            color:${brandColor};
+            line-height:1;
+            letter-spacing:-0.2px;
+            white-space:nowrap;
+            margin-bottom:3px;
           ">${abbr}</div>
           <div style="
-            display: flex;
-            gap: 4px;
-            justify-content: center;
-            margin-top: 3px;
-          ">${labelsHtml}</div>
+            display:flex;
+            gap:3px;
+            justify-content:center;
+          ">${badgesHtml}</div>
         </div>
         <div style="
-          width: 0; height: 0;
-          border-left: 7px solid transparent;
-          border-right: 7px solid transparent;
-          border-top: 7px solid white;
-          filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
+          width:0; height:0;
+          border-left:6px solid transparent;
+          border-right:6px solid transparent;
+          border-top:6px solid white;
+          filter:drop-shadow(0 1px 1px rgba(0,0,0,0.12));
         "></div>
       </div>
     `,
-    iconSize: [80, 50],
-    iconAnchor: [40, 50],
+    iconSize: [70, 48],
+    iconAnchor: [35, 48],
   });
 }
 
