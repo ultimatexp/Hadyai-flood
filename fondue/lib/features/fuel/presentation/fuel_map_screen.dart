@@ -79,8 +79,12 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
           // Map
           locationAsync.when(
             data: (location) {
-              final center = location != null
-                  ? LatLng(location.latitude, location.longitude)
+              // Only use user location if it's within Thailand bounds
+              final bool isInThailand = location != null &&
+                  location.latitude >= 5.5 && location.latitude <= 20.5 &&
+                  location.longitude >= 97.3 && location.longitude <= 105.7;
+              final center = isInThailand
+                  ? LatLng(location!.latitude, location.longitude)
                   : const LatLng(7.0058, 100.4745); // Hat Yai fallback
 
               return FlutterMap(
