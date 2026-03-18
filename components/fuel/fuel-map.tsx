@@ -103,17 +103,32 @@ function createStationCardIcon(
   const abbr = BRAND_ABBR[station.brand] || station.brand.substring(0, 3);
   const overallColor = getOverallColor(station);
 
-  // Build fuel dots — only show fuels this station carries
+  // Short labels for fuel types
+  const FUEL_LABELS: Record<string, string> = {
+    'gasohol_91': '91',
+    'gasohol_95': '95',
+    'gasohol_e20': 'E20',
+    'gasohol_e85': 'E85',
+    'diesel_b7': 'D',
+    'diesel_b20': 'D20',
+    'diesel_premium': 'DP',
+    'benzin_95': 'B95',
+    'lpg': 'LP',
+    'ngv': 'NG',
+  };
+
+  // Build fuel labels — only show fuels this station carries
   const stationFuelTypes = fuelTypes.filter(ft => station.fuel_types.includes(ft.id));
-  const dotsHtml = stationFuelTypes.slice(0, 4).map(ft => {
+  const labelsHtml = stationFuelTypes.slice(0, 4).map(ft => {
     const status = station.fuel_status[ft.id];
-    let dotColor = '#d1d5db'; // gray - unknown
+    let color = '#d1d5db'; // gray - unknown
     if (status) {
-      if (isAvailable(status)) dotColor = '#22C55E';
-      else if (isOutOfStock(status)) dotColor = '#EF4444';
-      else dotColor = '#F59E0B';
+      if (isAvailable(status)) color = '#22C55E';
+      else if (isOutOfStock(status)) color = '#EF4444';
+      else color = '#F59E0B';
     }
-    return `<div style="width:6px;height:6px;border-radius:50%;background:${dotColor};"></div>`;
+    const label = FUEL_LABELS[ft.id] || ft.name_en.substring(0, 2);
+    return `<div style="font-size:7px;font-weight:700;color:${color};line-height:1;">${label}</div>`;
   }).join('');
 
   const scale = isSelected ? 1.1 : 1;
@@ -154,7 +169,7 @@ function createStationCardIcon(
             gap: 2px;
             justify-content: center;
             margin-top: 2px;
-          ">${dotsHtml}</div>
+          ">${labelsHtml}</div>
         </div>
         <div style="
           width: 0; height: 0;
