@@ -143,7 +143,7 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, brand, lat, lng, address, province, district, fuel_types } = body;
+    const { name, brand, lat, lng, address, province, district, fuel_types, submitted_by } = body;
 
     if (!name || !brand || !lat || !lng) {
       return NextResponse.json({ error: 'name, brand, lat, lng are required' }, { status: 400 });
@@ -161,6 +161,7 @@ export async function POST(request: NextRequest) {
         district: district || '',
         fuel_types: fuel_types || ['diesel', 'gasohol_95', 'gasohol_91'],
         is_verified: false,
+        submitted_by: submitted_by || null,
       })
       .select()
       .single();

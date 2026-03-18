@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Fuel, MapPin, Search, X, ChevronDown, LocateFixed, Camera, Menu, Filter, MessageSquarePlus, Plus } from 'lucide-react';
+import { Fuel, MapPin, Search, X, ChevronDown, LocateFixed, Camera, Menu, Filter, MessageSquarePlus, Plus, LogIn } from 'lucide-react';
 import Lottie from 'lottie-react';
 import donateAnimation from '@/assets/json/Donaciones.json';
 import StationPanel from '@/components/fuel/station-panel';
@@ -83,12 +83,15 @@ export default function FuelFinder() {
   const [addStationName, setAddStationName] = useState('');
   const [addStationBrand, setAddStationBrand] = useState('PTT');
   const [addingStation, setAddingStation] = useState(false);
+  const [lineUser, setLineUser] = useState<{ line_user_id: string; display_name: string; picture_url: string | null } | null>(null);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const moveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Show instructions on first visit
   useEffect(() => {
     const seen = localStorage.getItem('fuel_instructions_seen');
     if (!seen) setShowInstructions(true);
+    // Check auth status
+    fetch('/api/auth/me').then(r => r.json()).then(d => { if (d.user) setLineUser(d.user); }).catch(() => {});
   }, []);
 
   const dismissInstructions = () => {
@@ -797,6 +800,10 @@ export default function FuelFinder() {
           <button
             className="fab"
             onClick={() => {
+              if (!lineUser) {
+                setShowLoginPrompt(true);
+                return;
+              }
               setIsPickingLocation(true);
               setPickerLocation(mapCenter || userLocation || { lat: 13.7563, lng: 100.5018 });
             }}
@@ -946,6 +953,7 @@ export default function FuelFinder() {
                           brand: addStationBrand === 'อื่นๆ' ? 'Other' : addStationBrand,
                           lat: pickerLocation.lat,
                           lng: pickerLocation.lng,
+                          submitted_by: lineUser?.line_user_id || undefined,
                         }),
                       });
                       const data = await res.json();
@@ -980,6 +988,100 @@ export default function FuelFinder() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* LINE Login Prompt Modal */}
+      <AnimatePresence>
+        {showLoginPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowLoginPrompt(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 3000,
+              background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 20,
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'white', borderRadius: 24, padding: '32px 24px',
+                width: '100%', maxWidth: 360, textAlign: 'center',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+              }}
+            >
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🔐</div>
+              <h3 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700, color: '#1e293b' }}>
+                เข้าสู่ระบบเพื่อเพิ่มสถานี
+              </h3>
+              <p style={{ margin: '0 0 24px', fontSize: 14, color: '#64748b', lineHeight: 1.5 }}>
+                กรุณาเข้าสู่ระบบด้วย LINE เพื่อเพิ่มสถานีน้ำมันใหม่
+              </p>
+              <a
+                href="/api/auth/line"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  padding: '14px 24px', borderRadius: 14, border: 'none',
+                  background: '#06C755', color: 'white',
+                  fontSize: 16, fontWeight: 700, cursor: 'pointer',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 16px rgba(6, 199, 85, 0.3)',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                  <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+                </svg>
+                ล็อกอินด้วย LINE
+              </a>
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                style={{
+                  marginTop: 16, padding: '10px 20px', borderRadius: 10,
+                  border: 'none', background: '#f1f5f9', color: '#64748b',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', width: '100%',
+                }}
+              >
+                ยกเลิก
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* User Avatar (when logged in) */}
+      {lineUser && (
+        <div style={{
+          position: 'fixed', top: 16, right: 16, zIndex: 1200,
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
+          padding: '6px 12px 6px 6px', borderRadius: 50,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)',
+        }}>
+          {lineUser.picture_url ? (
+            <img src={lineUser.picture_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+          ) : (
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#06C755', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12, fontWeight: 700 }}>
+              {lineUser.display_name.charAt(0)}
+            </div>
+          )}
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#1e293b', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {lineUser.display_name}
+          </span>
+          <button
+            onClick={() => { fetch('/api/auth/logout', { method: 'POST' }).then(() => setLineUser(null)); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 2, display: 'flex' }}
+            title="ออกจากระบบ"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Location Picker Overlay */}
       {isPickingLocation && (
