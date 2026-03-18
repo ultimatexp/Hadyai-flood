@@ -612,9 +612,8 @@ export default function FuelPage() {
           )}
         </div>
 
-        {/* Quick Filters — horizontal scrollable pills */}
+        {/* Fuel type pills */}
         <div className="quick-filter-row">
-          {/* Fuel type pills */}
           <button
             className={`qf-pill fuel-pill ${selectedFuelType === '' ? 'active' : ''}`}
             onClick={() => setSelectedFuelType('')}
@@ -639,10 +638,13 @@ export default function FuelPage() {
           >
             🔵 95
           </button>
+          {selectedFuelType && (
+            <button className="qf-pill clear-pill" onClick={() => setSelectedFuelType('')}>✕</button>
+          )}
+        </div>
 
-          <span className="qf-divider" />
-
-          {/* Brand pills — hardcoded major Thai brands */}
+        {/* Brand pills */}
+        <div className="quick-filter-row">
           {['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((brand) => (
             <button
               key={brand}
@@ -652,14 +654,8 @@ export default function FuelPage() {
               {brand}
             </button>
           ))}
-
-          {(selectedFuelType || selectedBrand) && (
-            <button
-              className="qf-pill clear-pill"
-              onClick={() => { setSelectedFuelType(''); setSelectedBrand(''); }}
-            >
-              ✕ ล้าง
-            </button>
+          {selectedBrand && (
+            <button className="qf-pill clear-pill" onClick={() => setSelectedBrand('')}>✕</button>
           )}
         </div>
       </div>

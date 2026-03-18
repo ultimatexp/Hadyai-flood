@@ -259,64 +259,72 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
             ),
           ),
 
-          // Quick filter row
+          // Fuel type filter row
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.only(left: 16, right: 16, top: 60),
               child: SizedBox(
-                height: 38,
+                height: 34,
                 child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        // Fuel pills
-                        _FilterPill(
-                          label: '⛽ ทั้งหมด',
-                          active: selectedFuelType.isEmpty,
-                          isFuel: true,
-                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(''),
-                        ),
-                        const SizedBox(width: 6),
-                        _FilterPill(
-                          label: '🟡 ดีเซล',
-                          active: selectedFuelType == 'diesel_b7',
-                          isFuel: true,
-                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
-                              selectedFuelType == 'diesel_b7' ? '' : 'diesel_b7'),
-                        ),
-                        const SizedBox(width: 6),
-                        _FilterPill(
-                          label: '🟢 91',
-                          active: selectedFuelType == 'gasohol_91',
-                          isFuel: true,
-                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
-                              selectedFuelType == 'gasohol_91' ? '' : 'gasohol_91'),
-                        ),
-                        const SizedBox(width: 6),
-                        _FilterPill(
-                          label: '🔵 95',
-                          active: selectedFuelType == 'gasohol_95',
-                          isFuel: true,
-                          onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
-                              selectedFuelType == 'gasohol_95' ? '' : 'gasohol_95'),
-                        ),
-                        // Divider
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                          child: Container(width: 1, color: Colors.black12),
-                        ),
-                        // Brand pills — hardcoded major Thai brands
-                        ...['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((b) => Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: _FilterPill(
-                                label: b,
-                                active: selectedBrand == b,
-                                isFuel: false,
-                                onTap: () => ref.read(selectedBrandProvider.notifier).set(
-                                    selectedBrand == b ? '' : b),
-                              ),
-                            )),
-                      ],
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _FilterPill(
+                      label: '⛽ ทั้งหมด',
+                      active: selectedFuelType.isEmpty,
+                      isFuel: true,
+                      onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(''),
                     ),
+                    const SizedBox(width: 6),
+                    _FilterPill(
+                      label: '🟡 ดีเซล',
+                      active: selectedFuelType == 'diesel_b7',
+                      isFuel: true,
+                      onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
+                          selectedFuelType == 'diesel_b7' ? '' : 'diesel_b7'),
+                    ),
+                    const SizedBox(width: 6),
+                    _FilterPill(
+                      label: '🟢 91',
+                      active: selectedFuelType == 'gasohol_91',
+                      isFuel: true,
+                      onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
+                          selectedFuelType == 'gasohol_91' ? '' : 'gasohol_91'),
+                    ),
+                    const SizedBox(width: 6),
+                    _FilterPill(
+                      label: '🔵 95',
+                      active: selectedFuelType == 'gasohol_95',
+                      isFuel: true,
+                      onTap: () => ref.read(selectedFuelTypeProvider.notifier).set(
+                          selectedFuelType == 'gasohol_95' ? '' : 'gasohol_95'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Brand filter row
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 98),
+              child: SizedBox(
+                height: 34,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    ...['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((b) => Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: _FilterPill(
+                            label: b,
+                            active: selectedBrand == b,
+                            isFuel: false,
+                            onTap: () => ref.read(selectedBrandProvider.notifier).set(
+                                selectedBrand == b ? '' : b),
+                          ),
+                        )),
+                  ],
+                ),
               ),
             ),
           ),
