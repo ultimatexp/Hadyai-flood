@@ -128,32 +128,15 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
                   filteredAsync.when(
                     data: (stations) => MarkerLayer(
                       markers: stations.map((station) {
-                        final color = _getStationColor(station);
                         return Marker(
                           point: LatLng(station.lat, station.lng),
-                          width: 36,
-                          height: 36,
+                          width: 75,
+                          height: 55,
                           child: GestureDetector(
                             onTap: () {
                               showStationPanel(context, ref, station);
                             },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: Colors.white, width: 2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: color.withOpacity(0.4),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(Icons.local_gas_station,
-                                  color: Colors.white, size: 16),
-                            ),
+                            child: _StationCardMarker(station: station),
                           ),
                         );
                       }).toList(),
@@ -602,4 +585,164 @@ class _FilterPill extends StatelessWidget {
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CARD-STYLE MAP MARKER (matches webapp)
+// ═══════════════════════════════════════════════════════════
+
+const _brandColors = <String, Color>{
+  'PTT': Color(0xFF1B5E20),
+  'PT': Color(0xFF1B5E20),
+  'Shell': Color(0xFFDD1D21),
+  'Bangchak': Color(0xFF00796B),
+  'Caltex': Color(0xFFD32F2F),
+  'Esso': Color(0xFF1565C0),
+  'Susco': Color(0xFFF57C00),
+  'IRPC': Color(0xFF6A1B9A),
+};
+
+const _brandAbbr = <String, String>{
+  'PTT Station': 'PTT',
+  'PTT': 'PTT',
+  'PT': 'PT',
+  'Shell': 'SHELL',
+  'Bangchak': 'BCP',
+  'Caltex': 'CLT',
+  'Esso': 'ESSO',
+  'Susco': 'SSC',
+  'IRPC': 'IRPC',
+};
+
+const _fuelLabels = <String, String>{
+  'diesel': 'D',
+  'diesel_b7': 'B7',
+  'gasohol_91': '91',
+  'gasohol_95': '95',
+  'gasohol_e20': 'E20',
+  'gasohol_e85': 'E85',
+  'premium_95': 'P95',
+  'ngv': 'NGV',
+};
+
+class _StationCardMarker extends StatelessWidget {
+  final GasStation station;
+  const _StationCardMarker({required this.station});
+
+  @override
+  Widget build(BuildContext context) {
+    final abbr = _brandAbbr[station.brand] ??
+        (station.brand.length > 3 ? station.brand.substring(0, 3).toUpperCase() : station.brand.toUpperCase());
+    final brandColor = _brandColors[station.brand] ?? const Color(0xFF475569);
+
+    // Pick up to 3 fuel types to show
+    final fuels = station.fuelTypes.take(3).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.grey.shade300, width: 0.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: IntrinsicWidth(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Brand header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      left: BorderSide(color: brandColor, width: 3),
+                    ),
+                  ),
+                  child: Text(
+                    abbr,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: brandColor,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                // Fuel badges row
+                if (fuels.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(3, 0, 3, 3),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: fuels.map((fuel) {
+                        final status = station.fuelStatus[fuel];
+                        final decisive = getDecisiveStatus(status);
+                        final label = _fuelLabels[fuel] ??
+                            fuel.replaceAll(RegExp(r'[^0-9A-Za-z]'), '').substring(0, fuel.length.clamp(0, 2)).toUpperCase();
+                        return Container(
+                          margin: const EdgeInsets.only(right: 1),
+                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: decisive.color,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 7,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              height: 1.2,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        // Pointer triangle
+        CustomPaint(
+          size: const Size(8, 5),
+          painter: _TrianglePainter(color: Colors.white, borderColor: Colors.grey.shade300),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrianglePainter extends CustomPainter {
+  final Color color;
+  final Color borderColor;
+  _TrianglePainter({required this.color, required this.borderColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
