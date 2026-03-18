@@ -128,7 +128,7 @@ function createStationCardIcon(
       else color = '#F59E0B';
     }
     const label = FUEL_LABELS[ft.id] || ft.name_en.substring(0, 2);
-    return `<div style="font-size:7px;font-weight:700;color:${color};line-height:1;">${label}</div>`;
+    return `<div style="font-size:11px;font-weight:700;color:${color};line-height:1;">${label}</div>`;
   }).join('');
 
   const scale = isSelected ? 1.1 : 1;
@@ -149,15 +149,15 @@ function createStationCardIcon(
       ">
         <div style="
           background: white;
-          border-radius: 8px;
-          padding: 3px 6px;
+          border-radius: 10px;
+          padding: 6px 10px;
           box-shadow: ${shadow};
-          border-left: 3px solid ${brandColor};
-          min-width: 38px;
+          border-left: 4px solid ${brandColor};
+          min-width: 60px;
           text-align: center;
         ">
           <div style="
-            font-size: 9px;
+            font-size: 14px;
             font-weight: 800;
             color: ${brandColor};
             line-height: 1.2;
@@ -166,22 +166,22 @@ function createStationCardIcon(
           ">${abbr}</div>
           <div style="
             display: flex;
-            gap: 2px;
+            gap: 4px;
             justify-content: center;
-            margin-top: 2px;
+            margin-top: 3px;
           ">${labelsHtml}</div>
         </div>
         <div style="
           width: 0; height: 0;
-          border-left: 5px solid transparent;
-          border-right: 5px solid transparent;
-          border-top: 5px solid white;
+          border-left: 7px solid transparent;
+          border-right: 7px solid transparent;
+          border-top: 7px solid white;
           filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
         "></div>
       </div>
     `,
-    iconSize: [50, 36],
-    iconAnchor: [25, 36],
+    iconSize: [80, 50],
+    iconAnchor: [40, 50],
   });
 }
 
