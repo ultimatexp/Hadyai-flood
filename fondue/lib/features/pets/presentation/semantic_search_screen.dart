@@ -227,22 +227,112 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
   }
 
   @override
+  // Whether to show filters bottom sheet
+  void _showFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(Icons.tune, size: 20, color: Colors.grey[700]),
+                  const SizedBox(width: 8),
+                  const Text('ตัวกรอง', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Radius
+              Row(
+                children: [
+                  const Icon(Icons.location_on, size: 18, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Text('รัศมี: ', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                  Text('${_radiusKm.round()} km',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              StatefulBuilder(
+                builder: (context, setSheetState) => Slider(
+                  value: _radiusKm,
+                  min: 5,
+                  max: 200,
+                  divisions: 39,
+                  activeColor: AppTheme.accentOrange,
+                  onChanged: (value) {
+                    setSheetState(() {});
+                    setState(() => _radiusKm = value);
+                    _onFilterChanged();
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Sex
+              Row(
+                children: [
+                  const Icon(Icons.pets, size: 18, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Text('เพศ: ', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                children: [
+                  _buildSexChip('ทั้งหมด', null),
+                  _buildSexChip('ผู้', 'male'),
+                  _buildSexChip('เมีย', 'female'),
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final bool hasResults = _allSearchResults.isNotEmpty;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.asHomeTab,
         title: Text(widget.asHomeTab ? '🐾 ค้นหาสัตว์เลี้ยง' : 'Smart Pet Search'),
-        bottom: PreferredSize(
+        bottom: hasResults ? null : PreferredSize(
           preferredSize: const Size.fromHeight(52),
           child: _buildAlgorithmPills(),
         ),
       ),
       body: Column(
         children: [
-          // 1. Image Selection Area
-          _buildUploadSection(),
+          // 1. Upload: full when no results, compact when results exist
+          if (hasResults)
+            _buildCompactUploadBar()
+          else
+            _buildUploadSection(),
 
-          // 2. Results / Empty State
+          // 2. Results header with count + filter
+          if (hasResults) _buildResultsHeader(),
+
+          // 3. Results / Empty State
           Expanded(
             child: _isSearching
                 ? _buildSearchingState()
@@ -253,6 +343,110 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
                         : _filteredResults.isEmpty
                             ? _buildNoFilterResultsState()
                             : _buildResultsList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Compact Upload Bar (shown after search) ────────────────
+  Widget _buildCompactUploadBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Thumbnails of uploaded images
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              shrinkWrap: true,
+              itemCount: _selectedImages.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              itemBuilder: (_, i) => ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(_selectedImages[i].path),
+                  width: 40, height: 40, fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+          const Spacer(),
+          // Add more photos
+          IconButton(
+            icon: Icon(Icons.add_photo_alternate_rounded, color: AppTheme.accentOrange),
+            onPressed: () => _pickImages(),
+            visualDensity: VisualDensity.compact,
+          ),
+          // Re-search button
+          SizedBox(
+            height: 34,
+            child: ElevatedButton.icon(
+              onPressed: _isSearching ? null : _performSearch,
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('ค้นหาใหม่', style: TextStyle(fontSize: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accentOrange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Results Header ─────────────────────────────────────────
+  Widget _buildResultsHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Text(
+            'พบ ${_filteredResults.length} รายการ',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          if (_filteredResults.length != _allSearchResults.length)
+            Text(
+              ' (จาก ${_allSearchResults.length})',
+              style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+            ),
+          const Spacer(),
+          Material(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: _showFilterSheet,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.tune, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text('ตัวกรอง', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -525,71 +719,7 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
             ),
           ),
 
-          // Filter Section (Only visible after search)
-          if (_allSearchResults.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.tune, size: 18, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Text("Filters",
-                          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700])),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on, size: 16, color: Colors.orange),
-                      const SizedBox(width: 6),
-                      Text("Radius: ", style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                      Text("${_radiusKm.round()} km",
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                  Slider(
-                    value: _radiusKm,
-                    min: 5,
-                    max: 200,
-                    divisions: 39,
-                    activeColor: AppTheme.accentOrange,
-                    onChanged: (value) {
-                      setState(() => _radiusKm = value);
-                      _onFilterChanged();
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.pets, size: 16, color: Colors.blue),
-                      const SizedBox(width: 6),
-                      Text("Sex: ", style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Wrap(
-                          spacing: 8,
-                          children: [
-                            _buildSexChip("Any", null),
-                            _buildSexChip("Male", "male"),
-                            _buildSexChip("Female", "female"),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+          // Filters moved to bottom sheet
         ],
       ),
     );
@@ -868,86 +998,122 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
     );
   }
 
-  // ── Match Card ─────────────────────────────────────────────
+  // ── Match Card (Option A: Hero Image) ─────────────────────
   Widget _buildMatchCard(BuildContext context, SearchMatch match) {
+    final scoreColor = _getScoreColor(match.combinedScore);
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 4,
+      shadowColor: Colors.black.withOpacity(0.12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (_) => PetDetailScreen(pet: match.pet)));
         },
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            // ── Hero Image with overlay badges ──
+            Stack(
               children: [
                 SizedBox(
-                  width: 110,
-                  height: 110,
+                  width: double.infinity,
+                  height: 200,
                   child: match.pet.imageUrl != null
-                      ? Image.network(match.pet.imageUrl!, fit: BoxFit.cover)
+                      ? Image.network(
+                          match.pet.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Colors.grey[200],
+                            child: const Center(child: Icon(Icons.pets, size: 60, color: Colors.grey)),
+                          ),
+                        )
                       : Container(
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.pets, color: Colors.grey, size: 40)),
+                          color: Colors.grey[200],
+                          child: const Center(child: Icon(Icons.pets, size: 60, color: Colors.grey)),
+                        ),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: match.pet.status == 'LOST' ? Colors.red : AppTheme.primaryGreen,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(match.pet.status,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: _getScoreColor(match.combinedScore),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                "${match.matchPercent}% Match",
-                                style: const TextStyle(
-                                    color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          match.pet.name ?? match.pet.species,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        Text(
-                          match.pet.colorMain ?? "Unknown color",
-                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                        ),
-                      ],
+                // Gradient overlay at bottom for readability
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 80,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Colors.black.withOpacity(0.5)],
+                      ),
                     ),
+                  ),
+                ),
+                // Status badge (top-left)
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: match.pet.status == 'LOST'
+                          ? Colors.red.withOpacity(0.9)
+                          : AppTheme.primaryGreen.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      match.pet.status == 'LOST' ? '🔴 หาย' : '🟢 พบ',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                // Match score ring (top-right)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: _buildScoreRing(match.matchPercent, scoreColor),
+                ),
+                // Pet name overlay (bottom-left)
+                Positioned(
+                  bottom: 10,
+                  left: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        match.pet.name ?? match.pet.species,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          shadows: [Shadow(blurRadius: 8, color: Colors.black54)],
+                        ),
+                      ),
+                      Text(
+                        '${match.pet.species} • ${match.pet.colorMain ?? ""}'.trim(),
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 13,
+                          shadows: const [Shadow(blurRadius: 6, color: Colors.black45)],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            Container(
-              color: Colors.grey[100],
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            // ── Score breakdown bar ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildScoreChip("🧠 AI", match.embeddingPercent, Colors.purple),
-                  _buildScoreChip("🎨 Color", match.colorPercent, Colors.orange),
-                  _buildScoreChip("📝 Features", match.featurePercent, Colors.blue),
+                  _buildScoreBar('🧠 AI', match.embeddingPercent, const Color(0xFF9C27B0)),
+                  const SizedBox(width: 8),
+                  _buildScoreBar('🎨 สี', match.colorPercent, AppTheme.accentOrange),
+                  const SizedBox(width: 8),
+                  _buildScoreBar('📐 ลักษณะ', match.featurePercent, const Color(0xFF42A5F5)),
+                  const Spacer(),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey[400]),
                 ],
               ),
             ),
@@ -957,22 +1123,61 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
     );
   }
 
-  Widget _buildScoreChip(String label, int percent, Color color) {
-    return Column(
-      children: [
-        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-        const SizedBox(height: 2),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: color.withOpacity(0.3)),
+  // ── Circular Score Ring ─────────────────────────────────────
+  Widget _buildScoreRing(int percent, Color color) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: CircularProgressIndicator(
+              value: percent / 100.0,
+              strokeWidth: 3.5,
+              backgroundColor: Colors.grey[200],
+              color: color,
+            ),
           ),
-          child: Text("$percent%",
-              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-        ),
-      ],
+          Text(
+            '$percent%',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Score Bar (compact) ────────────────────────────────────
+  Widget _buildScoreBar(String label, int percent, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, color: color)),
+          const SizedBox(width: 3),
+          Text('$percent%',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
     );
   }
 

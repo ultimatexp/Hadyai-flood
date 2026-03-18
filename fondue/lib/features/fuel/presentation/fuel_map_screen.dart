@@ -10,6 +10,7 @@ import 'fuel_providers.dart';
 import 'station_panel.dart';
 import 'quick_update_sheet.dart';
 import 'oil_price_widget.dart';
+import '../../donate/donate_screen.dart';
 
 const _brandColors = <String, Color>{
   'PTT': Color(0xFF2D5CA0),
@@ -414,6 +415,24 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
                     );
                   }
                 },
+              ),
+            ),
+          ),
+
+          // Donate button
+          Positioned(
+            right: 16,
+            bottom: 178,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DonateScreen())),
+              child: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8)],
+                ),
+                child: const Center(child: Text('☕', style: TextStyle(fontSize: 18))),
               ),
             ),
           ),
