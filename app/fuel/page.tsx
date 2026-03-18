@@ -395,7 +395,27 @@ export default function FuelPage() {
           box-shadow: 0 2px 8px rgba(245,158,11,0.3);
         }
         .fuel-pill.active { background: linear-gradient(135deg, #f59e0b, #ea580c); }
-        .brand-pill.active { background: linear-gradient(135deg, #3b82f6, #6366f1); box-shadow: 0 2px 8px rgba(59,130,246,0.3); }
+
+        /* Brand-specific pill colors (inactive) */
+        .brand-pill { border-width: 2px; }
+        .brand-pill[data-brand='PTT']   { background: rgba(45,92,160,0.08); border-color: rgba(45,92,160,0.25); color: #2D5CA0; }
+        .brand-pill[data-brand='Bangchak'] { background: rgba(0,166,81,0.08); border-color: rgba(0,166,81,0.25); color: #00A651; }
+        .brand-pill[data-brand='Shell']  { background: rgba(221,29,33,0.08); border-color: rgba(221,29,33,0.25); color: #DD1D21; }
+        .brand-pill[data-brand='Caltex'] { background: rgba(226,35,26,0.08); border-color: rgba(226,35,26,0.25); color: #C41E1A; }
+        .brand-pill[data-brand='Esso']   { background: rgba(212,30,49,0.08); border-color: rgba(212,30,49,0.25); color: #D41E31; }
+        .brand-pill[data-brand='Susco']  { background: rgba(228,0,43,0.08); border-color: rgba(228,0,43,0.25); color: #C4002B; }
+        .brand-pill[data-brand='PT']     { background: rgba(0,102,179,0.08); border-color: rgba(0,102,179,0.25); color: #0066B3; }
+        .brand-pill[data-brand='Sinopec']{ background: rgba(200,16,46,0.08); border-color: rgba(200,16,46,0.25); color: #C8102E; }
+
+        /* Brand-specific active states */
+        .brand-pill[data-brand='PTT'].active    { background: #2D5CA0; color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(45,92,160,0.4); }
+        .brand-pill[data-brand='Bangchak'].active { background: #00A651; color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(0,166,81,0.4); }
+        .brand-pill[data-brand='Shell'].active   { background: #DD1D21; color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(221,29,33,0.4); }
+        .brand-pill[data-brand='Caltex'].active  { background: #E2231A; color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(226,35,26,0.4); }
+        .brand-pill[data-brand='Esso'].active    { background: #D41E31; color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(212,30,49,0.4); }
+        .brand-pill[data-brand='Susco'].active   { background: #E4002B; color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(228,0,43,0.4); }
+        .brand-pill[data-brand='PT'].active      { background: #0066B3; color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(0,102,179,0.4); }
+        .brand-pill[data-brand='Sinopec'].active { background: #C8102E; color: white; border-color: transparent; box-shadow: 0 2px 8px rgba(200,16,46,0.4); }
         .clear-pill {
           background: rgba(239,68,68,0.08) !important;
           border-color: rgba(239,68,68,0.2) !important;
@@ -668,6 +688,7 @@ export default function FuelPage() {
             {['PTT', 'Bangchak', 'Shell', 'Caltex', 'Esso', 'Susco', 'PT', 'Sinopec'].map((brand) => (
               <button
                 key={brand}
+                data-brand={brand}
                 className={`qf-pill brand-pill ${selectedBrand === brand ? 'active' : ''}`}
                 onClick={() => setSelectedBrand(selectedBrand === brand ? '' : brand)}
               >

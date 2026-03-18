@@ -153,11 +153,12 @@ function createStationCardIcon(
         align-items: center;
       ">
         <div style="
-          background: white;
+          background: linear-gradient(135deg, ${brandColor}12, white 60%);
           border-radius: 10px;
           padding: 5px 6px 4px;
           box-shadow: ${shadow};
           text-align: center;
+          border-left: 3px solid ${brandColor};
         ">
           <div style="
             font-size:9px;
