@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -22,6 +23,7 @@ const _brandColors = <String, Color>{
   'Susco': Color(0xFFFF6B00),
   'PT': Color(0xFF0066B3),
   'Sinopec': Color(0xFFC8102E),
+  'IRPC': Color(0xFF6A1B9A),
 };
 
 class FuelMapScreen extends ConsumerStatefulWidget {
@@ -591,16 +593,7 @@ class _FilterPill extends StatelessWidget {
 // CARD-STYLE MAP MARKER (matches webapp)
 // ═══════════════════════════════════════════════════════════
 
-const _brandColors = <String, Color>{
-  'PTT': Color(0xFF1B5E20),
-  'PT': Color(0xFF1B5E20),
-  'Shell': Color(0xFFDD1D21),
-  'Bangchak': Color(0xFF00796B),
-  'Caltex': Color(0xFFD32F2F),
-  'Esso': Color(0xFF1565C0),
-  'Susco': Color(0xFFF57C00),
-  'IRPC': Color(0xFF6A1B9A),
-};
+
 
 const _brandAbbr = <String, String>{
   'PTT Station': 'PTT',
@@ -728,7 +721,7 @@ class _TrianglePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()
+    final path = ui.Path()
       ..moveTo(0, 0)
       ..lineTo(size.width / 2, size.height)
       ..lineTo(size.width, 0)
