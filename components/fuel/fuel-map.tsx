@@ -63,6 +63,18 @@ const BRAND_ABBR: Record<string, string> = {
   'Other': 'อื่นๆ',
 };
 
+const BRAND_LOGOS: Record<string, string> = {
+  'PTT': '/brands/ptt.svg',
+  'Bangchak': '/brands/bangchak.svg',
+  'Shell': '/brands/shell.svg',
+  'Esso': '/brands/esso.svg',
+  'Caltex': '/brands/caltex.svg',
+  'Susco': '/brands/susco.svg',
+  'PT': '/brands/pt.svg',
+  'Sinopec': '/brands/sinopec.svg',
+  'IRPC': '/brands/irpc.svg',
+};
+
 const BRAND_COLORS: Record<string, string> = {
   'PTT': '#2D5CA0',
   'Bangchak': '#00A651',

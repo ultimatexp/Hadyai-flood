@@ -51,6 +51,18 @@ const BRAND_COLORS: Record<string, string> = {
   PT: '#1B5E20',
 };
 
+const BRAND_LOGOS: Record<string, string> = {
+  PTT: '/brands/ptt.svg',
+  Bangchak: '/brands/bangchak.svg',
+  Shell: '/brands/shell.svg',
+  Esso: '/brands/esso.svg',
+  Caltex: '/brands/caltex.svg',
+  Susco: '/brands/susco.svg',
+  PT: '/brands/pt.svg',
+  Sinopec: '/brands/sinopec.svg',
+  IRPC: '/brands/irpc.svg',
+};
+
 function getDecisiveStatus(status: FuelStatus | undefined): { label: string; color: string; bars: number; needsVerify: boolean } {
   if (!status) return { label: 'ยังไม่มีรายงาน', color: '#94a3b8', bars: 0, needsVerify: true };
   
@@ -604,7 +616,11 @@ export default function StationPanel({
                   color: BRAND_COLORS[station.brand] || '#64748b'
                 }}
               >
-                {station.brand.slice(0, 3)}
+                {BRAND_LOGOS[station.brand] ? (
+                  <img src={BRAND_LOGOS[station.brand]} alt={station.brand} style={{ width: 28, height: 28, objectFit: 'contain' }} />
+                ) : (
+                  station.brand.slice(0, 3)
+                )}
               </div>
               <div className="station-title-area">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
