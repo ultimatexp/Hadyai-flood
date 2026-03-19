@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../domain/gas_station.dart';
 import '../domain/fuel_type.dart';
 import '../domain/fuel_status.dart';
@@ -14,7 +15,20 @@ const _brandColors = <String, Color>{
   'Esso': Color(0xFFD41E31),
   'Caltex': Color(0xFFE2231A),
   'Susco': Color(0xFFE4002B),
+  'PT': Color(0xFF1B5E20),
   'Other': Color(0xFF64748B),
+};
+
+const _brandLogos = <String, String>{
+  'PTT': 'assets/brands/ptt.svg',
+  'Bangchak': 'assets/brands/bangchak.svg',
+  'Shell': 'assets/brands/shell.svg',
+  'Esso': 'assets/brands/esso.svg',
+  'Caltex': 'assets/brands/caltex.svg',
+  'Susco': 'assets/brands/susco.svg',
+  'PT': 'assets/brands/pt.svg',
+  'Sinopec': 'assets/brands/sinopec.svg',
+  'IRPC': 'assets/brands/irpc.svg',
 };
 
 void showStationPanel(BuildContext context, WidgetRef ref, GasStation station) {
@@ -135,12 +149,17 @@ class _StationPanelContentState extends ConsumerState<_StationPanelContent> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     alignment: Alignment.center,
-                    child: Text(
-                      station.brand.length > 3 ? station.brand.substring(0, 3) : station.brand,
-                      style: GoogleFonts.prompt(
-                        fontSize: 12, fontWeight: FontWeight.w700, color: brandColor,
-                      ),
-                    ),
+                    child: _brandLogos.containsKey(station.brand)
+                        ? SvgPicture.asset(
+                            _brandLogos[station.brand]!,
+                            width: 28, height: 28,
+                          )
+                        : Text(
+                            station.brand.length > 3 ? station.brand.substring(0, 3) : station.brand,
+                            style: GoogleFonts.prompt(
+                              fontSize: 12, fontWeight: FontWeight.w700, color: brandColor,
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

@@ -52,6 +52,7 @@ dependencies:
   firebase_messaging: ^16.1.1
   flutter_local_notifications: ^20.0.0
   shared_preferences: ^2.5.4
+  flutter_svg: ^2.2.4
 
 dev_dependencies:
   flutter_test:
@@ -86,6 +87,7 @@ flutter:
   assets:
     - assets/lottie/
     - assets/images/
+    - assets/brands/
     - assets/cat_icon.png
     - assets/dog_icon.jpg
     - assets/icon.png

@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart' hide Marker;
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/config/constants.dart';
 import '../domain/gas_station.dart';
 import '../domain/fuel_status.dart';
@@ -25,6 +26,18 @@ const _brandColors = <String, Color>{
   'Sinopec': Color(0xFFC8102E),
   'IRPC': Color(0xFF6A1B9A),
   'Other': Color(0xFF64748B),
+};
+
+const _brandLogos = <String, String>{
+  'PTT': 'assets/brands/ptt.svg',
+  'Bangchak': 'assets/brands/bangchak.svg',
+  'Shell': 'assets/brands/shell.svg',
+  'Esso': 'assets/brands/esso.svg',
+  'Caltex': 'assets/brands/caltex.svg',
+  'Susco': 'assets/brands/susco.svg',
+  'PT': 'assets/brands/pt.svg',
+  'Sinopec': 'assets/brands/sinopec.svg',
+  'IRPC': 'assets/brands/irpc.svg',
 };
 
 class FuelMapScreen extends ConsumerStatefulWidget {
@@ -337,6 +350,7 @@ class _FuelMapScreenState extends ConsumerState<FuelMapScreen> {
                                 active: selectedBrand == b,
                                 isFuel: false,
                                 brandName: b,
+                                logoPath: _brandLogos[b],
                                 onTap: () => ref.read(selectedBrandProvider.notifier).set(
                                     selectedBrand == b ? '' : b),
                               ),
@@ -510,6 +524,7 @@ class _FilterPill extends StatelessWidget {
   final bool active;
   final bool isFuel;
   final String? brandName;
+  final String? logoPath;
   final VoidCallback onTap;
 
   const _FilterPill({
@@ -518,6 +533,7 @@ class _FilterPill extends StatelessWidget {
     required this.isFuel,
     required this.onTap,
     this.brandName,
+    this.logoPath,
   });
 
   @override
@@ -576,13 +592,26 @@ class _FilterPill extends StatelessWidget {
             border: Border.all(color: borderColor, width: 1.5),
             boxShadow: shadows,
           ),
-          child: Text(
-            label,
-            style: GoogleFonts.prompt(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: textColor,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (logoPath != null && !isFuel) ...[
+                SvgPicture.asset(
+                  logoPath!,
+                  width: 14, height: 14,
+                  colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: GoogleFonts.prompt(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                ),
+              ),
+            ],
           ),
         ),
       ),
