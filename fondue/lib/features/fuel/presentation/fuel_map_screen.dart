@@ -21,7 +21,7 @@ const _brandColors = <String, Color>{
   'Esso': Color(0xFFD41E31),
   'Caltex': Color(0xFFE2231A),
   'Susco': Color(0xFFFF6B00),
-  'PT': Color(0xFF0066B3),
+  'PT': Color(0xFF1B5E20),
   'Sinopec': Color(0xFFC8102E),
   'IRPC': Color(0xFF6A1B9A),
   'Other': Color(0xFF64748B),

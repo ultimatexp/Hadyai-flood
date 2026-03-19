@@ -70,7 +70,7 @@ const BRAND_COLORS: Record<string, string> = {
   'Esso': '#D41E31',
   'Caltex': '#E2231A',
   'Susco': '#FF6B00',
-  'PT': '#0066B3',
+  'PT': '#1B5E20',
 };
 
 function isAvailable(status: FuelStatus): boolean {

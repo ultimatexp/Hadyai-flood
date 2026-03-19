@@ -48,6 +48,7 @@ const BRAND_COLORS: Record<string, string> = {
   Esso: '#D41E31',
   Caltex: '#E2231A',
   Susco: '#E4002B',
+  PT: '#1B5E20',
 };
 
 function getDecisiveStatus(status: FuelStatus | undefined): { label: string; color: string; bars: number; needsVerify: boolean } {
