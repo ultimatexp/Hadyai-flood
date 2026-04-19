@@ -227,14 +227,37 @@ export async function POST(request: NextRequest) {
                             },
                         }));
 
-                        const { error: notifyError } = await supabase
+                        const { data: insertedNotifications, error: notifyError } = await supabase
                             .from('notifications')
-                            .insert(notifications);
+                            .insert(notifications)
+                            .select();
 
                         if (notifyError) {
                             console.error('Notification error:', notifyError);
                         } else {
-                            console.log(`✅ Sent ${notifications.length} notifications`);
+                            console.log(`✅ Inserted ${notifications.length} in-app notifications`);
+
+                            const fnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/push-pet-match`;
+                            const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+                            if (serviceKey && insertedNotifications?.length) {
+                                await Promise.all(
+                                    insertedNotifications.map((row) =>
+                                        fetch(fnUrl, {
+                                            method: 'POST',
+                                            headers: {
+                                                Authorization: `Bearer ${serviceKey}`,
+                                                'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify({ record: row }),
+                                        }).then(async (r) => {
+                                            if (!r.ok) {
+                                                const t = await r.text();
+                                                console.error('push-pet-match failed:', r.status, t);
+                                            }
+                                        }).catch((e) => console.error('push-pet-match invoke error:', e)),
+                                    ),
+                                );
+                            }
                         }
                     }
                 }

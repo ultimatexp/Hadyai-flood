@@ -1,0 +1,377 @@
+{
+  "@@locale": "en",
+  "appTitle": "Fondue",
+  "navSearch": "Search",
+  "navFeed": "Feed",
+  "navChat": "Chat",
+  "navProfile": "Profile",
+  "mapFabLabel": "Map",
+  "createSheetReportPetTitle": "Report pet",
+  "createSheetReportPetSubtitle": "Lost or found",
+  "createSheetNewPostTitle": "New post",
+  "createSheetNewPostSubtitle": "Share updates and photos",
+  "profileStatsReports": "Reports",
+  "profileStatsHelped": "Helped",
+  "profileStatsPoints": "Points",
+  "profileEdit": "Edit",
+  "profileMenuMyPets": "My pets",
+  "profileMenuMyReports": "My reports",
+  "profileMenuPotentialMatches": "Potential matches",
+  "profileMenuActivity": "Activity",
+  "profileMenuTopDonors": "Top donors",
+  "profileMenuNotifications": "Notifications",
+  "profileMenuSettings": "Settings",
+  "profileMenuLanguage": "Language",
+  "profileMenuHelp": "Help",
+  "profileMenuPrivacy": "Privacy policy",
+  "profileMenuTerms": "Terms of use",
+  "profileLoginSignup": "Log in / Sign up",
+  "profileSignOut": "Sign out",
+  "profileLanguageDisplayThai": "Thai",
+  "profileLanguageDisplayEnglish": "English",
+  "profileBadgesTitle": "Badges",
+  "profileBadgeUnlocked": "✅ Unlocked",
+  "profileBadgeLocked": "🔒 Locked",
+  "profilePointsLabel": "{points} pts",
+  "@profilePointsLabel": {
+    "placeholders": {
+      "points": {
+        "type": "int"
+      }
+    }
+  },
+  "profileNextLevelPrefix": "Next: {label}",
+  "@profileNextLevelPrefix": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "profileMaxLevel": "Max level!",
+  "profileStreakDays": "🔥 {count} day streak",
+  "@profileStreakDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storeTitle": "Store",
+  "storeSubtitle": "Food • Gear • Toys",
+  "settingsTitle": "Settings",
+  "settingsSectionAccount": "Account & security",
+  "settingsChangePassword": "Change password",
+  "settingsDeleteAccount": "Delete account",
+  "settingsBlockedUsers": "Blocked users",
+  "settingsSectionNotifications": "Notifications",
+  "settingsPushNotifications": "Push notifications",
+  "settingsSectionData": "Data management",
+  "settingsClearCache": "Clear app cache",
+  "settingsSectionAbout": "About",
+  "settingsVersion": "Version",
+  "settingsTermsOfService": "Terms of service",
+  "settingsPrivacyPolicy": "Privacy policy",
+  "settingsComingSoon": "Coming soon",
+  "settingsCacheCleared": "Cache cleared",
+  "settingsDeleteDialogTitle": "Delete account",
+  "settingsDeleteDialogBody": "Are you sure you want to delete your account? This action cannot be undone and all your data will be lost.",
+  "settingsCancel": "Cancel",
+  "settingsDelete": "Delete",
+  "settingsDeletionRequested": "Account deletion requested",
+  "languageTitle": "Language",
+  "languageOptionDevice": "Use device language",
+  "languageOptionThai": "Thai",
+  "languageOptionEnglish": "English",
+  "potentialMatchesScreenTitle": "My potential matches",
+  "potentialMatchesRefreshTooltip": "Refresh",
+  "potentialMatchesSearching": "Searching for matches…",
+  "potentialMatchesErrorLine": "Error: {message}",
+  "@potentialMatchesErrorLine": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "potentialMatchesRetry": "Retry",
+  "potentialMatchesEmptyTitle": "No matches found",
+  "potentialMatchesEmptyBody": "We haven't found any potential matches for your lost pets yet. Check back later as new found pets are reported.",
+  "potentialMatchesCheckAgain": "Check again",
+  "potentialMatchesCardLabel": "Potential match",
+  "potentialMatchesScorePercent": "{score}% match",
+  "@potentialMatchesScorePercent": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "potentialMatchesYourLostPet": "Your lost pet",
+  "potentialMatchesFoundPet": "Found pet",
+  "potentialMatchesViewFoundPet": "View found pet details",
+  "potentialMatchesDismiss": "Not my pet, don't show again",
+  "potentialMatchesHideDialogTitle": "Hide this match?",
+  "potentialMatchesHideDialogBody": "This match will be hidden from your list. You can still find this pet in the general feed.",
+  "potentialMatchesHideMatch": "Hide match",
+  "potentialMatchesHiddenSnack": "Match hidden. It won't appear again.",
+  "potentialMatchesHideFailedSnack": "Failed to hide match. Please try again.",
+  "petFilterAll": "All",
+  "petFilterLost": "Lost",
+  "petFilterFound": "Found",
+  "petFilterDogs": "Dogs",
+  "petFilterCats": "Cats",
+  "petStatusLost": "Lost",
+  "petStatusFound": "Found",
+  "petStatusReunited": "Reunited",
+  "petSexMale": "Male",
+  "petSexFemale": "Female",
+  "petSexUnknown": "Unknown",
+  "mapViewTitle": "Pet map",
+  "mapViewSearchPhotoHint": "Search by photo…",
+  "mapViewListViewButton": "List view",
+  "mapViewErrorLoading": "Error loading map: {message}",
+  "@mapViewErrorLoading": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "mapViewViewDetails": "View details",
+  "mapViewTimeMonthsAgo": "{months} months ago",
+  "@mapViewTimeMonthsAgo": {
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "mapViewTimeDaysAgo": "{days} days ago",
+  "@mapViewTimeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "mapViewTimeHoursAgo": "{hours} hours ago",
+  "@mapViewTimeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mapViewTimeMinutesAgo": "{minutes} min ago",
+  "@mapViewTimeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "petFeedTitle": "Found & lost pets",
+  "petFeedMapTooltip": "Map view",
+  "petFeedMatchDialogTitle": "Potential match found!",
+  "petFeedMatchDialogBody": "Someone found a pet that looks like your lost {species} “{name}”!",
+  "@petFeedMatchDialogBody": {
+    "placeholders": {
+      "species": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "petFeedFoundPetDetails": "Found pet details",
+  "petFeedColorLabel": "Color: {color}",
+  "@petFeedColorLabel": {
+    "placeholders": {
+      "color": {
+        "type": "String"
+      }
+    }
+  },
+  "petFeedNoDescription": "No description",
+  "petFeedDismiss": "Dismiss",
+  "petFeedViewFoundPet": "View found pet",
+  "petFeedSearch": "Search",
+  "petFeedDefaultPetName": "Pet",
+  "petFeedUnknownValue": "Unknown",
+  "petFeedEmptyTitle": "No pets found",
+  "petFeedEmptySubtitle": "Try adjusting your filters or check back later",
+  "petFeedErrorTitle": "Something went wrong",
+  "petDetailShareImageTooltip": "Share as image",
+  "petDetailArchiveTooltip": "Archive",
+  "petDetailEditTooltip": "Edit",
+  "petDetailReportPost": "Report post",
+  "petDetailBlockUser": "Block user",
+  "petDetailEditTitle": "Edit pet details",
+  "petDetailLabelPetName": "Pet name",
+  "petDetailLabelStatus": "Status",
+  "petDetailLabelSex": "Sex",
+  "petDetailLabelColor": "Color",
+  "petDetailLabelDescription": "Description",
+  "petDetailLabelContact": "Contact info",
+  "petDetailSave": "Save",
+  "petDetailPetUpdatedSnack": "Pet details updated!",
+  "petDetailArchiveSheetTitle": "Archive this post",
+  "petDetailArchiveSheetSubtitle": "Choose an option for this pet post",
+  "petDetailArchiveFoundTitle": "Pet found",
+  "petDetailArchiveFoundSubtitle": "Mark as reunited with owner",
+  "petDetailArchiveDeleteTitle": "Delete",
+  "petDetailArchiveDeleteSubtitle": "Permanently remove this post",
+  "petDetailMarkFoundTitle": "Pet found!",
+  "petDetailMarkFoundBody": "Great news! Marking this pet as reunited will archive the post. Continue?",
+  "petDetailMarkReunitedButton": "Mark as reunited",
+  "petDetailReunitedSnack": "Pet marked as reunited!",
+  "petDetailDeletePostTitle": "Delete post",
+  "petDetailDeletePostBody": "Are you sure you want to permanently delete this post? This action cannot be undone.",
+  "petDetailPostDeletedSnack": "Post deleted",
+  "petDetailPhotoOf": "Photo {current} of {total}",
+  "@petDetailPhotoOf": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailCountdownExpired": "Expired",
+  "petDetailExpiresInLabel": "Expires in",
+  "petDetailReportExpiredTitle": "Report expired",
+  "petDetailReportExpiredBody": "This report is no longer active",
+  "petDetailDurationDaysHours": "{days} days, {hours} hours",
+  "@petDetailDurationDaysHours": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailDurationHoursMinutes": "{hours} hours, {minutes} min",
+  "@petDetailDurationHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailDurationMinutes": "{minutes} minutes",
+  "@petDetailDurationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailDescriptionHeading": "Description",
+  "petDetailNoDescription": "No description provided.",
+  "petDetailLastSeenHeading": "Last seen location",
+  "petDetailSeeOnMap": "See on map",
+  "petDetailPostId": "Post ID: {id}",
+  "@petDetailPostId": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "petDetailInfoSpecies": "Species",
+  "petDetailInfoSex": "Sex",
+  "petDetailInfoColor": "Color",
+  "petDetailYourPostTitle": "Your post",
+  "petDetailYourPostSubtitle": "Make changes or verify",
+  "petDetailCheckingDatabase": "Checking database…",
+  "petDetailRecheckMatches": "Recheck database for matches",
+  "petDetailOwnerOfPost": "You are the owner of this post",
+  "petDetailPostOwnedBy": "Post owned by",
+  "petDetailDefaultOwnerName": "Pet owner",
+  "petDetailChatNow": "Chat now",
+  "petDetailContact": "Contact",
+  "petDetailNoNewMatches": "No new matches found at this time.",
+  "petDetailErrorCheckingMatches": "Error checking matches: {message}",
+  "@petDetailErrorCheckingMatches": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "petDetailMatchResultsTitle": "{count} potential match(es)!",
+  "@petDetailMatchResultsTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailMatchListTileTitle": "Found {species} ({score}% match)",
+  "@petDetailMatchListTileTitle": {
+    "placeholders": {
+      "species": {
+        "type": "String"
+      },
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailClose": "Close",
+  "petDetailChatNoOwner": "Cannot start chat: owner information not available",
+  "petDetailChatLoginRequired": "Please log in to start a chat",
+  "petDetailChatFailed": "Failed to start chat: {message}",
+  "@petDetailChatFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "petDetailCannotCall": "Cannot make phone call",
+  "petDetailReportDialogTitle": "Report post",
+  "petDetailReportDialogPrompt": "Why are you reporting this post?",
+  "petDetailReportHint": "e.g. inappropriate content, spam…",
+  "petDetailReportSubmit": "Report",
+  "petDetailReportLoginRequired": "Please log in to report content",
+  "petDetailReportThanks": "Report submitted. Thank you for helping keep our community safe.",
+  "petDetailReportError": "Error submitting report: {message}",
+  "@petDetailReportError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "petDetailBlockDialogTitle": "Block user",
+  "petDetailBlockDialogBody": "Are you sure you want to block this user? You will no longer see their posts.",
+  "petDetailBlockSubmit": "Block",
+  "petDetailBlockLoginRequired": "Please log in to block users",
+  "petDetailUserBlocked": "User blocked.",
+  "petDetailBlockError": "Error blocking user: {message}",
+  "@petDetailBlockError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "petDetailGenericError": "Error: {message}",
+  "@petDetailGenericError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  }
+}

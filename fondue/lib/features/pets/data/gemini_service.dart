@@ -14,27 +14,49 @@ class GeminiService {
     );
   }
 
+  static void _ensureGeminiApiKey() {
+    if (AppConstants.googleGeminiKey.isEmpty) {
+      throw StateError(
+        'No Gemini API key. Use Run and Debug → "fondue (reads fondue/.env)" '
+        'or: cd fondue && flutter run --dart-define-from-file=.env. '
+        'On a phone, plain "flutter run" does not read fondue/.env unless you '
+        'pass that flag or put a non-empty key in assets/google_ai.env.',
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> analyzePetImage(XFile imageFile) async {
+    _ensureGeminiApiKey();
     final imageBytes = await imageFile.readAsBytes();
     
     final prompt = Content.multi([
       TextPart('''
         Analyze this image, which might be a photo of a pet OR a screenshot of a social media post about a lost/found pet.
-        Extract relevant information and return a JSON object.
-        Do not include markdown formatting (like ```json), just the raw JSON.
+        Return ONE JSON object only. No markdown, no code fences.
         
-        Required fields:
-        - species: "Cat", "Dog", "Bird" or "Other" (Capitalized)
-        - pet_name: Name of the pet if mentioned (or null)
-        - color: Description of color/pattern
-        - description: A summary of visual details AND text content (e.g. "Lost at Central Park, wearing red collar. Reward 5000 baht.")
-        - breed: Breed if visually obvious or mentioned (optional)
-        - sex: "Male", "Female", or "Unknown"
-        - location_text: Specific location mentioned in text (or null)
-        - contact_info: Phone number, Line ID, or Facebook name mentioned in text (or null)
-        - reward: Reward amount if mentioned (or null)
+        Matching fields (use lowercase English tokens so they align with a database):
+        - species: exactly "dog" or "cat" only (domestic dog or domestic cat clearly visible)
+        - color_main: primary coat color, one of "black", "white", "orange", "gray", "brown", "cream", "mixed", or a short English phrase if none fit
+        - color_secondary: secondary color if clearly visible, else null
+        - color_pattern: one of "solid", "tabby", "calico", "tuxedo", "bicolor", "tortie", "pointed", "spotted", "merle", "brindle", or null if unclear
+        - fur_length: one of "short", "medium", "long", "hairless", or null if unclear
+        - sex: "male", "female", or "unknown"
+        - has_collar: true/false
+        - collar_color: short English color or null
+        - clothes: short description of clothing/vest or null
+        - white_patch_location: JSON array of body areas with white patches, e.g. ["chest","paws"], or null
+        - heterochromia: true if eyes are two different colors, else false
         
-        If it's not a pet related image, return { "error": "Not a pet" }
+        Context (optional, for posts/screenshots):
+        - pet_name: name if mentioned, else null
+        - description: brief summary of visuals AND any readable text in the image
+        - breed: breed if obvious or mentioned, else null
+        - location_text: place mentioned in text, else null
+        - contact_info: phone/Line/Facebook if visible, else null
+        - reward: reward text/amount if mentioned, else null
+        
+        If it's not pet-related, return { "error": "Not a pet" }.
+        If the animal is not clearly a dog or cat (e.g. bird, rabbit, reptile, livestock), return { "error": "Not a dog or cat" }.
       '''),
       DataPart('image/jpeg', imageBytes),
     ]);
@@ -66,6 +88,7 @@ class GeminiService {
     List<String> conditions = const [],
     List<Map<String, dynamic>> toxicIngredients = const [],
   }) async {
+    _ensureGeminiApiKey();
     // Build the toxic ingredients context
     final toxicList = toxicIngredients
         .map((t) => '- ${t['ingredient']} (${t['severity']}): ${t['notes']}')

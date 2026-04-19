@@ -53,6 +53,12 @@ class PetRepository {
     return data.map((json) => Pet.fromJson(json)).toList();
   }
 
+  Future<Pet?> fetchPetById(String petId) async {
+    final response = await _client.from('pets').select().eq('id', petId).maybeSingle();
+    if (response == null) return null;
+    return Pet.fromJson(response);
+  }
+
   Future<List<Pet>> fetchUserReports(String userId) async {
     final response = await _client
         .from('pets')

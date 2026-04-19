@@ -10,7 +10,7 @@ import 'pet_providers.dart';
 import 'gemini_provider.dart';
 import 'location_picker_screen.dart';
 import '../../points/points_provider.dart';
-import 'semantic_search_screen.dart';
+import 'pet_search_navigation.dart';
 
 class ReportScreen extends ConsumerStatefulWidget {
   final String? initialStatus;
@@ -169,20 +169,23 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     try {
       final gemini = ref.read(geminiServiceProvider);
       final data = await gemini.analyzePetImage(image);
-      
+
+      if (data['error'] != null) {
+        throw Exception(data['error'].toString());
+      }
+
       if (mounted) {
         setState(() {
-          if (data['species'] != null) {
-            final s = data['species'].toString();
-            if (['Cat', 'Dog', 'Bird'].contains(s)) _species = s;
-            else _species = 'Other';
-          }
-          if (data['pet_name'] != null) _nameController.text = data['pet_name'];
-          if (data['color'] != null) _colorController.text = data['color'];
-          if (data['description'] != null) _descController.text = data['description'];
-          if (data['sex'] != null && ['Male', 'Female'].contains(data['sex'])) {
-             _sex = data['sex'];
-          }
+          final rawSpecies = data['species']?.toString().toLowerCase();
+          if (rawSpecies == 'dog') _species = 'Dog';
+          if (rawSpecies == 'cat') _species = 'Cat';
+          if (data['pet_name'] != null) _nameController.text = data['pet_name'].toString();
+          final coat = data['color_main'] ?? data['color'];
+          if (coat != null) _colorController.text = coat.toString();
+          if (data['description'] != null) _descController.text = data['description'].toString();
+          final sx = data['sex']?.toString().toLowerCase();
+          if (sx == 'male') _sex = 'Male';
+          if (sx == 'female') _sex = 'Female';
           if (data['contact_info'] != null) _contactController.text = data['contact_info'];
           if (data['reward'] != null) _rewardController.text = data['reward'].toString();
         });
@@ -265,12 +268,10 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
           );
 
           if (shouldSearch == true && mounted) {
-             Navigator.pop(context); // Close report screen
-             Navigator.push(
+            switchToHomePetSearch(
+              ref,
               context,
-              MaterialPageRoute(
-                builder: (context) => SemanticSearchScreen(initialImage: _imageFiles.first),
-              ),
+              initialImage: _imageFiles.first,
             );
             return;
           }
@@ -503,8 +504,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                     child: DropdownButtonFormField<String>(
                       value: _species,
                       decoration: const InputDecoration(labelText: 'ประเภท', border: OutlineInputBorder()),
-                      items: ['Cat', 'Dog', 'Bird', 'Other'].map((s) {
-                        final thLabel = s == 'Cat' ? 'แมว' : s == 'Dog' ? 'สุนัข' : s == 'Bird' ? 'นก' : 'อื่นๆ';
+                      items: ['Cat', 'Dog'].map((s) {
+                        final thLabel = s == 'Cat' ? 'แมว' : 'สุนัข';
                         return DropdownMenuItem(value: s, child: Text(thLabel));
                       }).toList(),
                       onChanged: (v) => setState(() => _species = v!),

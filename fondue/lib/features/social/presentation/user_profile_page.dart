@@ -250,8 +250,15 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen())),
+              onPressed: () async {
+                final loggedIn = await Navigator.push<bool?>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+                if (loggedIn == true && context.mounted) {
+                  setState(() {});
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF9800),
                 padding:

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fondue/l10n/app_localizations.dart';
+import 'package:fondue/l10n/app_localizations_context.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../domain/pet.dart';
 import '../domain/pet_matcher_service.dart';
@@ -28,11 +31,11 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     try {
       final matcher = ref.read(petMatcherProvider);
       final matches = await matcher.findMatchesForUser();
-      
+
       if (mounted) {
         setState(() {
           _matches = matches;
@@ -51,30 +54,32 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Potential Matches'),
+        title: Text(l10n.potentialMatchesScreenTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadMatches,
-            tooltip: 'Refresh',
+            tooltip: l10n.potentialMatchesRefreshTooltip,
           ),
         ],
       ),
-      body: _buildBody(),
+      body: _buildBody(context),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
+    final l10n = context.l10n;
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Searching for matches...'),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(l10n.potentialMatchesSearching),
           ],
         ),
       );
@@ -87,11 +92,11 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
           children: [
             Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
             const SizedBox(height: 16),
-            Text('Error: $_errorMessage'),
+            Text(l10n.potentialMatchesErrorLine(_errorMessage!)),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadMatches,
-              child: const Text('Retry'),
+              child: Text(l10n.potentialMatchesRetry),
             ),
           ],
         ),
@@ -105,15 +110,15 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
           children: [
             Icon(Icons.search_off, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 24),
-            const Text(
-              'No Matches Found',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Text(
+              l10n.potentialMatchesEmptyTitle,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Text(
-                'We haven\'t found any potential matches for your lost pets yet. Check back later as new found pets are reported.',
+                l10n.potentialMatchesEmptyBody,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600]),
               ),
@@ -122,7 +127,7 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
             OutlinedButton.icon(
               onPressed: _loadMatches,
               icon: const Icon(Icons.refresh),
-              label: const Text('Check Again'),
+              label: Text(l10n.potentialMatchesCheckAgain),
             ),
           ],
         ),
@@ -134,13 +139,13 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _matches!.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final match = _matches![index];
           final lostPet = match['lostPet'] as Pet;
           final foundPet = match['foundPet'] as Pet;
           final score = ((match['score'] as double) * 100).toInt();
-          
+
           return _buildMatchCard(context, lostPet, foundPet, score, index);
         },
       ),
@@ -148,21 +153,21 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
   }
 
   Widget _buildMatchCard(BuildContext context, Pet lostPet, Pet foundPet, int score, int index) {
+    final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
         children: [
-          // Header with Score
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: _getScoreColor(score).withOpacity(0.1),
+              color: _getScoreColor(score).withValues(alpha: 0.1),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -174,7 +179,7 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Potential Match',
+                    l10n.potentialMatchesCardLabel,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: _getScoreColor(score),
@@ -188,39 +193,30 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '$score% Match',
+                    l10n.potentialMatchesScorePercent(score),
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
               ],
             ),
           ),
-          
-          // Pet Comparison Row
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Lost Pet (Yours)
                 Expanded(
-                  child: _buildPetColumn(context, lostPet, 'Your Lost Pet', Colors.red),
+                  child: _buildPetColumn(context, lostPet, l10n.potentialMatchesYourLostPet, Colors.red),
                 ),
-                
-                // Arrow
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Icon(Icons.arrow_forward, color: Colors.grey[400]),
                 ),
-                
-                // Found Pet
                 Expanded(
-                  child: _buildPetColumn(context, foundPet, 'Found Pet', AppTheme.primaryGreen),
+                  child: _buildPetColumn(context, foundPet, l10n.potentialMatchesFoundPet, AppTheme.primaryGreen),
                 ),
               ],
             ),
           ),
-          
-          // Action Buttons
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: SizedBox(
@@ -238,12 +234,10 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('View Found Pet Details'),
+                child: Text(l10n.potentialMatchesViewFoundPet),
               ),
             ),
           ),
-          
-          // Dismiss Option
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 16, 12),
             child: Row(
@@ -252,7 +246,7 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
                   onPressed: () => _dismissMatch(lostPet, foundPet, index),
                   icon: Icon(Icons.visibility_off, size: 18, color: Colors.grey[600]),
                   label: Text(
-                    "Not my pet, don't show again",
+                    l10n.potentialMatchesDismiss,
                     style: TextStyle(color: Colors.grey[600], fontSize: 13),
                   ),
                   style: TextButton.styleFrom(
@@ -268,26 +262,26 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
   }
 
   Future<void> _dismissMatch(Pet lostPet, Pet foundPet, int index) async {
-    // Show confirmation
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Hide this match?'),
-        content: const Text(
-          'This match will be hidden from your list. You can still find this pet in the general feed.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hide Match'),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final dialogL10n = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          title: Text(dialogL10n.potentialMatchesHideDialogTitle),
+          content: Text(dialogL10n.potentialMatchesHideDialogBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(dialogL10n.settingsCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: Text(dialogL10n.potentialMatchesHideMatch),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed != true) return;
@@ -296,16 +290,17 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
     final success = await matcher.dismissMatch(lostPet.id, foundPet.id);
 
     if (mounted) {
+      final l10n = context.l10n;
       if (success) {
         setState(() {
           _matches!.removeAt(index);
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Match hidden. It won\'t appear again.')),
+          SnackBar(content: Text(l10n.potentialMatchesHiddenSnack)),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to hide match. Please try again.')),
+          SnackBar(content: Text(l10n.potentialMatchesHideFailedSnack)),
         );
       }
     }
@@ -314,11 +309,10 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
   Widget _buildPetColumn(BuildContext context, Pet pet, String label, Color labelColor) {
     return Column(
       children: [
-        // Label
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: labelColor.withOpacity(0.1),
+            color: labelColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
@@ -327,8 +321,6 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
           ),
         ),
         const SizedBox(height: 8),
-        
-        // Image
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: pet.imageUrl != null
@@ -337,21 +329,17 @@ class _PotentialMatchesScreenState extends ConsumerState<PotentialMatchesScreen>
                   width: 80,
                   height: 80,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                  errorBuilder: (_, _, _) => _buildPlaceholder(),
                 )
               : _buildPlaceholder(),
         ),
         const SizedBox(height: 8),
-        
-        // Name/Species
         Text(
           pet.name ?? pet.species,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        
-        // Color
         if (pet.colorMain != null)
           Text(
             pet.colorMain!,

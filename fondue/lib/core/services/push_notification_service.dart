@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+
+import '../navigation/push_chat_navigation.dart';
+import '../navigation/push_pet_match_navigation.dart';
 
 // Background message handler must be a top-level function
 @pragma('vm:entry-point')
@@ -25,6 +29,7 @@ class PushNotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
+  Map<String, dynamic>? _pendingPushPayload;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -58,7 +63,7 @@ class PushNotificationService {
     // 3. Setup Local Notifications (for foreground display)
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    
+
     const DarwinInitializationSettings initializationSettingsDarwin =
         DarwinInitializationSettings();
 
@@ -70,9 +75,14 @@ class PushNotificationService {
     await _localNotifications.initialize(
       settings: initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Handle notification tap
-        debugPrint("Notification tapped: ${response.payload}");
-        // TODO: Navigate to chat screen
+        final payload = response.payload;
+        if (payload == null || payload.isEmpty) return;
+        try {
+          final map = jsonDecode(payload) as Map<String, dynamic>;
+          unawaited(handleNotificationDataMap(map));
+        } catch (e) {
+          debugPrint('Notification tap payload decode error: $e');
+        }
       },
     );
 
@@ -90,6 +100,11 @@ class PushNotificationService {
       }
     });
 
+    // 5b. Notification opened while app in background (not terminated)
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      unawaited(handleOpenedRemoteMessage(message));
+    });
+
     // 6. Get Token and Save
     await _saveToken();
 
@@ -99,6 +114,60 @@ class PushNotificationService {
     });
 
     _isInitialized = true;
+  }
+
+  /// Persists the current FCM token to `profiles.fcm_token` and opens any deferred push route.
+  Future<void> syncTokenToProfile() async {
+    await _saveToken();
+    await _tryConsumePendingPushNavigation();
+  }
+
+  /// Call once from the root widget after the first frame (e.g. [FondueApp] `initState`) so
+  /// [MaterialApp]'s navigator exists for cold-start notification opens.
+  Future<void> consumeInitialNotificationIfAny() async {
+    final initial = await _firebaseMessaging.getInitialMessage();
+    if (initial != null) {
+      await handleOpenedRemoteMessage(initial);
+    }
+  }
+
+  Future<void> handleOpenedRemoteMessage(RemoteMessage message) async {
+    await handleNotificationDataMap(Map<String, dynamic>.from(message.data));
+  }
+
+  /// Routes FCM `data` (chat or pet match) from Edge Functions or local notification payload.
+  Future<void> handleNotificationDataMap(Map<String, dynamic> data) async {
+    if (!isChatPushPayload(data) && !isPetMatchPushPayload(data)) return;
+
+    if (Supabase.instance.client.auth.currentUser == null) {
+      _pendingPushPayload = Map<String, dynamic>.from(data);
+      debugPrint('Deferred push navigation until user signs in');
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _dispatchPushRoute(data);
+    });
+  }
+
+  Future<void> _dispatchPushRoute(Map<String, dynamic> data) async {
+    if (isChatPushPayload(data)) {
+      await openChatFromPushData(data);
+    } else if (isPetMatchPushPayload(data)) {
+      await openPetMatchFromPushData(data);
+    }
+  }
+
+  Future<void> _tryConsumePendingPushNavigation() async {
+    final pending = _pendingPushPayload;
+    if (pending == null) return;
+    if (Supabase.instance.client.auth.currentUser == null) return;
+
+    _pendingPushPayload = null;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _dispatchPushRoute(pending);
+    });
   }
 
   Future<void> _saveToken() async {
@@ -131,7 +200,6 @@ class PushNotificationService {
 
   Future<void> _showLocalNotification(RemoteMessage message) async {
     RemoteNotification? notification = message.notification;
-    AndroidNotification? android = message.notification?.android;
 
     // On iOS, we want to show the notification even if 'android' is null
     if (notification != null) {
@@ -149,9 +217,9 @@ class PushNotificationService {
             icon: '@mipmap/ic_launcher',
           ),
           iOS: const DarwinNotificationDetails(
-             presentAlert: true,
-             presentBadge: true,
-             presentSound: true,
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
           ),
         ),
         payload: jsonEncode(message.data),

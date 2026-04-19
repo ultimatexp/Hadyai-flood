@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fondue/l10n/app_localizations.dart';
+import 'package:fondue/l10n/app_localizations_context.dart';
 import 'package:lottie/lottie.dart';
 import 'pet_providers.dart';
 import '../domain/pet.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/shimmer_loading.dart';
 import 'pet_detail_screen.dart';
-import 'semantic_search_screen.dart';
+import 'pet_search_navigation.dart';
 import 'map_view_screen.dart';
 import 'widgets/pet_card.dart';
 
@@ -50,73 +52,80 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: const [
-            Icon(Icons.notification_important, color: Colors.amber),
-            SizedBox(width: 8),
-            Flexible(child: Text('Potential Match Found!')),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Someone found a pet that looks like your lost ${lostPet.species} "${lostPet.name ?? 'Pet'}"!'),
-            const SizedBox(height: 16),
-            const Text('Found Pet Details:', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                if (foundPet.imageUrl != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(foundPet.imageUrl!, width: 60, height: 60, fit: BoxFit.cover),
+      builder: (ctx) {
+        final d = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.notification_important, color: Colors.amber),
+              const SizedBox(width: 8),
+              Flexible(child: Text(d.petFeedMatchDialogTitle)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(d.petFeedMatchDialogBody(lostPet.species, lostPet.name ?? d.petFeedDefaultPetName)),
+              const SizedBox(height: 16),
+              Text(d.petFeedFoundPetDetails, style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (foundPet.imageUrl != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(foundPet.imageUrl!, width: 60, height: 60, fit: BoxFit.cover),
+                    ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(foundPet.description ?? d.petFeedNoDescription),
+                        Text(
+                          d.petFeedColorLabel(foundPet.colorMain ?? d.petFeedUnknownValue),
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
                   ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(foundPet.description ?? 'No description'),
-                      Text('Color: ${foundPet.colorMain ?? 'Unknown'}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(d.petFeedDismiss),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => PetDetailScreen(pet: foundPet)),
+                );
+              },
+              style: FilledButton.styleFrom(backgroundColor: AppTheme.accentOrange),
+              child: Text(d.petFeedViewFoundPet),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Dismiss'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => PetDetailScreen(pet: foundPet)),
-              );
-            },
-            style: FilledButton.styleFrom(backgroundColor: AppTheme.accentOrange),
-            child: const Text('View Found Pet'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final lostPetsAsync = ref.watch(lostPetsProvider);
     final filter = ref.watch(petFilterProvider);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Found & Lost Pets'),
+        title: Text(l10n.petFeedTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.map_outlined, color: Colors.black87), 
@@ -130,7 +139,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                 ),
               );
             },
-            tooltip: 'Map View',
+            tooltip: l10n.petFeedMapTooltip,
           ),
         ],
       ),
@@ -141,10 +150,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: InkWell(
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SemanticSearchScreen()),
-                );
+                switchToHomePetSearch(ref, context);
               },
               borderRadius: BorderRadius.circular(30),
               child: TweenAnimationBuilder<double>(
@@ -184,12 +190,12 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.search, color: Colors.white, size: 22),
-                      SizedBox(width: 10),
+                    children: [
+                      const Icon(Icons.search, color: Colors.white, size: 22),
+                      const SizedBox(width: 10),
                       Text(
-                        "Search",
-                        style: TextStyle(
+                        l10n.petFeedSearch,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -213,7 +219,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                 _buildFilterChip(
                   context, 
                   ref, 
-                  label: "All", 
+                  label: l10n.petFilterAll, 
                   isSelected: filter.status == 'All',
                   onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(status: 'All')),
                 ),
@@ -221,7 +227,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                 _buildFilterChip(
                   context, 
                   ref, 
-                  label: "Lost", 
+                  label: l10n.petFilterLost, 
                   isSelected: filter.status == 'LOST',
                   color: Colors.red,
                   onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(status: 'LOST')),
@@ -230,7 +236,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                 _buildFilterChip(
                   context, 
                   ref, 
-                  label: "Found", 
+                  label: l10n.petFilterFound, 
                   isSelected: filter.status == 'FOUND',
                   color: AppTheme.primaryGreen,
                   onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(status: 'FOUND')),
@@ -241,7 +247,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                 _buildFilterChip(
                   context, 
                   ref, 
-                  label: "Dogs", 
+                  label: l10n.petFilterDogs, 
                   isSelected: filter.species == 'Dog',
                   icon: Icons.pets,
                   onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(species: filter.species == 'Dog' ? 'All' : 'Dog')),
@@ -250,7 +256,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                 _buildFilterChip(
                   context, 
                   ref, 
-                  label: "Cats", 
+                  label: l10n.petFilterCats, 
                   isSelected: filter.species == 'Cat',
                   icon: Icons.pets,
                   onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(species: filter.species == 'Cat' ? 'All' : 'Cat')),
@@ -277,7 +283,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No pets found',
+                          l10n.petFeedEmptyTitle,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -286,7 +292,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Try adjusting your filters or check back later',
+                          l10n.petFeedEmptySubtitle,
                           style: TextStyle(color: Colors.grey[500], fontSize: 14),
                           textAlign: TextAlign.center,
                         ),
@@ -317,11 +323,11 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                   children: [
                     Icon(Icons.error_outline, size: 60, color: Colors.red[300]),
                     const SizedBox(height: 16),
-                    Text('Something went wrong', style: TextStyle(color: Colors.grey[600])),
+                    Text(l10n.petFeedErrorTitle, style: TextStyle(color: Colors.grey[600])),
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: () => ref.invalidate(lostPetsProvider),
-                      child: const Text('Retry'),
+                      child: Text(l10n.potentialMatchesRetry),
                     ),
                   ],
                 ),
@@ -329,8 +335,8 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
               loading: () => ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: 4,
-                separatorBuilder: (_, __) => const SizedBox(height: 16),
-                itemBuilder: (_, __) => const PetCardSkeleton(),
+                separatorBuilder: (_, _) => const SizedBox(height: 16),
+                itemBuilder: (_, _) => const PetCardSkeleton(),
               ),
             ),
           ),

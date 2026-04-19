@@ -56,6 +56,8 @@
 	<string>This app needs microphone access for video recording of pets.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs photo library access to let you upload photos of lost or found pets.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app saves share images to your photo library when you choose Save.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

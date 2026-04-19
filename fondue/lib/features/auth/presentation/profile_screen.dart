@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fondue/l10n/app_localizations_context.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -17,10 +18,12 @@ import '../../social/domain/user_stats.dart';
 import '../../social/presentation/activity_feed_screen.dart';
 import '../../store/presentation/store_screen.dart';
 import 'edit_profile_screen.dart';
+import '../../settings/presentation/language_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../data/auth_repository.dart';
 import 'login_screen.dart';
 import '../../dashboard/presentation/dashboard_screen.dart';
+import '../../donate/top_donors_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -30,11 +33,12 @@ class ProfileScreen extends ConsumerWidget {
     return StreamBuilder<AuthState>(
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
+        final l10n = context.l10n;
+        final useThai = Localizations.localeOf(context).languageCode == 'th';
         final user = Supabase.instance.client.auth.currentUser;
         final pointsAsync = ref.watch(pointsProvider);
         final myReportsAsync = ref.watch(myReportsProvider);
         final statsAsync = ref.watch(currentUserStatsProvider);
-        final email = user?.email ?? 'guest@fondue.app';
         final name = user?.userMetadata?['full_name'] ?? 'Guest User';
         final avatarUrl = user?.userMetadata?['avatar_url'];
 
@@ -91,7 +95,7 @@ class ProfileScreen extends ConsumerWidget {
                                     loading: () => '...',
                                     error: (_, __) => '0',
                                   ),
-                                  'รายงาน',
+                                  l10n.profileStatsReports,
                                 ),
                                 _buildStatColumn(
                                   myReportsAsync.when(
@@ -99,7 +103,7 @@ class ProfileScreen extends ConsumerWidget {
                                     loading: () => '...',
                                     error: (_, __) => '0',
                                   ),
-                                  'ช่วยเหลือ',
+                                  l10n.profileStatsHelped,
                                 ),
                                 _buildStatColumn(
                                   pointsAsync.when(
@@ -107,7 +111,7 @@ class ProfileScreen extends ConsumerWidget {
                                     loading: () => '...',
                                     error: (_, __) => '0',
                                   ),
-                                  'แต้ม',
+                                  l10n.profileStatsPoints,
                                 ),
                               ],
                             ),
@@ -142,7 +146,7 @@ class ProfileScreen extends ConsumerWidget {
                                         Text(stats.level.emoji, style: const TextStyle(fontSize: 14)),
                                         const SizedBox(width: 4),
                                         Text(
-                                          stats.level.thaiLabel,
+                                          useThai ? stats.level.thaiLabel : stats.level.englishLabel,
                                           style: TextStyle(
                                             color: Colors.white.withOpacity(0.9),
                                             fontSize: 13,
@@ -152,7 +156,7 @@ class ProfileScreen extends ConsumerWidget {
                                         if (stats.currentStreak > 0) ...[
                                           const SizedBox(width: 8),
                                           Text(
-                                            '🔥 ${stats.currentStreak} วันติด',
+                                            l10n.profileStreakDays(stats.currentStreak),
                                             style: TextStyle(
                                               color: Colors.white.withOpacity(0.85),
                                               fontSize: 12,
@@ -178,7 +182,7 @@ class ProfileScreen extends ConsumerWidget {
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
-                              child: const Text('แก้ไข', style: TextStyle(color: Colors.white, fontSize: 13)),
+                              child: Text(l10n.profileEdit, style: const TextStyle(color: Colors.white, fontSize: 13)),
                             ),
                         ],
                       ),
@@ -205,11 +209,11 @@ class ProfileScreen extends ConsumerWidget {
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      '${stats.totalPoints} pts',
+                                      l10n.profilePointsLabel(stats.totalPoints),
                                       style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11),
                                     ),
                                     Text(
-                                      'ถัดไป: ${_nextLevelLabel(stats.level)}',
+                                      l10n.profileNextLevelPrefix(_nextLevelLabel(context, stats.level)),
                                       style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11),
                                     ),
                                   ],
@@ -236,13 +240,13 @@ class ProfileScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Text('🏆', style: TextStyle(fontSize: 18)),
-                              SizedBox(width: 8),
+                              const Text('🏆', style: TextStyle(fontSize: 18)),
+                              const SizedBox(width: 8),
                               Text(
-                                'เหรียญรางวัล',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                l10n.profileBadgesTitle,
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -258,6 +262,7 @@ class ProfileScreen extends ConsumerWidget {
                                 return _BadgeItem(
                                   badgeType: badgeType,
                                   earned: earned,
+                                  useThai: useThai,
                                 );
                               },
                             ),
@@ -307,22 +312,22 @@ class ProfileScreen extends ConsumerWidget {
                             child: const Icon(Icons.storefront, color: Colors.white, size: 28),
                           ),
                           const SizedBox(width: 14),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'ร้านค้า',
-                                  style: TextStyle(
+                                  l10n.storeTitle,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
-                                  'อาหาร • อุปกรณ์ • ของเล่นสัตว์เลี้ยง',
-                                  style: TextStyle(
+                                  l10n.storeSubtitle,
+                                  style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
                                   ),
@@ -347,42 +352,54 @@ class ProfileScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       _buildMenuCard([
-                        _buildMenuItem(Icons.favorite_border, "สัตว์เลี้ยงของฉัน", () {
+                        _buildMenuItem(Icons.favorite_border, l10n.profileMenuMyPets, () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const MyPetProfilesScreen()));
                         }),
-                        _buildMenuItem(Icons.pets, "My Reports", () {
+                        _buildMenuItem(Icons.pets, l10n.profileMenuMyReports, () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const MyReportsScreen()));
                         }),
-                        _buildMenuItem(Icons.saved_search, "My Potential Matches", () {
+                        _buildMenuItem(Icons.saved_search, l10n.profileMenuPotentialMatches, () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const PotentialMatchesScreen()));
                         }),
-                        _buildMenuItem(Icons.timeline, "กิจกรรม", () {
+                        _buildMenuItem(Icons.timeline, l10n.profileMenuActivity, () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const ActivityFeedScreen()));
                         }),
+                        _buildMenuItem(Icons.emoji_events_outlined, l10n.profileMenuTopDonors, () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const TopDonorsScreen()));
+                        }),
                       ]),
 
                       const SizedBox(height: 16),
 
                       _buildMenuCard([
-                        _buildMenuItem(Icons.notifications_outlined, "แจ้งเตือน", () {
+                        _buildMenuItem(Icons.notifications_outlined, l10n.profileMenuNotifications, () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const InboxScreen()));
                         }, hasBadge: true),
-                        _buildMenuItem(Icons.settings_outlined, "ตั้งค่า", () {
+                        _buildMenuItem(Icons.settings_outlined, l10n.profileMenuSettings, () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
                         }),
-                        _buildMenuItem(Icons.language, "ภาษา", () {}, trailing: "ไทย"),
+                        _buildMenuItem(
+                          Icons.language,
+                          l10n.profileMenuLanguage,
+                          () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const LanguageScreen()));
+                          },
+                          trailing: Localizations.localeOf(context).languageCode == 'th'
+                              ? l10n.profileLanguageDisplayThai
+                              : l10n.profileLanguageDisplayEnglish,
+                        ),
                       ]),
 
                       const SizedBox(height: 16),
 
                       _buildMenuCard([
-                        _buildMenuItem(Icons.help_outline, "ช่วยเหลือ", () {
+                        _buildMenuItem(Icons.help_outline, l10n.profileMenuHelp, () {
                           launchUrl(Uri.parse('https://lin.ee/dLvcA22'), mode: LaunchMode.externalApplication);
                         }),
-                        _buildMenuItem(Icons.privacy_tip_outlined, "นโยบายความเป็นส่วนตัว", () {
+                        _buildMenuItem(Icons.privacy_tip_outlined, l10n.profileMenuPrivacy, () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()));
                         }),
-                        _buildMenuItem(Icons.description_outlined, "ข้อกำหนดการใช้งาน", () {
+                        _buildMenuItem(Icons.description_outlined, l10n.profileMenuTerms, () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsConditionsScreen()));
                         }),
                       ]),
@@ -402,7 +419,7 @@ class ProfileScreen extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                            child: const Text('เข้าสู่ระบบ / สมัครสมาชิก', style: TextStyle(fontSize: 16)),
+                            child: Text(l10n.profileLoginSignup, style: const TextStyle(fontSize: 16)),
                           ),
                         )
                       else
@@ -417,9 +434,9 @@ class ProfileScreen extends ConsumerWidget {
                               );
                             }
                           },
-                          child: const Text(
-                            "ออกจากระบบ",
-                            style: TextStyle(color: Colors.red, fontSize: 16),
+                          child: Text(
+                            l10n.profileSignOut,
+                            style: const TextStyle(color: Colors.red, fontSize: 16),
                           ),
                         ),
 
@@ -435,10 +452,12 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  String _nextLevelLabel(UserLevel level) {
+  String _nextLevelLabel(BuildContext context, UserLevel level) {
+    final useThai = Localizations.localeOf(context).languageCode == 'th';
     final idx = UserLevel.values.indexOf(level) + 1;
-    if (idx >= UserLevel.values.length) return 'สูงสุดแล้ว!';
-    return UserLevel.values[idx].thaiLabel;
+    if (idx >= UserLevel.values.length) return context.l10n.profileMaxLevel;
+    final next = UserLevel.values[idx];
+    return useThai ? next.thaiLabel : next.englishLabel;
   }
 
   Widget _buildStatColumn(String value, String label) {
@@ -532,8 +551,9 @@ class ProfileScreen extends ConsumerWidget {
 class _BadgeItem extends StatelessWidget {
   final BadgeType badgeType;
   final bool earned;
+  final bool useThai;
 
-  const _BadgeItem({required this.badgeType, required this.earned});
+  const _BadgeItem({required this.badgeType, required this.earned, required this.useThai});
 
   @override
   Widget build(BuildContext context) {
@@ -547,7 +567,7 @@ class _BadgeItem extends StatelessWidget {
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            builder: (_) => Padding(
+            builder: (sheetContext) => Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -555,12 +575,12 @@ class _BadgeItem extends StatelessWidget {
                   Text(badgeType.emoji, style: const TextStyle(fontSize: 48)),
                   const SizedBox(height: 12),
                   Text(
-                    badgeType.thaiLabel,
+                    useThai ? badgeType.thaiLabel : badgeType.englishLabel,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    badgeType.description,
+                    useThai ? badgeType.description : badgeType.englishDescription,
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     textAlign: TextAlign.center,
                   ),
@@ -572,7 +592,7 @@ class _BadgeItem extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      earned ? '✅ ได้รับแล้ว' : '🔒 ยังไม่ปลดล็อก',
+                      earned ? sheetContext.l10n.profileBadgeUnlocked : sheetContext.l10n.profileBadgeLocked,
                       style: TextStyle(
                         color: earned ? Colors.green : Colors.grey,
                         fontWeight: FontWeight.w600,
@@ -608,7 +628,7 @@ class _BadgeItem extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              badgeType.thaiLabel,
+              useThai ? badgeType.thaiLabel : badgeType.englishLabel,
               style: TextStyle(
                 fontSize: 10,
                 color: earned ? Colors.black87 : Colors.grey,

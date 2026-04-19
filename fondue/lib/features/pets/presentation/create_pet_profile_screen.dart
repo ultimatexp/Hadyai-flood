@@ -190,7 +190,7 @@ class _CreatePetProfileScreenState extends ConsumerState<CreatePetProfileScreen>
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
-            children: ['Dog', 'Cat', 'Bird', 'Rabbit', 'Other'].map((species) {
+            children: ['Dog', 'Cat'].map((species) {
               final selected = _species == species;
               return ChoiceChip(
                 label: Text(_speciesLabel(species)),
@@ -840,12 +840,8 @@ class _CreatePetProfileScreenState extends ConsumerState<CreatePetProfileScreen>
         return '🐕 สุนัข';
       case 'Cat':
         return '🐈 แมว';
-      case 'Bird':
-        return '🐦 นก';
-      case 'Rabbit':
-        return '🐰 กระต่าย';
       default:
-        return '🐾 อื่นๆ';
+        return '🐾 สุนัข / แมว';
     }
   }
 
@@ -855,10 +851,6 @@ class _CreatePetProfileScreenState extends ConsumerState<CreatePetProfileScreen>
         return Icons.pets;
       case 'Cat':
         return Icons.pets;
-      case 'Bird':
-        return Icons.flutter_dash;
-      case 'Rabbit':
-        return Icons.cruelty_free;
       default:
         return Icons.pets;
     }

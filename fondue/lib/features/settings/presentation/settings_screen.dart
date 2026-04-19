@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fondue/l10n/app_localizations.dart';
+import 'package:fondue/l10n/app_localizations_context.dart';
+
 import '../../../../core/theme/app_theme.dart';
-import '../../auth/presentation/login_screen.dart';
 import '../../moderation/presentation/blocked_users_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -16,83 +18,81 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(l10n.settingsTitle),
         backgroundColor: AppTheme.primaryGreen,
         foregroundColor: Colors.white,
       ),
       body: ListView(
         children: [
-          _buildSectionHeader('Account & Security'),
+          _buildSectionHeader(l10n.settingsSectionAccount),
           _buildListTile(
             icon: Icons.lock_outline,
-            title: 'Change Password',
+            title: l10n.settingsChangePassword,
             onTap: () {
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Comming Soon')));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.settingsComingSoon)));
             },
           ),
           _buildListTile(
             icon: Icons.delete_outline,
-            title: 'Delete Account',
+            title: l10n.settingsDeleteAccount,
             textColor: Colors.red,
             iconColor: Colors.red,
             onTap: () {
-               _showDeleteAccountDialog();
+              _showDeleteAccountDialog();
             },
           ),
           _buildListTile(
             icon: Icons.block,
-            title: 'Blocked Users',
+            title: l10n.settingsBlockedUsers,
             onTap: () {
-               Navigator.push(context, MaterialPageRoute(builder: (_) => const BlockedUsersScreen()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const BlockedUsersScreen()));
             },
           ),
-          
-          _buildSectionHeader('Notifications'),
+          _buildSectionHeader(l10n.settingsSectionNotifications),
           SwitchListTile(
             secondary: const Icon(Icons.notifications_outlined, color: AppTheme.primaryGreen),
-            title: const Text('Push Notifications'),
+            title: Text(l10n.settingsPushNotifications),
             value: _notificationsEnabled,
-            activeColor: AppTheme.primaryGreen,
+            activeThumbColor: AppTheme.primaryGreen,
+            activeTrackColor: AppTheme.primaryGreen.withValues(alpha: 0.35),
             onChanged: (bool value) {
               setState(() {
                 _notificationsEnabled = value;
               });
             },
           ),
-
-           _buildSectionHeader('Data Management'),
+          _buildSectionHeader(l10n.settingsSectionData),
           _buildListTile(
             icon: Icons.cleaning_services_outlined,
-            title: 'Clear App Cache',
+            title: l10n.settingsClearCache,
             onTap: () {
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cache Cleared')));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.settingsCacheCleared)));
             },
           ),
-
-          _buildSectionHeader('About'),
-           _buildListTile(
+          _buildSectionHeader(l10n.settingsSectionAbout),
+          _buildListTile(
             icon: Icons.info_outline,
-            title: 'Version',
+            title: l10n.settingsVersion,
             trailing: const Text('1.0.0', style: TextStyle(color: Colors.grey)),
             onTap: () {},
           ),
-           _buildListTile(
+          _buildListTile(
             icon: Icons.description_outlined,
-            title: 'Terms of Service',
+            title: l10n.settingsTermsOfService,
             onTap: () {
-               // Open Terms URL
+              // Open Terms URL
             },
           ),
-           _buildListTile(
+          _buildListTile(
             icon: Icons.privacy_tip_outlined,
-            title: 'Privacy Policy',
+            title: l10n.settingsPrivacyPolicy,
             onTap: () {
-               // Open Privacy Policy URL
+              // Open Privacy Policy URL
             },
           ),
-          
           const SizedBox(height: 40),
         ],
       ),
@@ -137,29 +137,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showDeleteAccountDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Account'),
-        content: const Text(
-          'Are you sure you want to delete your account? This action cannot be undone and all your data will be lost.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-               // Call delete account logic
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account deletion requested')));
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        final l10n = AppLocalizations.of(dialogContext)!;
+        return AlertDialog(
+          title: Text(l10n.settingsDeleteDialogTitle),
+          content: Text(l10n.settingsDeleteDialogBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.settingsCancel),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.settingsDeletionRequested)),
+                );
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: Text(l10n.settingsDelete),
+            ),
+          ],
+        );
+      },
     );
   }
 }

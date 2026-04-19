@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
         Do not include markdown formatting, just the raw JSON.
         
         Required fields:
-        - species: "dog", "cat", or "other"
+        - species: exactly "dog" or "cat" (this app only supports lost/found dogs and cats). If the pet is not clearly a domestic dog or domestic cat, set species to null and set "not_dog_or_cat": true
         - color_main: Primary color ("black", "white", "orange", "gray", "brown", "mixed")
         - color_secondary: Secondary color if present, otherwise null
         - color_pattern: Pattern type ("solid", "tabby", "calico", "tuxedo", "bicolor", "tortie", "pointed", "spotted")
@@ -92,6 +92,16 @@ export async function POST(request: NextRequest) {
         } catch (e) {
             console.error('Failed to parse Gemini response:', text);
             return NextResponse.json({ success: false, error: 'Failed to parse AI response' }, { status: 500 });
+        }
+
+        if (data.error) {
+            return NextResponse.json({ success: false, error: data.error }, { status: 400 });
+        }
+        if (data.not_dog_or_cat === true || (data.species && !['dog', 'cat'].includes(String(data.species).toLowerCase()))) {
+            return NextResponse.json({
+                success: false,
+                error: 'This service only supports dogs and cats. Please use a clear photo of a dog or cat.',
+            }, { status: 400 });
         }
 
         return NextResponse.json({ success: true, data });

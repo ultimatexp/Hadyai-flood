@@ -417,8 +417,20 @@ export default function FindPetPage() {
                 console.log("Search: Using petAnalysis data:", petAnalysis);
                 if (petAnalysis.species) formData.append('species', petAnalysis.species);
                 if (petAnalysis.color_main) formData.append('color_main', petAnalysis.color_main);
+                if (petAnalysis.color_secondary) formData.append('color_secondary', petAnalysis.color_secondary);
                 if (petAnalysis.color_pattern) formData.append('color_pattern', petAnalysis.color_pattern);
                 if (petAnalysis.fur_length) formData.append('fur_length', petAnalysis.fur_length);
+                if (petAnalysis.has_collar === true) {
+                    formData.append('has_collar', 'true');
+                    if (petAnalysis.collar_color) formData.append('collar_color', petAnalysis.collar_color);
+                }
+                if (petAnalysis.clothes) formData.append('clothes', petAnalysis.clothes);
+                if (petAnalysis.white_patch_location && Array.isArray(petAnalysis.white_patch_location) && petAnalysis.white_patch_location.length > 0) {
+                    formData.append('white_patch_location', JSON.stringify(petAnalysis.white_patch_location));
+                }
+                if (petAnalysis.heterochromia === true) {
+                    formData.append('heterochromia', 'true');
+                }
             } else {
                 console.warn("Search: No petAnalysis data available");
             }
@@ -426,6 +438,11 @@ export default function FindPetPage() {
             // Add manual sex selection
             if (sex !== 'unknown') {
                 formData.append('sex', sex);
+            }
+
+            if (lostLocation) {
+                formData.append('lat', String(lostLocation.lat));
+                formData.append('lng', String(lostLocation.lng));
             }
 
             const response = await fetch('/api/pet/search', {
@@ -643,7 +660,7 @@ export default function FindPetPage() {
                                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-green-700">
                                                     {/* Basic Info */}
                                                     <div>
-                                                        <span className="font-semibold">ประเภท:</span> {petAnalysis.species === 'dog' ? 'สุนัข' : petAnalysis.species === 'cat' ? 'แมว' : 'อื่นๆ'}
+                                                        <span className="font-semibold">ประเภท:</span> {petAnalysis.species === 'dog' ? 'สุนัข' : petAnalysis.species === 'cat' ? 'แมว' : '—'}
                                                     </div>
                                                     <div>
                                                         <span className="font-semibold">สี:</span> {petAnalysis.color_main}{petAnalysis.color_secondary && ` / ${petAnalysis.color_secondary}`}

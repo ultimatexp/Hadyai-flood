@@ -33,10 +33,18 @@ def read_root():
     return {"status": "ok", "service": "pet-detection", "model": "CLIP-ViT-L-14"}
 
 
+def _center_crop_pil(img: Image.Image, margin_ratio: float = 0.2) -> Image.Image:
+    """Crop away outer margins so embeddings focus on the subject (same idea as color extraction)."""
+    w, h = img.size
+    margin_w, margin_h = int(w * margin_ratio), int(h * margin_ratio)
+    return img.crop((margin_w, margin_h, w - margin_w, h - margin_h))
+
+
 def get_embedding(image_bytes: bytes) -> list[float]:
     """Generate a 768-dim L2-normalised CLIP embedding from raw image bytes."""
     try:
         img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+        img = _center_crop_pil(img, margin_ratio=0.2)
         img_tensor = preprocess(img).unsqueeze(0)          # [1, 3, 224, 224]
 
         with torch.no_grad():

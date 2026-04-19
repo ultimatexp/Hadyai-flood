@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fondue/l10n/app_localizations.dart';
+import 'package:fondue/l10n/app_localizations_context.dart';
 import 'pet_providers.dart';
+import 'pet_l10n_helpers.dart';
 import 'pet_detail_screen.dart';
-import 'semantic_search_screen.dart';
+import 'pet_feed_screen.dart';
+import 'pet_search_navigation.dart';
 import '../../../../core/config/constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../domain/pet.dart';
-import '../../dashboard/data/dashboard_providers.dart';
-
 class MapViewScreen extends ConsumerStatefulWidget {
   final Pet? initialPet;
   const MapViewScreen({super.key, this.initialPet});
@@ -37,14 +39,15 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final lostPetsAsync = ref.watch(lostPetsProvider);
     final filter = ref.watch(petFilterProvider);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Pet Map'),
-        backgroundColor: Colors.white.withOpacity(0.9),
+        title: Text(l10n.mapViewTitle),
+        backgroundColor: Colors.white.withValues(alpha: 0.9),
         elevation: 0,
       ),
       body: lostPetsAsync.when(
@@ -70,7 +73,7 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withValues(alpha: 0.3),
                               blurRadius: _selectedPet?.id == p.id ? 8 : 4,
                               offset: const Offset(0, 2),
                             )
@@ -112,10 +115,7 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                 right: 80, // Leave space for legend
                 child: InkWell(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const SemanticSearchScreen()),
-                    );
+                    switchToHomePetSearch(ref, context);
                   },
                   borderRadius: BorderRadius.circular(30),
                   child: Container(
@@ -124,7 +124,7 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8),
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8),
                       ],
                     ),
                     child: Row(
@@ -132,7 +132,7 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                         const Icon(Icons.image_search, color: Colors.orange, size: 20),
                         const SizedBox(width: 12),
                         Text(
-                          "Search by photo...",
+                          l10n.mapViewSearchPhotoHint,
                           style: TextStyle(color: Colors.grey[600], fontSize: 14),
                         ),
                       ],
@@ -153,20 +153,20 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
                       _buildMapFilterChip(
-                        label: "All",
+                        label: l10n.petFilterAll,
                         isSelected: filter.status == 'All',
                         onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(status: 'All')),
                       ),
                       const SizedBox(width: 8),
                       _buildMapFilterChip(
-                        label: "Lost",
+                        label: l10n.petFilterLost,
                         isSelected: filter.status == 'LOST',
                         color: Colors.red,
                         onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(status: 'LOST')),
                       ),
                       const SizedBox(width: 8),
                       _buildMapFilterChip(
-                        label: "Found",
+                        label: l10n.petFilterFound,
                         isSelected: filter.status == 'FOUND',
                         color: AppTheme.primaryGreen,
                         onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(status: 'FOUND')),
@@ -175,14 +175,14 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                       Container(width: 1, height: 20, color: Colors.grey[400]),
                       const SizedBox(width: 12),
                       _buildMapFilterChip(
-                        label: "Dogs",
+                        label: l10n.petFilterDogs,
                         isSelected: filter.species == 'Dog',
                         icon: Icons.pets,
                         onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(species: filter.species == 'Dog' ? 'All' : 'Dog')),
                       ),
                       const SizedBox(width: 8),
                       _buildMapFilterChip(
-                        label: "Cats",
+                        label: l10n.petFilterCats,
                         isSelected: filter.species == 'Cat',
                         icon: Icons.pets,
                         onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(species: filter.species == 'Cat' ? 'All' : 'Cat')),
@@ -202,22 +202,22 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8),
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildLegendItem(Colors.red, "Lost"),
+                      _buildLegendItem(Colors.red, l10n.petFilterLost),
                       const SizedBox(height: 4),
-                      _buildLegendItem(AppTheme.primaryGreen, "Found"),
+                      _buildLegendItem(AppTheme.primaryGreen, l10n.petFilterFound),
                     ],
                   ),
                 ),
               ),
 
-              // List View FAB (placed before card so card appears on top)
+              // List View — opens lost/found archive (PetFeedScreen) with filters; replaces map route.
               Positioned(
                 bottom: 24,
                 left: 16,
@@ -227,24 +227,23 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                     color: Colors.white,
                     child: InkWell(
                       onTap: () {
-                        if (Navigator.of(context).canPop()) {
-                          Navigator.of(context).pop(); // Return to list view
-                        } else {
-                          // Switch to Home tab (index 0) via provider
-                          ref.read(dashboardTabIndexProvider.notifier).setTab(0);
-                        }
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const PetFeedScreen(),
+                          ),
+                        );
                       },
                       borderRadius: BorderRadius.circular(30),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.format_list_bulleted, color: Colors.black87, size: 20),
-                            SizedBox(width: 8),
+                            const Icon(Icons.format_list_bulleted, color: Colors.black87, size: 20),
+                            const SizedBox(width: 8),
                             Text(
-                              "List View",
-                              style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                              l10n.mapViewListViewButton,
+                              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -261,14 +260,14 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                 right: 16,
                 bottom: _selectedPet != null ? 24 : -300,
                 child: _selectedPet != null
-                    ? _buildPetDetailCard(context, _selectedPet!)
+                    ? _buildPetDetailCard(context, _selectedPet!, l10n)
                     : const SizedBox.shrink(),
               ),
 
             ],
           );
         },
-        error: (err, stack) => Center(child: Text('Error loading map: $err')),
+        error: (err, stack) => Center(child: Text(l10n.mapViewErrorLoading(err.toString()))),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );
@@ -313,7 +312,7 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
             width: 1,
           ),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4),
           ],
         ),
         child: Row(
@@ -337,14 +336,14 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
     );
   }
 
-  Widget _buildPetDetailCard(BuildContext context, Pet pet) {
+  Widget _buildPetDetailCard(BuildContext context, Pet pet, AppLocalizations l10n) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -379,7 +378,7 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 8,
                         ),
                       ],
@@ -414,7 +413,7 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          pet.status,
+                          localizedPetStatus(context, pet.status),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -468,7 +467,7 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                           Icon(Icons.access_time, size: 14, color: Colors.grey[500]),
                           const SizedBox(width: 4),
                           Text(
-                            _formatTimeAgo(pet.createdAt),
+                            mapViewFormatTimeAgo(context, pet.createdAt),
                             style: TextStyle(color: Colors.grey[500], fontSize: 12),
                           ),
                         ],
@@ -511,9 +510,9 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      "View Details",
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    child: Text(
+                      l10n.mapViewViewDetails,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -532,42 +531,65 @@ class _MapViewScreenState extends ConsumerState<MapViewScreen> {
     );
   }
 
-  String _formatTimeAgo(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inDays > 30) return '${(diff.inDays / 30).floor()} months ago';
-    if (diff.inDays > 0) return '${diff.inDays} days ago';
-    if (diff.inHours > 0) return '${diff.inHours} hours ago';
-    return '${diff.inMinutes} min ago';
+  String? _primaryPhotoUrl(Pet pet) {
+    final u = pet.imageUrl?.trim();
+    if (u != null && u.isNotEmpty) return u;
+    for (final raw in pet.images) {
+      final s = raw.trim();
+      if (s.isNotEmpty) return s;
+    }
+    return null;
   }
 
   Widget _buildMarkerContent(Pet pet) {
-    final species = pet.species.trim().toLowerCase();
-    // If it's a Cat or Dog, show the specific image
-    if (species.contains('cat') || species.contains('dog')) {
-      final imagePath = species.contains('cat') 
-          ? 'assets/icon.png' // Use verified app icon
-          : 'assets/doggy.jpg';
-      
+    final url = _primaryPhotoUrl(pet);
+    if (url != null) {
+      // Marker is 50×50; inset keeps the status ring visible.
+      const inner = 46.0;
       return Padding(
-        padding: const EdgeInsets.all(2.0), // Padding to show the status color ring
+        padding: const EdgeInsets.all(2),
         child: ClipOval(
-          child: Image.asset(
-            imagePath,
-            fit: BoxFit.cover,
-            cacheWidth: 150, // Optimize memory for large assets
-            errorBuilder: (context, error, stackTrace) {
-              return Icon(Icons.pets, color: Colors.orange[200], size: 20); // Fallback if image fails
-            },
+          child: SizedBox(
+            width: inner,
+            height: inner,
+            child: Image.network(
+              url,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              cacheWidth: 128,
+              filterQuality: FilterQuality.low,
+              errorBuilder: (_, _, _) => _buildMarkerFallback(pet),
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return ColoredBox(
+                  color: Colors.grey.shade300,
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
       );
     }
-    
-    // Default Icon for others
-    return Icon(
-      Icons.pets,
-      color: Colors.white,
-      size: _selectedPet?.id == pet.id ? 26 : 22,
+    return _buildMarkerFallback(pet);
+  }
+
+  Widget _buildMarkerFallback(Pet pet) {
+    return Center(
+      child: Icon(
+        Icons.pets,
+        color: Colors.white,
+        size: _selectedPet?.id == pet.id ? 26 : 22,
+      ),
     );
   }
 }

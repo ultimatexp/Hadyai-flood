@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "fondue (reads fondue/.env)",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "${workspaceFolder}/fondue",
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=.env"]
+    },
+    {
+      "name": "fondue (no .env defines)",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "${workspaceFolder}/fondue",
+      "program": "lib/main.dart"
+    }
+  ]
+}

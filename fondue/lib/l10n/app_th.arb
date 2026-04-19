@@ -1,0 +1,377 @@
+{
+  "@@locale": "th",
+  "appTitle": "Fondue",
+  "navSearch": "ค้นหา",
+  "navFeed": "ฟีด",
+  "navChat": "แชท",
+  "navProfile": "โปรไฟล์",
+  "mapFabLabel": "แผนที่",
+  "createSheetReportPetTitle": "รายงานสัตว์เลี้ยง",
+  "createSheetReportPetSubtitle": "แจ้งพบ / หาสัตว์หาย",
+  "createSheetNewPostTitle": "สร้างโพสต์",
+  "createSheetNewPostSubtitle": "แชร์เรื่องราว ข่าวสาร ภาพ",
+  "profileStatsReports": "รายงาน",
+  "profileStatsHelped": "ช่วยเหลือ",
+  "profileStatsPoints": "แต้ม",
+  "profileEdit": "แก้ไข",
+  "profileMenuMyPets": "สัตว์เลี้ยงของฉัน",
+  "profileMenuMyReports": "รายงานของฉัน",
+  "profileMenuPotentialMatches": "แมตช์ที่เป็นไปได้",
+  "profileMenuActivity": "กิจกรรม",
+  "profileMenuTopDonors": "อันดับผู้บริจาค",
+  "profileMenuNotifications": "แจ้งเตือน",
+  "profileMenuSettings": "ตั้งค่า",
+  "profileMenuLanguage": "ภาษา",
+  "profileMenuHelp": "ช่วยเหลือ",
+  "profileMenuPrivacy": "นโยบายความเป็นส่วนตัว",
+  "profileMenuTerms": "ข้อกำหนดการใช้งาน",
+  "profileLoginSignup": "เข้าสู่ระบบ / สมัครสมาชิก",
+  "profileSignOut": "ออกจากระบบ",
+  "profileLanguageDisplayThai": "ไทย",
+  "profileLanguageDisplayEnglish": "English",
+  "profileBadgesTitle": "เหรียญรางวัล",
+  "profileBadgeUnlocked": "✅ ได้รับแล้ว",
+  "profileBadgeLocked": "🔒 ยังไม่ปลดล็อก",
+  "profilePointsLabel": "{points} แต้ม",
+  "@profilePointsLabel": {
+    "placeholders": {
+      "points": {
+        "type": "int"
+      }
+    }
+  },
+  "profileNextLevelPrefix": "ถัดไป: {label}",
+  "@profileNextLevelPrefix": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "profileMaxLevel": "สูงสุดแล้ว!",
+  "profileStreakDays": "🔥 {count} วันติด",
+  "@profileStreakDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storeTitle": "ร้านค้า",
+  "storeSubtitle": "อาหาร • อุปกรณ์ • ของเล่นสัตว์เลี้ยง",
+  "settingsTitle": "ตั้งค่า",
+  "settingsSectionAccount": "บัญชีและความปลอดภัย",
+  "settingsChangePassword": "เปลี่ยนรหัสผ่าน",
+  "settingsDeleteAccount": "ลบบัญชี",
+  "settingsBlockedUsers": "ผู้ใช้ที่บล็อก",
+  "settingsSectionNotifications": "การแจ้งเตือน",
+  "settingsPushNotifications": "การแจ้งเตือนพุช",
+  "settingsSectionData": "จัดการข้อมูล",
+  "settingsClearCache": "ล้างแคชแอป",
+  "settingsSectionAbout": "เกี่ยวกับ",
+  "settingsVersion": "เวอร์ชัน",
+  "settingsTermsOfService": "ข้อกำหนดการให้บริการ",
+  "settingsPrivacyPolicy": "นโยบายความเป็นส่วนตัว",
+  "settingsComingSoon": "เร็วๆ นี้",
+  "settingsCacheCleared": "ล้างแคชแล้ว",
+  "settingsDeleteDialogTitle": "ลบบัญชี",
+  "settingsDeleteDialogBody": "คุณแน่ใจหรือไม่ว่าต้องการลบบัญชี การดำเนินการนี้ไม่สามารถย้อนกลับได้ และข้อมูลทั้งหมดของคุณจะสูญหาย",
+  "settingsCancel": "ยกเลิก",
+  "settingsDelete": "ลบ",
+  "settingsDeletionRequested": "ส่งคำขอลบบัญชีแล้ว",
+  "languageTitle": "ภาษา",
+  "languageOptionDevice": "ตามภาษาอุปกรณ์",
+  "languageOptionThai": "ไทย",
+  "languageOptionEnglish": "English",
+  "potentialMatchesScreenTitle": "แมตช์ที่เป็นไปได้ของฉัน",
+  "potentialMatchesRefreshTooltip": "รีเฟรช",
+  "potentialMatchesSearching": "กำลังค้นหาแมตช์…",
+  "potentialMatchesErrorLine": "ข้อผิดพลาด: {message}",
+  "@potentialMatchesErrorLine": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "potentialMatchesRetry": "ลองอีกครั้ง",
+  "potentialMatchesEmptyTitle": "ไม่พบแมตช์",
+  "potentialMatchesEmptyBody": "เรายังไม่พบแมตช์ที่เป็นไปได้สำหรับสัตว์เลี้ยงที่หายของคุณ ลองกลับมาดูอีกครั้งเมื่อมีการแจ้งพบสัตว์ใหม่",
+  "potentialMatchesCheckAgain": "ตรวจสอบอีกครั้ง",
+  "potentialMatchesCardLabel": "แมตช์ที่เป็นไปได้",
+  "potentialMatchesScorePercent": "แมตช์ {score}%",
+  "@potentialMatchesScorePercent": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "potentialMatchesYourLostPet": "สัตว์หายของคุณ",
+  "potentialMatchesFoundPet": "สัตว์ที่พบ",
+  "potentialMatchesViewFoundPet": "ดูรายละเอียดสัตว์ที่พบ",
+  "potentialMatchesDismiss": "ไม่ใช่สัตว์ของฉัน ไม่ต้องแสดงอีก",
+  "potentialMatchesHideDialogTitle": "ซ่อนแมตช์นี้?",
+  "potentialMatchesHideDialogBody": "แมตช์นี้จะถูกซ่อนจากรายการของคุณ คุณยังค้นหาสัตว์ตัวนี้ในฟีดทั่วไปได้",
+  "potentialMatchesHideMatch": "ซ่อนแมตช์",
+  "potentialMatchesHiddenSnack": "ซ่อนแมตช์แล้ว จะไม่แสดงอีก",
+  "potentialMatchesHideFailedSnack": "ซ่อนแมตช์ไม่สำเร็จ โปรดลองอีกครั้ง",
+  "petFilterAll": "ทั้งหมด",
+  "petFilterLost": "หาย",
+  "petFilterFound": "พบ",
+  "petFilterDogs": "สุนัข",
+  "petFilterCats": "แมว",
+  "petStatusLost": "หาย",
+  "petStatusFound": "พบ",
+  "petStatusReunited": "กลับคืน",
+  "petSexMale": "ผู้",
+  "petSexFemale": "เมีย",
+  "petSexUnknown": "ไม่ทราบ",
+  "mapViewTitle": "แผนที่สัตว์เลี้ยง",
+  "mapViewSearchPhotoHint": "ค้นหาด้วยรูป…",
+  "mapViewListViewButton": "มุมมองรายการ",
+  "mapViewErrorLoading": "โหลดแผนที่ไม่สำเร็จ: {message}",
+  "@mapViewErrorLoading": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "mapViewViewDetails": "ดูรายละเอียด",
+  "mapViewTimeMonthsAgo": "{months} เดือนที่แล้ว",
+  "@mapViewTimeMonthsAgo": {
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "mapViewTimeDaysAgo": "{days} วันที่แล้ว",
+  "@mapViewTimeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "mapViewTimeHoursAgo": "{hours} ชั่วโมงที่แล้ว",
+  "@mapViewTimeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mapViewTimeMinutesAgo": "{minutes} นาทีที่แล้ว",
+  "@mapViewTimeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "petFeedTitle": "สัตว์ที่พบและหาย",
+  "petFeedMapTooltip": "มุมมองแผนที่",
+  "petFeedMatchDialogTitle": "พบแมตช์ที่เป็นไปได้!",
+  "petFeedMatchDialogBody": "มีคนพบสัตว์ที่คล้ายกับสัตว์{species}ที่หายของคุณชื่อ “{name}”!",
+  "@petFeedMatchDialogBody": {
+    "placeholders": {
+      "species": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "petFeedFoundPetDetails": "รายละเอียดสัตว์ที่พบ",
+  "petFeedColorLabel": "สี: {color}",
+  "@petFeedColorLabel": {
+    "placeholders": {
+      "color": {
+        "type": "String"
+      }
+    }
+  },
+  "petFeedNoDescription": "ไม่มีคำอธิบาย",
+  "petFeedDismiss": "ปิด",
+  "petFeedViewFoundPet": "ดูสัตว์ที่พบ",
+  "petFeedSearch": "ค้นหา",
+  "petFeedDefaultPetName": "สัตว์เลี้ยง",
+  "petFeedUnknownValue": "ไม่ทราบ",
+  "petFeedEmptyTitle": "ไม่พบสัตว์",
+  "petFeedEmptySubtitle": "ลองปรับตัวกรองหรือกลับมาดูอีกครั้ง",
+  "petFeedErrorTitle": "เกิดข้อผิดพลาด",
+  "petDetailShareImageTooltip": "แชร์เป็นรูปภาพ",
+  "petDetailArchiveTooltip": "เก็บถาวร",
+  "petDetailEditTooltip": "แก้ไข",
+  "petDetailReportPost": "รายงานโพสต์",
+  "petDetailBlockUser": "บล็อกผู้ใช้",
+  "petDetailEditTitle": "แก้ไขรายละเอียดสัตว์",
+  "petDetailLabelPetName": "ชื่อสัตว์",
+  "petDetailLabelStatus": "สถานะ",
+  "petDetailLabelSex": "เพศ",
+  "petDetailLabelColor": "สี",
+  "petDetailLabelDescription": "คำอธิบาย",
+  "petDetailLabelContact": "ข้อมูลติดต่อ",
+  "petDetailSave": "บันทึก",
+  "petDetailPetUpdatedSnack": "อัปเดตรายละเอียดแล้ว!",
+  "petDetailArchiveSheetTitle": "เก็บโพสต์นี้",
+  "petDetailArchiveSheetSubtitle": "เลือกการดำเนินการสำหรับโพสต์นี้",
+  "petDetailArchiveFoundTitle": "พบสัตว์แล้ว",
+  "petDetailArchiveFoundSubtitle": "ทำเครื่องหมายว่ากลับคืนกับเจ้าของ",
+  "petDetailArchiveDeleteTitle": "ลบ",
+  "petDetailArchiveDeleteSubtitle": "ลบโพสต์นี้ถาวร",
+  "petDetailMarkFoundTitle": "พบสัตว์แล้ว!",
+  "petDetailMarkFoundBody": "ข่าวดี! การทำเครื่องหมายว่ากลับคืนจะเก็บโพสต์นี้ ดำเนินการต่อหรือไม่?",
+  "petDetailMarkReunitedButton": "ทำเครื่องหมายว่ากลับคืน",
+  "petDetailReunitedSnack": "ทำเครื่องหมายว่ากลับคืนแล้ว!",
+  "petDetailDeletePostTitle": "ลบโพสต์",
+  "petDetailDeletePostBody": "คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้ถาวร การกระทำนี้ไม่สามารถย้อนกลับได้",
+  "petDetailPostDeletedSnack": "ลบโพสต์แล้ว",
+  "petDetailPhotoOf": "รูปที่ {current} จาก {total}",
+  "@petDetailPhotoOf": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailCountdownExpired": "หมดอายุแล้ว",
+  "petDetailExpiresInLabel": "หมดอายุใน",
+  "petDetailReportExpiredTitle": "รายงานหมดอายุ",
+  "petDetailReportExpiredBody": "รายงานนี้ไม่ใช้งานแล้ว",
+  "petDetailDurationDaysHours": "{days} วัน {hours} ชั่วโมง",
+  "@petDetailDurationDaysHours": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailDurationHoursMinutes": "{hours} ชั่วโมง {minutes} นาที",
+  "@petDetailDurationHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailDurationMinutes": "{minutes} นาที",
+  "@petDetailDurationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailDescriptionHeading": "คำอธิบาย",
+  "petDetailNoDescription": "ไม่มีคำอธิบาย",
+  "petDetailLastSeenHeading": "ตำแหน่งที่เห็นล่าสุด",
+  "petDetailSeeOnMap": "ดูบนแผนที่",
+  "petDetailPostId": "รหัสโพสต์: {id}",
+  "@petDetailPostId": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "petDetailInfoSpecies": "ชนิด",
+  "petDetailInfoSex": "เพศ",
+  "petDetailInfoColor": "สี",
+  "petDetailYourPostTitle": "โพสต์ของคุณ",
+  "petDetailYourPostSubtitle": "แก้ไขหรือตรวจสอบ",
+  "petDetailCheckingDatabase": "กำลังตรวจสอบฐานข้อมูล…",
+  "petDetailRecheckMatches": "ตรวจสอบแมตช์ในฐานข้อมูลอีกครั้ง",
+  "petDetailOwnerOfPost": "คุณเป็นเจ้าของโพสต์นี้",
+  "petDetailPostOwnedBy": "โพสต์โดย",
+  "petDetailDefaultOwnerName": "เจ้าของสัตว์",
+  "petDetailChatNow": "แชทเลย",
+  "petDetailContact": "ติดต่อ",
+  "petDetailNoNewMatches": "ยังไม่พบแมตช์ใหม่ในตอนนี้",
+  "petDetailErrorCheckingMatches": "ตรวจสอบแมตช์ไม่สำเร็จ: {message}",
+  "@petDetailErrorCheckingMatches": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "petDetailMatchResultsTitle": "พบ {count} แมตช์ที่เป็นไปได้!",
+  "@petDetailMatchResultsTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailMatchListTileTitle": "พบ{species} (แมตช์ {score}%)",
+  "@petDetailMatchListTileTitle": {
+    "placeholders": {
+      "species": {
+        "type": "String"
+      },
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "petDetailClose": "ปิด",
+  "petDetailChatNoOwner": "เริ่มแชทไม่ได้: ไม่มีข้อมูลเจ้าของ",
+  "petDetailChatLoginRequired": "กรุณาเข้าสู่ระบบเพื่อแชท",
+  "petDetailChatFailed": "เริ่มแชทไม่สำเร็จ: {message}",
+  "@petDetailChatFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "petDetailCannotCall": "โทรออกไม่ได้",
+  "petDetailReportDialogTitle": "รายงานโพสต์",
+  "petDetailReportDialogPrompt": "ทำไมคุณถึงรายงานโพสต์นี้?",
+  "petDetailReportHint": "เช่น เนื้อหาไม่เหมาะสม สแปม…",
+  "petDetailReportSubmit": "รายงาน",
+  "petDetailReportLoginRequired": "กรุณาเข้าสู่ระบบเพื่อรายงาน",
+  "petDetailReportThanks": "ส่งรายงานแล้ว ขอบคุณที่ช่วยดูแลชุมชน",
+  "petDetailReportError": "ส่งรายงานไม่สำเร็จ: {message}",
+  "@petDetailReportError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "petDetailBlockDialogTitle": "บล็อกผู้ใช้",
+  "petDetailBlockDialogBody": "คุณแน่ใจหรือไม่ว่าต้องการบล็อกผู้ใช้นี้ คุณจะไม่เห็นโพสต์ของพวกเขาอีก",
+  "petDetailBlockSubmit": "บล็อก",
+  "petDetailBlockLoginRequired": "กรุณาเข้าสู่ระบบเพื่อบล็อก",
+  "petDetailUserBlocked": "บล็อกผู้ใช้แล้ว",
+  "petDetailBlockError": "บล็อกไม่สำเร็จ: {message}",
+  "@petDetailBlockError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "petDetailGenericError": "ข้อผิดพลาด: {message}",
+  "@petDetailGenericError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  }
+}

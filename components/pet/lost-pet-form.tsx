@@ -45,7 +45,7 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
 
     // Form State
     const [petName, setPetName] = useState("");
-    const [petType, setPetType] = useState<"dog" | "cat" | "other">("dog");
+    const [petType, setPetType] = useState<"dog" | "cat">("dog");
     const [breed, setBreed] = useState("");
     const [color, setColor] = useState("");
     const [marks, setMarks] = useState("");
@@ -77,7 +77,7 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                 setPetAnalysis(data.data);
 
                 // Autofill fields
-                if (data.data.species) setPetType(data.data.species === 'dog' ? 'dog' : data.data.species === 'cat' ? 'cat' : 'other');
+                if (data.data.species === 'dog' || data.data.species === 'cat') setPetType(data.data.species);
                 if (data.data.color_main) setColor(data.data.color_main);
                 if (data.data.unique_marks) setMarks(data.data.unique_marks);
                 if (data.data.description) setDescription(data.data.description);
@@ -142,7 +142,7 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                 // Autofill fields
                 let filledCount = 0;
                 if (info.pet_name) { setPetName(info.pet_name); filledCount++; }
-                if (info.species) { setPetType(info.species === 'dog' ? 'dog' : info.species === 'cat' ? 'cat' : 'other'); filledCount++; }
+                if (info.species === 'dog' || info.species === 'cat') { setPetType(info.species); filledCount++; }
                 if (info.breed) { setBreed(info.breed); filledCount++; }
                 if (info.color) { setColor(info.color); filledCount++; }
                 if (info.marks) { setMarks(info.marks); filledCount++; }
@@ -389,12 +389,11 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                                     <Label>ประเภท</Label>
                                     <select
                                         value={petType}
-                                        onChange={e => setPetType(e.target.value as any)}
+                                        onChange={e => setPetType(e.target.value as 'dog' | 'cat')}
                                         className="w-full px-3 py-2 border rounded-md text-gray-900 bg-white border-gray-600 focus:border-orange-500"
                                     >
                                         <option value="dog">สุนัข</option>
                                         <option value="cat">แมว</option>
-                                        <option value="other">อื่นๆ</option>
                                     </select>
                                 </div>
                             </div>

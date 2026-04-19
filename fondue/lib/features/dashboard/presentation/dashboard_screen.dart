@@ -1,17 +1,20 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fondue/l10n/app_localizations.dart';
+import 'package:fondue/l10n/app_localizations_context.dart';
 import '../../social/presentation/user_profile_page.dart';
 import '../../pets/presentation/report_screen.dart';
 import '../../pets/presentation/semantic_search_screen.dart';
+import '../../pets/presentation/map_view_screen.dart';
 import '../../chat/presentation/chat_list_screen.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../chat/data/chat_providers.dart';
 import '../../social/presentation/feed_screen.dart';
 import '../../social/presentation/create_post_screen.dart';
 import '../../social/data/social_providers.dart';
-import '../../fuel/presentation/fuel_map_screen.dart';
 import '../data/dashboard_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/presentation/onboarding_screen.dart';
@@ -28,26 +31,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with TickerProviderStateMixin {
   late AnimationController _badgeController;
   late Animation<double> _badgeBounce;
-  late AnimationController _fuelPulseController;
-  late Animation<double> _fuelPulse;
   int _previousUnreadCount = 0;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
+    // Rebuild tabs (IndexedStack) when auth changes — e.g. login from Profile tab
+    // does not go through _showLoginScreen's .then(setState).
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      switch (data.event) {
+        case AuthChangeEvent.signedIn:
+        case AuthChangeEvent.signedOut:
+        case AuthChangeEvent.userUpdated:
+        case AuthChangeEvent.initialSession:
+          if (mounted) setState(() {});
+        default:
+          break;
+      }
+    });
     _badgeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
     _badgeBounce = Tween<double>(begin: 1.0, end: 1.3).animate(
       CurvedAnimation(parent: _badgeController, curve: Curves.elasticOut),
-    );
-    _fuelPulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    _fuelPulse = Tween<double>(begin: 0.95, end: 1.08).animate(
-      CurvedAnimation(parent: _fuelPulseController, curve: Curves.easeInOut),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkOnboarding();
@@ -56,8 +64,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _badgeController.dispose();
-    _fuelPulseController.dispose();
     super.dispose();
   }
 
@@ -99,6 +107,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final currentIndex = ref.watch(dashboardTabIndexProvider);
     final unreadChatCountAsync = ref.watch(unreadMessagesCountProvider);
     final unreadChatCount = unreadChatCountAsync.asData?.value ?? 0;
@@ -124,78 +133,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             index: currentIndex,
             children: pages,
           ),
-          // Fuel Quick Access — animated floating button
-          Positioned(
-            right: 16,
-            top: MediaQuery.of(context).padding.top + 8,
-            child: ScaleTransition(
-              scale: _fuelPulse,
-              child: GestureDetector(
-                onTap: () {
+          // Pet map — only on home tab (nested Scaffold FAB would sit under the center + FAB)
+          if (currentIndex == 0)
+            Positioned(
+              right: 12,
+              bottom: MediaQuery.of(context).padding.bottom + 78,
+              child: FloatingActionButton.extended(
+                heroTag: 'dashboard_pet_map_fab',
+                elevation: 5,
+                backgroundColor: const Color(0xFF2E7D32),
+                foregroundColor: Colors.white,
+                onPressed: () {
                   HapticFeedback.mediumImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const FuelMapScreen()),
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const MapViewScreen()),
                   );
                 },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFEF4444).withOpacity(0.25),
-                        blurRadius: 12,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                    border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.asset('assets/images/fuel.png', width: 28, height: 28),
-                      const SizedBox(width: 6),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'เช็คน้ำมัน',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1E293B),
-                              height: 1.2,
-                            ),
-                          ),
-                          Text(
-                            'สถานีใกล้คุณ',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: Color(0xFF94A3B8),
-                              height: 1.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 4),
-                      // Alert dot
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEF4444),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                icon: const Icon(Icons.map_rounded, size: 22),
+                label: Text(l10n.mapFabLabel),
               ),
             ),
-          ),
         ],
       ),
       extendBody: true,
@@ -220,6 +177,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         unreadChatCount: unreadChatCount,
         badgeBounce: _badgeBounce,
         onTap: _onItemTapped,
+        l10n: l10n,
       ),
     );
   }
@@ -237,6 +195,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   void _showCreateOptions(BuildContext context) {
+    final l10n = context.l10n;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -262,8 +221,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   ),
                   child: const Icon(Icons.pets, color: Color(0xFFFF9800)),
                 ),
-                title: const Text('รายงานสัตว์เลี้ยง', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text('แจ้งพบ / หาสัตว์หาย', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                title: Text(l10n.createSheetReportPetTitle, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                  l10n.createSheetReportPetSubtitle,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.push(context, SlideUpPageRoute(page: const ReportScreen()));
@@ -279,8 +241,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   ),
                   child: const Icon(Icons.edit_square, color: Color(0xFF4CAF50)),
                 ),
-                title: const Text('สร้างโพสต์', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text('แชร์เรื่องราว ข่าวสาร ภาพ', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                title: Text(l10n.createSheetNewPostTitle, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                  l10n.createSheetNewPostSubtitle,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.push(
@@ -309,16 +274,22 @@ class _FrostedBottomNav extends StatelessWidget {
   final int unreadChatCount;
   final Animation<double> badgeBounce;
   final ValueChanged<int> onTap;
+  final AppLocalizations l10n;
 
   const _FrostedBottomNav({
     required this.currentIndex,
     required this.unreadChatCount,
     required this.badgeBounce,
     required this.onTap,
+    required this.l10n,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    // Same vertical inset above icons and above home indicator (inset excludes system bar).
+    const verticalInset = 10.0;
+
     return Container(
       decoration: BoxDecoration(
         boxShadow: [
@@ -334,8 +305,12 @@ class _FrostedBottomNav extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
-            height: 80 + MediaQuery.of(context).padding.bottom,
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(
+              0,
+              verticalInset,
+              0,
+              verticalInset + bottomInset,
+            ),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.85),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -345,12 +320,13 @@ class _FrostedBottomNav extends StatelessWidget {
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _buildNavItem(0, Icons.search_rounded, 'ค้นหา'),
-                _buildNavItem(1, Icons.dynamic_feed_rounded, 'ฟีด'),
+                _buildNavItem(0, Icons.search_rounded, l10n.navSearch),
+                _buildNavItem(1, Icons.dynamic_feed_rounded, l10n.navFeed),
                 const SizedBox(width: 56), // Space for FAB
                 _buildChatNavItem(),
-                _buildNavItem(4, Icons.person_rounded, 'โปรไฟล์'),
+                _buildNavItem(4, Icons.person_rounded, l10n.navProfile),
               ],
             ),
           ),
@@ -367,6 +343,7 @@ class _FrostedBottomNav extends StatelessWidget {
       child: SizedBox(
         width: 64,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedContainer(
@@ -405,6 +382,7 @@ class _FrostedBottomNav extends StatelessWidget {
       child: SizedBox(
         width: 64,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedContainer(
@@ -440,7 +418,7 @@ class _FrostedBottomNav extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'แชท',
+              l10n.navChat,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,

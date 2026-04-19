@@ -1,26 +1,37 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
 import '../../../../core/config/constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../domain/search_match.dart';
+import '../domain/pet.dart';
 import '../data/gemini_service.dart';
+import 'map_view_screen.dart';
 import 'pet_detail_screen.dart';
+import 'pet_search_navigation.dart';
+import 'report_screen.dart';
+import '../../auth/presentation/login_screen.dart';
+import '../../../shared/page_transitions.dart';
+import '../../donate/donation_providers.dart';
+import '../../donate/latest_donors_strip.dart';
 
-class SemanticSearchScreen extends StatefulWidget {
+class SemanticSearchScreen extends ConsumerStatefulWidget {
   final XFile? initialImage;
   final bool asHomeTab;
   const SemanticSearchScreen({super.key, this.initialImage, this.asHomeTab = false});
 
   @override
-  State<SemanticSearchScreen> createState() => _SemanticSearchScreenState();
+  ConsumerState<SemanticSearchScreen> createState() => _SemanticSearchScreenState();
 }
 
-class _SemanticSearchScreenState extends State<SemanticSearchScreen>
+class _SemanticSearchScreenState extends ConsumerState<SemanticSearchScreen>
     with SingleTickerProviderStateMixin {
   final List<XFile> _selectedImages = [];
   bool _isSearching = false;
@@ -82,6 +93,87 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
     }
   }
 
+  /// Best-effort GPS for server-side proximity bonus (no UI prompt).
+  Future<void> _attachOptionalLocation(http.MultipartRequest request) async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      if (permission == LocationPermission.deniedForever) return;
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+      );
+      request.fields['lat'] = pos.latitude.toString();
+      request.fields['lng'] = pos.longitude.toString();
+    } catch (_) {
+      // Search still works without location
+    }
+  }
+
+  void _applyExtractedFeaturesToRequest(Map<String, dynamic> features, http.MultipartRequest request) {
+    String? s(dynamic v) => v == null ? null : v.toString().trim();
+
+    final rawSpecies = s(features['species']);
+    if (rawSpecies != null) {
+      final speciesLc = rawSpecies.toLowerCase();
+      if (speciesLc == 'dog' || speciesLc == 'cat') {
+        request.fields['species'] = speciesLc;
+      }
+    }
+
+    final colorMain = s(features['color_main']) ?? s(features['color']);
+    if (colorMain != null && colorMain.isNotEmpty) {
+      request.fields['color_main'] = colorMain.toLowerCase();
+    }
+
+    final colorSecondary = s(features['color_secondary']);
+    if (colorSecondary != null && colorSecondary.isNotEmpty) {
+      request.fields['color_secondary'] = colorSecondary.toLowerCase();
+    }
+
+    final pattern = s(features['color_pattern']);
+    if (pattern != null && pattern.isNotEmpty) {
+      request.fields['color_pattern'] = pattern.toLowerCase();
+    }
+
+    final fur = s(features['fur_length']);
+    if (fur != null && fur.isNotEmpty) {
+      request.fields['fur_length'] = fur.toLowerCase();
+    }
+
+    final sexFromAi = s(features['sex']);
+    if (_selectedSex == null && sexFromAi != null && sexFromAi.toLowerCase() != 'unknown') {
+      request.fields['sex'] = sexFromAi.toLowerCase();
+    }
+
+    if (features['has_collar'] == true) {
+      request.fields['has_collar'] = 'true';
+      final collarColor = s(features['collar_color']);
+      if (collarColor != null && collarColor.isNotEmpty) {
+        request.fields['collar_color'] = collarColor.toLowerCase();
+      }
+    }
+
+    final clothes = s(features['clothes']);
+    if (clothes != null && clothes.isNotEmpty) {
+      request.fields['clothes'] = clothes.toLowerCase();
+    }
+
+    final patches = features['white_patch_location'];
+    if (patches is List && patches.isNotEmpty) {
+      request.fields['white_patch_location'] = jsonEncode(patches);
+    } else if (patches is String && patches.isNotEmpty) {
+      request.fields['white_patch_location'] = patches;
+    }
+
+    if (features['heterochromia'] == true) {
+      request.fields['heterochromia'] = 'true';
+    }
+  }
+
   Future<void> _pickImages({ImageSource source = ImageSource.gallery}) async {
     final picker = ImagePicker();
     try {
@@ -105,6 +197,31 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
         );
       }
     }
+  }
+
+  void _openMapView() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const MapViewScreen()),
+    );
+  }
+
+  /// Home CTA: report a found stray (opens report flow with "พบสัตว์เลี้ยง" preset).
+  Future<void> _openFoundStrayReport() async {
+    HapticFeedback.mediumImpact();
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) {
+      if (!mounted) return;
+      final loggedIn = await Navigator.push<bool?>(
+        context,
+        SlideUpPageRoute(page: const LoginScreen()),
+      );
+      if (loggedIn != true || !mounted) return;
+    }
+    if (!mounted) return;
+    await Navigator.push<void>(
+      context,
+      SlideUpPageRoute(page: const ReportScreen(initialStatus: 'FOUND')),
+    );
   }
 
   Future<void> _performSearch() async {
@@ -134,6 +251,16 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
           print("Gemini analysis failed: $e");
         }
 
+        final err = features['error']?.toString();
+        if (err != null && err.isNotEmpty) {
+          setState(() {
+            _errorMessage = err == 'Not a dog or cat'
+                ? 'รองรับเฉพาะสุนัขและแมว กรุณาใช้รูปสุนัขหรือแมวที่ชัดเจน'
+                : err;
+          });
+          continue;
+        }
+
         setState(() => _statusMessage = "Step 2/2: Searching database...");
 
         final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/pet/search');
@@ -143,21 +270,12 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
         request.files.add(await http.MultipartFile.fromPath('image', image.path));
         request.fields['type'] = 'lost';
 
-        if (features['species'] != null) {
-          request.fields['species'] = features['species'].toString().toLowerCase();
+        _applyExtractedFeaturesToRequest(features, request);
+        if (_selectedSex != null) {
+          request.fields['sex'] = _selectedSex!;
         }
-        if (features['color'] != null) {
-          request.fields['color_main'] = features['color'].toString().toLowerCase();
-        }
-        if (features['color_pattern'] != null) {
-          request.fields['color_pattern'] = features['color_pattern'].toString().toLowerCase();
-        }
-        if (features['fur_length'] != null) {
-          request.fields['fur_length'] = features['fur_length'].toString().toLowerCase();
-        }
-        if (_selectedSex == null && features['sex'] != null && features['sex'] != 'Unknown') {
-          request.fields['sex'] = features['sex'].toString().toLowerCase();
-        }
+
+        await _attachOptionalLocation(request);
 
         final streamedResponse = await request.send();
         final response = await http.Response.fromStream(streamedResponse);
@@ -226,8 +344,6 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
     });
   }
 
-  @override
-  // Whether to show filters bottom sheet
   void _showFilterSheet() {
     showModalBottomSheet(
       context: context,
@@ -309,22 +425,87 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
     );
   }
 
+  Widget _buildHomeDonorsStrip() {
+    final async = ref.watch(latestDonationsProvider);
+    return async.when(
+      loading: () => const SizedBox(
+        height: 96,
+        child: ColoredBox(
+          color: Color(0xFFF9FAFB),
+          child: Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1)),
+            ),
+          ),
+        ),
+      ),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (list) => ColoredBox(
+        color: const Color(0xFFF9FAFB),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 4, 10, 2),
+          child: LatestDonorsStrip(donations: list, forLightBackground: true),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.asHomeTab) {
+      ref.listen<PendingSemanticSearchPayload?>(pendingSemanticSearchProvider, (prev, next) {
+        if (next == null) return;
+        final img = next.initialImage;
+        ref.read(pendingSemanticSearchProvider.notifier).state = null;
+        if (!mounted) return;
+        setState(() {
+          _selectedImages
+            ..clear()
+            ..add(img);
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _performSearch();
+        });
+      });
+    }
+
     final bool hasResults = _allSearchResults.isNotEmpty;
+    // Home tab idle empty state: upload lives in scroll (above "recent"), not fixed under app bar.
+    final bool homeEmptyIdle = widget.asHomeTab &&
+        !hasResults &&
+        !_isSearching &&
+        _errorMessage == null;
+    final bool showTopUpload = !homeEmptyIdle;
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.asHomeTab,
-        title: Text(widget.asHomeTab ? '🐾 ค้นหาสัตว์เลี้ยง' : 'Smart Pet Search'),
-        // Algorithm pills hidden
+        title: Text(widget.asHomeTab ? 'ค้นหาสุนัข & แมว' : 'Smart Pet Search'),
       ),
+      // Map FAB lives on [DashboardScreen] Stack when asHomeTab — inner Scaffold FAB is hidden by parent + FAB.
+      floatingActionButton: widget.asHomeTab
+          ? null
+          : FloatingActionButton.small(
+              heroTag: 'semantic_search_map_fab',
+              tooltip: 'แผนที่',
+              backgroundColor: const Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+              onPressed: _openMapView,
+              child: const Icon(Icons.map_rounded),
+            ),
+      floatingActionButtonLocation:
+          widget.asHomeTab ? null : FloatingActionButtonLocation.endFloat,
       body: Column(
         children: [
-          // 1. Upload: full when no results, compact when results exist
-          if (hasResults)
-            _buildCompactUploadBar()
-          else
-            _buildUploadSection(),
+          if (widget.asHomeTab) _buildHomeDonorsStrip(),
+          if (showTopUpload) ...[
+            if (hasResults)
+              _buildCompactUploadBar()
+            else
+              _buildUploadSection(),
+          ],
 
           // 2. Results header with count + filter
           if (hasResults) _buildResultsHeader(),
@@ -504,6 +685,181 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
 
   // ── 2. Upload Section ──────────────────────────────────────
   Widget _buildUploadSection() {
+    if (widget.asHomeTab) {
+      return _buildUploadSectionMinimal(embedded: false);
+    }
+    return _buildUploadSectionExpanded();
+  }
+
+  /// Home tab: one short drop zone + dual-purpose primary action (no grey disabled bar).
+  /// [embedded] — when true, used inside empty-state scroll (padding matches parent).
+  Widget _buildUploadSectionMinimal({bool embedded = false}) {
+    final thumbH = 88.0;
+    final emptyH = 96.0;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(embedded ? 0 : 16, embedded ? 0 : 6, embedded ? 0 : 16, embedded ? 0 : 10),
+      color: embedded ? Colors.transparent : Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_selectedImages.isNotEmpty)
+            SizedBox(
+              height: thumbH,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _selectedImages.length + 1,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  if (index == _selectedImages.length) {
+                    return GestureDetector(
+                      onTap: () => _pickImages(),
+                      child: Container(
+                        width: 72,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          border: Border.all(color: AppTheme.accentOrange.withOpacity(0.35)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.add, color: AppTheme.accentOrange, size: 28),
+                      ),
+                    );
+                  }
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          File(_selectedImages[index].path),
+                          width: thumbH,
+                          height: thumbH,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: GestureDetector(
+                          onTap: () => _removeImage(index),
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.close, color: Colors.white, size: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: () => _pickImages(),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                height: emptyH,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentOrange.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.accentOrange.withOpacity(0.22)),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_photo_alternate_outlined,
+                              size: 30, color: AppTheme.accentOrange),
+                          const SizedBox(height: 6),
+                          Text(
+                            'แตะเลือกรูป',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: Material(
+                        color: Colors.white,
+                        elevation: 1,
+                        borderRadius: BorderRadius.circular(20),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () => _pickImages(source: ImageSource.camera),
+                          child: const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Icon(Icons.photo_camera_outlined,
+                                size: 20, color: Color(0xFFFF9800)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 10),
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final scale = _selectedImages.isNotEmpty && !_isSearching
+                  ? 1.0 + (_pulseController.value * 0.012)
+                  : 1.0;
+              return Transform.scale(scale: scale, child: child);
+            },
+            child: SizedBox(
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: _isSearching
+                    ? null
+                    : (_selectedImages.isEmpty ? () => _pickImages() : _performSearch),
+                icon: _isSearching
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
+                    : Icon(
+                        _selectedImages.isEmpty
+                            ? Icons.photo_library_outlined
+                            : Icons.search_rounded,
+                        size: 20),
+                label: Text(
+                  _isSearching
+                      ? 'กำลังค้นหา...'
+                      : (_selectedImages.isEmpty ? 'เลือกรูป' : 'ค้นหา'),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.accentOrange,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: AppTheme.accentOrange.withOpacity(0.6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: _selectedImages.isNotEmpty ? 2 : 0,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Non–home tab: richer labels (unchanged intent).
+  Widget _buildUploadSectionExpanded() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -523,7 +879,6 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header row with camera button
           Row(
             children: [
               Expanded(
@@ -531,18 +886,17 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "อัพโหลดรูปสัตว์เลี้ยง",
+                      'อัพโหลดรูป',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      "รูปหลายรูป = ค้นหาแม่นยำขึ้น 📸",
-                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      'รูปหลายรูป = ค้นหาแม่นยำขึ้น',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                 ),
               ),
-              // Camera quick-action button
               Material(
                 color: AppTheme.accentOrange.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
@@ -562,8 +916,6 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
             ],
           ),
           const SizedBox(height: 12),
-
-          // Upload area
           if (_selectedImages.isNotEmpty)
             SizedBox(
               height: 100,
@@ -676,10 +1028,7 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
                 ),
               ),
             ),
-
           const SizedBox(height: 12),
-
-          // Search Button - Full width, bold orange
           AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
@@ -715,8 +1064,6 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
               ),
             ),
           ),
-
-          // Filters moved to bottom sheet
         ],
       ),
     );
@@ -725,40 +1072,75 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
   // ── 3. Empty State with Step Indicators + Social Proof ────
   Widget _buildEmptyState() {
     final bottomPad = MediaQuery.of(context).padding.bottom + 90;
+    final lottieSize = widget.asHomeTab ? 88.0 : 120.0;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, bottomPad),
+      padding: EdgeInsets.fromLTRB(20, widget.asHomeTab ? 4 : 12, 20, bottomPad),
       child: Column(
         children: [
-          // Colorful Lottie
           SizedBox(
-            width: 120,
-            height: 120,
+            width: lottieSize,
+            height: lottieSize,
             child: Lottie.asset('assets/lottie/ck pets world.json'),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'ค้นหาสัตว์เลี้ยงด้วย AI',
-            style: TextStyle(
-              fontSize: 20,
+          SizedBox(height: widget.asHomeTab ? 6 : 12),
+          Text(
+            widget.asHomeTab ? 'วิธีใช้' : 'ค้นหาด้วย AI',
+            style: const TextStyle(
+              fontSize: 17,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'อัพโหลดรูปสัตว์เลี้ยงเพื่อค้นหาสัตว์ที่คล้ายกัน',
-            style: TextStyle(color: Colors.grey[500], fontSize: 14),
+            widget.asHomeTab
+                ? 'เลือกรูปในช่องด้านล่าง แล้วกดปุ่มส้มเพื่อค้นหา'
+                : 'อัพโหลดรูปแล้วกดค้นหาเพื่อจับคู่',
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
             textAlign: TextAlign.center,
           ),
 
-          const SizedBox(height: 16),
-          // Step Indicators
+          const SizedBox(height: 14),
           _buildStepIndicators(),
+
+          if (widget.asHomeTab) ...[
+            const SizedBox(height: 20),
+            _buildUploadSectionMinimal(embedded: true),
+          ],
 
           // Social Proof Section
           if (_recentPets.isNotEmpty || _loadingRecentPets) ...[
             const SizedBox(height: 20),
             _buildSocialProofSection(),
+          ],
+
+          if (widget.asHomeTab) ...[
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _openFoundStrayReport,
+                icon: const Icon(Icons.volunteer_activism_rounded, size: 22),
+                label: const Text(
+                  'เจอสัตว์จรน่ารัก',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.primaryGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'แจ้งพบสัตว์เลี้ยง — ช่วยให้เจ้าของหรือผู้ช่วยเหลือติดต่อได้',
+              style: TextStyle(color: Colors.grey[500], fontSize: 11),
+              textAlign: TextAlign.center,
+            ),
           ],
         ],
       ),
@@ -844,12 +1226,40 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
 
   Widget _buildRecentPetCard(Map<String, dynamic> pet) {
     final imageUrl = pet['image_url'] as String?;
-    final name = pet['pet_name'] as String? ?? pet['species'] as String? ?? 'Pet';
-    final species = pet['species'] as String? ?? '';
+    final species = (pet['species'] as String?)?.trim() ?? '';
+    final petName = (pet['pet_name'] as String?)?.trim();
+    final hasName = petName != null && petName.isNotEmpty;
+    final name = hasName ? petName! : (species.isNotEmpty ? species : 'ไม่มีชื่อ');
+    final showSpeciesLine = hasName &&
+        species.isNotEmpty &&
+        petName!.toLowerCase() != species.toLowerCase();
     final status = pet['status'] as String? ?? '';
     final isLost = status.toUpperCase() == 'LOST';
+    final petId = pet['id'] as String?;
 
-    return Container(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: petId == null
+            ? null
+            : () {
+                try {
+                  final row = Map<String, dynamic>.from(pet);
+                  if (row['created_at'] is DateTime) {
+                    row['created_at'] = (row['created_at'] as DateTime).toIso8601String();
+                  }
+                  final petModel = Pet.fromJson(row);
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => PetDetailScreen(pet: petModel),
+                    ),
+                  );
+                } catch (e) {
+                  debugPrint('Open recent pet $petId: $e');
+                }
+              },
+        child: Container(
       width: 85,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -897,17 +1307,26 @@ class _SemanticSearchScreenState extends State<SemanticSearchScreen>
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                 ),
-                if (species.isNotEmpty)
+                if (showSpeciesLine)
                   Text(
                     species,
                     style: TextStyle(fontSize: 9, color: Colors.grey[500]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                  )
+                else if (hasName)
+                  Text(
+                    isLost ? 'หาย' : 'พบ',
+                    style: TextStyle(fontSize: 9, color: Colors.grey[500]),
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
                   ),
               ],
             ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }

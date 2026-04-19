@@ -9,13 +9,9 @@ import 'widgets/stories_bar.dart';
 import 'widgets/comment_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'create_post_screen.dart';
-import '../../pets/presentation/semantic_search_screen.dart';
 import '../../pets/presentation/pet_food_scan_screen.dart';
 import '../../../shared/page_transitions.dart';
 import 'user_profile_page.dart';
-import '../../fuel/presentation/fuel_map_screen.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 /// Instagram-style community feed screen
 class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
@@ -59,41 +55,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   ),
                 ),
                 const Spacer(),
-                // ⛽ Fuel Tracker shortcut
-                GestureDetector(
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const FuelMapScreen()),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.local_gas_station, color: Colors.white, size: 16),
-                        const SizedBox(width: 3),
-                        Text(
-                          'น้ำมัน',
-                          style: GoogleFonts.prompt(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 // Food Scanner shortcut
                 GestureDetector(
                   onTap: () {
@@ -139,107 +100,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-
-          // ═══════ HERO SEARCH BANNER ═══════
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.mediumImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SemanticSearchScreen()),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFFFF9800),
-                        Color(0xFFFF6D00),
-                        Color(0xFFE65100),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFF9800).withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      // Camera icon with glow
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.photo_camera_rounded,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Text content
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'ค้นหาสัตว์เลี้ยงด้วย AI',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              'ถ่ายรูปหรือเลือกภาพ เพื่อค้นหาสัตว์ที่คล้ายกัน',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.85),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Arrow
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.arrow_forward_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ),
           ),
 

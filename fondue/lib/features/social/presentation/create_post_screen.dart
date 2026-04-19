@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../pets/presentation/location_picker_screen.dart';
 import '../domain/feed_post.dart';
 import '../domain/user_stats.dart';
 import '../data/social_providers.dart';
@@ -17,8 +20,9 @@ class CreatePostScreen extends StatefulWidget {
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final _captionController = TextEditingController();
-  FeedPostType _selectedType = FeedPostType.petReport;
+  static const FeedPostType _postType = FeedPostType.petReport;
   File? _selectedImage;
+  LatLng? _pickedLocation;
   bool _isPosting = false;
   final _picker = ImagePicker();
 
@@ -29,6 +33,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    HapticFeedback.selectionClick();
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
@@ -36,7 +41,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         maxHeight: 1080,
         imageQuality: 85,
       );
-      if (pickedFile != null) {
+      if (pickedFile != null && mounted) {
         setState(() => _selectedImage = File(pickedFile.path));
       }
     } catch (e) {
@@ -45,6 +50,53 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           SnackBar(content: Text('ไม่สามารถเลือกรูปภาพ: $e')),
         );
       }
+    }
+  }
+
+  /// Opens map picker; seeds center from saved pin, else current GPS (if allowed), else Hat Yai.
+  Future<void> _openLocationPicker() async {
+    HapticFeedback.mediumImpact();
+    var initialLat = 7.005;
+    var initialLng = 100.476;
+    if (_pickedLocation != null) {
+      initialLat = _pickedLocation!.latitude;
+      initialLng = _pickedLocation!.longitude;
+    } else {
+      try {
+        if (await Geolocator.isLocationServiceEnabled()) {
+          var permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+          if (permission == LocationPermission.whileInUse ||
+              permission == LocationPermission.always) {
+            final pos = await Geolocator.getCurrentPosition();
+            initialLat = pos.latitude;
+            initialLng = pos.longitude;
+          }
+        }
+      } catch (_) {
+        // Keep Hat Yai default
+      }
+    }
+
+    if (!mounted) return;
+    final result = await Navigator.push<LatLng>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(
+          initialLat: initialLat,
+          initialLng: initialLng,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (result != null) {
+      setState(() => _pickedLocation = result);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('แนบตำแหน่งกับโพสต์แล้ว')),
+      );
     }
   }
 
@@ -65,9 +117,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _submitPost() async {
     final caption = _captionController.text.trim();
-    if (caption.isEmpty && _selectedImage == null) {
+    if (caption.isEmpty && _selectedImage == null && _pickedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเขียนข้อความหรือเลือกรูปภาพ')),
+        const SnackBar(content: Text('กรุณาเขียนข้อความ เลือกรูปภาพ หรือระบุสถานที่')),
       );
       return;
     }
@@ -93,15 +145,21 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final supabase = Supabase.instance.client;
       final userName = user.userMetadata?['full_name'] as String?;
 
+      final metadata = <String, dynamic>{};
+      if (_pickedLocation != null) {
+        metadata['lat'] = _pickedLocation!.latitude;
+        metadata['lng'] = _pickedLocation!.longitude;
+      }
+
       await supabase.from('feed_posts').insert({
-        'post_type': _selectedType.value,
+        'post_type': _postType.value,
         'title': _buildTitle(userName),
         'body': caption.isNotEmpty ? caption : null,
         'image_url': imageUrl,
         'user_id': user.id,
         'author_name': userName,
         'author_avatar': user.userMetadata?['avatar_url'],
-        'metadata': {},
+        'metadata': metadata,
       });
 
       // Award points
@@ -135,13 +193,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   String _buildTitle(String? userName) {
     final name = userName ?? 'ผู้ใช้';
-    return switch (_selectedType) {
-      FeedPostType.petReport => '$name รายงานสัตว์เลี้ยง',
-      FeedPostType.reunion => '$name พบสัตว์เลี้ยงแล้ว! 🎉',
-      FeedPostType.shelterUpdate => '$name อัพเดทจากสถานสงเคราะห์',
-      FeedPostType.milestone => '$name ปลดล็อกเป้าหมาย!',
-      FeedPostType.story => '$name แชร์เรื่องราว',
-    };
+    return '$name รายงานสัตว์เลี้ยง';
   }
 
   @override
@@ -180,67 +232,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ═══════ POST TYPE SELECTOR ═══════
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ประเภทโพสต์',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 40,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: FeedPostType.values.map((type) {
-                        final isSelected = _selectedType == type;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: GestureDetector(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _selectedType = type);
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFFFF9800) : Colors.grey[100],
-                                borderRadius: BorderRadius.circular(20),
-                                border: isSelected
-                                    ? Border.all(color: const Color(0xFFFF9800), width: 1.5)
-                                    : Border.all(color: Colors.grey[300]!, width: 1),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(type.icon, style: const TextStyle(fontSize: 16)),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    type.label,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: isSelected ? Colors.white : Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const Divider(height: 1),
-
             // ═══════ CAPTION INPUT ═══════
             Padding(
               padding: const EdgeInsets.all(16),
@@ -318,16 +309,34 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       icon: Icons.location_on_outlined,
                       label: 'สถานที่',
                       color: const Color(0xFFFF9800),
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('เร็วๆ นี้!')),
-                        );
-                      },
+                      onTap: _openLocationPicker,
                     ),
                   ],
                 ),
               ),
             ),
+
+            if (_pickedLocation != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Material(
+                  color: const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(12),
+                  child: ListTile(
+                    leading: const Icon(Icons.place, color: Color(0xFFFF9800)),
+                    title: Text(
+                      '${_pickedLocation!.latitude.toStringAsFixed(5)}, ${_pickedLocation!.longitude.toStringAsFixed(5)}',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                    subtitle: const Text('ตำแหน่งจะถูกบันทึกกับโพสต์'),
+                    trailing: IconButton(
+                      tooltip: 'ลบตำแหน่ง',
+                      onPressed: () => setState(() => _pickedLocation = null),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ),
+                ),
+              ),
 
             // ═══════ TIPS ═══════
             Padding(
@@ -378,10 +387,8 @@ class _MediaButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap();
-        },
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Column(

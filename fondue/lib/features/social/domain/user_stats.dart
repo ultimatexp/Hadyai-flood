@@ -15,6 +15,16 @@ enum UserLevel {
     };
   }
 
+  String get englishLabel {
+    return switch (this) {
+      UserLevel.beginner => 'Beginner',
+      UserLevel.bronze => 'Bronze',
+      UserLevel.silver => 'Silver',
+      UserLevel.gold => 'Gold',
+      UserLevel.legend => 'Legend',
+    };
+  }
+
   String get emoji {
     return switch (this) {
       UserLevel.beginner => '🌱',
@@ -66,6 +76,17 @@ enum BadgeType {
     };
   }
 
+  String get englishLabel {
+    return switch (this) {
+      BadgeType.starter => 'Starter',
+      BadgeType.protector => 'Protector',
+      BadgeType.hero => 'Community hero',
+      BadgeType.streak => 'Active streak',
+      BadgeType.sharer => 'Sharer',
+      BadgeType.legend => 'Legend',
+    };
+  }
+
   String get description {
     return switch (this) {
       BadgeType.starter => 'รายงานสัตว์ครั้งแรก',
@@ -74,6 +95,17 @@ enum BadgeType {
       BadgeType.streak => 'ใช้งาน 7 วันติด',
       BadgeType.sharer => 'แชร์ 10 โพสต์',
       BadgeType.legend => 'สะสม 1500 แต้ม',
+    };
+  }
+
+  String get englishDescription {
+    return switch (this) {
+      BadgeType.starter => 'First pet report',
+      BadgeType.protector => '5 pet reports',
+      BadgeType.hero => 'Helped 10 times',
+      BadgeType.streak => '7-day usage streak',
+      BadgeType.sharer => 'Share 10 posts',
+      BadgeType.legend => 'Earn 1500 points',
     };
   }
 }

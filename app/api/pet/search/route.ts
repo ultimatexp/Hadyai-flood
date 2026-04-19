@@ -231,9 +231,12 @@ export async function POST(request: NextRequest) {
                 featureCount++;
             }
 
-            // CRITICAL: Sex (wrong sex = heavy penalty)
+            // CRITICAL: Sex (wrong sex = heavy penalty) — normalize case
+            const normSex = (s: string | null) => (s || '').toLowerCase().trim();
             if (querySex) {
-                if (match.sex && match.sex !== 'unknown' && match.sex !== querySex) {
+                const q = normSex(querySex);
+                const m = normSex(match.sex);
+                if (m && m !== 'unknown' && q && m !== q) {
                     featureScore *= 0.5; // 50% reduction (was 70%)
                 } else {
                     featureScore += 1;
@@ -342,9 +345,31 @@ export async function POST(request: NextRequest) {
             };
         });
 
-        // 4. Filter for matches (>= 65%)
+        const querySpeciesGlobal = (formData.get('species') as string | null)?.trim().toLowerCase() || '';
+        const speciesTaxa = new Set(['dog', 'cat']);
+        /** Legacy rows may use "Bird", "Other", etc. — exclude from dog/cat search results */
+        const excludedNonFocusSpecies = new Set([
+            'bird', 'birds', 'other', 'rabbit', 'hamster', 'reptile', 'snake', 'fish', 'ferret', 'guinea pig',
+        ]);
+
+        // 4. Filter: dog/cat only; drop non-focus species; then score cutoff
         const filteredMatches = matchesWithScores
-            .filter((match: any) => match.combined_score >= 0.65)
+            .filter((match: any) => {
+                const m = match.species ? String(match.species).trim().toLowerCase() : '';
+                if (m && excludedNonFocusSpecies.has(m)) {
+                    return false;
+                }
+                if (
+                    querySpeciesGlobal &&
+                    m &&
+                    speciesTaxa.has(querySpeciesGlobal) &&
+                    speciesTaxa.has(m) &&
+                    m !== querySpeciesGlobal
+                ) {
+                    return false;
+                }
+                return match.combined_score >= 0.65;
+            })
             .sort((a: any, b: any) => b.combined_score - a.combined_score)
             .slice(0, 20);
 

@@ -10,7 +10,7 @@ final petRepositoryProvider = Provider<PetRepository>((ref) {
 
 class PetFilter {
   final String status; // 'All', 'LOST', 'FOUND', 'ADOPTABLE'
-  final String species; // 'All', 'Dog', 'Cat', 'Bird', etc.
+  final String species; // 'All', 'Dog', 'Cat'
 
   const PetFilter({this.status = 'All', this.species = 'All'});
 

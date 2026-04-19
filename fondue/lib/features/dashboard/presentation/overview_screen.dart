@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/shimmer_loading.dart';
-import '../../pets/presentation/semantic_search_screen.dart';
+import '../../pets/presentation/pet_search_navigation.dart';
 import '../../pets/presentation/pet_detail_screen.dart';
 import '../../pets/domain/pet.dart';
 import '../data/overview_providers.dart';
@@ -57,7 +57,7 @@ class OverviewScreen extends ConsumerWidget {
               // 1. Action Buttons Row
               Row(
                 children: [
-                  Expanded(child: _buildSearchButton(context)),
+                  Expanded(child: _buildSearchButton(context, ref)),
                   const SizedBox(width: 16),
                   Expanded(child: _buildFoundPetButton(context)),
                 ],
@@ -227,10 +227,10 @@ class OverviewScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSearchButton(BuildContext context) {
+  Widget _buildSearchButton(BuildContext context, WidgetRef ref) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const SemanticSearchScreen()));
+        switchToHomePetSearch(ref, context);
       },
       child: Container(
         height: 180, // Fixed height for consistency

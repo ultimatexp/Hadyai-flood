@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../pets/presentation/pet_providers.dart';
 import '../../pets/presentation/pet_detail_screen.dart';
-import '../../pets/presentation/semantic_search_screen.dart';
+import '../../pets/presentation/pet_search_navigation.dart';
 import '../../pets/domain/pet.dart';
 
 
@@ -37,10 +37,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 child: GestureDetector(
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SemanticSearchScreen()),
-                    );
+                    switchToHomePetSearch(ref, context);
                   },
                   child: Container(
                     height: 44,

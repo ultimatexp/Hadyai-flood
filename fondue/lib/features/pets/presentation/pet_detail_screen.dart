@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:fondue/l10n/app_localizations.dart';
+import 'package:fondue/l10n/app_localizations_context.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
@@ -12,6 +14,8 @@ import 'pet_providers.dart';
 import '../../chat/data/chat_repository.dart';
 import '../../chat/presentation/chat_detail_screen.dart';
 import 'map_view_screen.dart';
+import 'widgets/pet_share_card.dart';
+import 'pet_l10n_helpers.dart';
 
 class PetDetailScreen extends ConsumerStatefulWidget {
   final Pet pet;
@@ -58,15 +62,16 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     return _pet.imageUrl;
   }
 
-  String _formatCountdown(Duration duration) {
-    if (duration.isNegative) return 'Expired';
+  String _formatCountdown(BuildContext context, Duration duration) {
+    final l10n = context.l10n;
+    if (duration.isNegative) return l10n.petDetailCountdownExpired;
     final days = duration.inDays;
     final hours = duration.inHours % 24;
     final minutes = duration.inMinutes % 60;
-    
-    if (days > 0) return '$days days, $hours hours';
-    if (hours > 0) return '$hours hours, $minutes min';
-    return '$minutes minutes';
+
+    if (days > 0) return l10n.petDetailDurationDaysHours(days, hours);
+    if (hours > 0) return l10n.petDetailDurationHoursMinutes(hours, minutes);
+    return l10n.petDetailDurationMinutes(minutes);
   }
 
   bool get _isExpired {
@@ -90,79 +95,86 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Edit Pet Details'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Pet Name'),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedStatus,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                  items: ['LOST', 'FOUND', 'REUNITED'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                  onChanged: (v) => setDialogState(() => selectedStatus = v!),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedSex,
-                  decoration: const InputDecoration(labelText: 'Sex'),
-                  items: ['Male', 'Female', 'Unknown'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                  onChanged: (v) => setDialogState(() => selectedSex = v!),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: colorController,
-                  decoration: const InputDecoration(labelText: 'Color'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descController,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: contactController,
-                  decoration: const InputDecoration(labelText: 'Contact Info'),
-                ),
-              ],
+        builder: (ctx, setDialogState) {
+          final d = AppLocalizations.of(ctx)!;
+          return AlertDialog(
+            title: Text(d.petDetailEditTitle),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(labelText: d.petDetailLabelPetName),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedStatus,
+                    decoration: InputDecoration(labelText: d.petDetailLabelStatus),
+                    items: ['LOST', 'FOUND', 'REUNITED']
+                        .map((s) => DropdownMenuItem(value: s, child: Text(localizedPetStatus(ctx, s))))
+                        .toList(),
+                    onChanged: (v) => setDialogState(() => selectedStatus = v!),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedSex,
+                    decoration: InputDecoration(labelText: d.petDetailLabelSex),
+                    items: ['Male', 'Female', 'Unknown']
+                        .map((s) => DropdownMenuItem(value: s, child: Text(localizedSex(ctx, s))))
+                        .toList(),
+                    onChanged: (v) => setDialogState(() => selectedSex = v!),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: colorController,
+                    decoration: InputDecoration(labelText: d.petDetailLabelColor),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descController,
+                    decoration: InputDecoration(labelText: d.petDetailLabelDescription),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: contactController,
+                    decoration: InputDecoration(labelText: d.petDetailLabelContact),
+                  ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final repo = ref.read(petRepositoryProvider);
-                await repo.updatePet(
-                  petId: _pet.id,
-                  petName: nameController.text.isNotEmpty ? nameController.text : null,
-                  status: selectedStatus,
-                  sex: selectedSex,
-                  colorMain: colorController.text.isNotEmpty ? colorController.text : null,
-                  description: descController.text.isNotEmpty ? descController.text : null,
-                  contactInfo: contactController.text.isNotEmpty ? contactController.text : null,
-                );
-                if (mounted) {
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(d.settingsCancel),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final updatedMsg = context.l10n.petDetailPetUpdatedSnack;
+                  final repo = ref.read(petRepositoryProvider);
+                  await repo.updatePet(
+                    petId: _pet.id,
+                    petName: nameController.text.isNotEmpty ? nameController.text : null,
+                    status: selectedStatus,
+                    sex: selectedSex,
+                    colorMain: colorController.text.isNotEmpty ? colorController.text : null,
+                    description: descController.text.isNotEmpty ? descController.text : null,
+                    contactInfo: contactController.text.isNotEmpty ? contactController.text : null,
+                  );
+                  if (!mounted) return;
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Pet details updated!')),
+                    SnackBar(content: Text(updatedMsg)),
                   );
-                  ref.refresh(lostPetsProvider);
-                }
-              },
-              style: FilledButton.styleFrom(backgroundColor: AppTheme.accentOrange),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
+                  ref.invalidate(lostPetsProvider);
+                },
+                style: FilledButton.styleFrom(backgroundColor: AppTheme.accentOrange),
+                child: Text(d.petDetailSave),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -173,117 +185,115 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Archive this post',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+      builder: (ctx) {
+        final d = AppLocalizations.of(ctx)!;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Choose an option for this pet post',
-                style: TextStyle(color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              
-              // Pet Found Option
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryGreen.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.pets, color: AppTheme.primaryGreen),
                 ),
-                title: const Text(
-                  'Pet Found',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                const SizedBox(height: 16),
+                Text(
+                  d.petDetailArchiveSheetTitle,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                  textAlign: TextAlign.center,
                 ),
-                subtitle: const Text('Mark as reunited with owner'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _markAsReunited();
-                },
-              ),
-              const Divider(height: 1),
-              
-              // Delete Option
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 8),
+                Text(
+                  d.petDetailArchiveSheetSubtitle,
+                  style: TextStyle(color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.pets, color: AppTheme.primaryGreen),
                   ),
-                  child: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: Text(
+                    d.petDetailArchiveFoundTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(d.petDetailArchiveFoundSubtitle),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _markAsReunited();
+                  },
                 ),
-                title: const Text(
-                  'Delete',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.delete_outline, color: Colors.red),
+                  ),
+                  title: Text(
+                    d.petDetailArchiveDeleteTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                  ),
+                  subtitle: Text(d.petDetailArchiveDeleteSubtitle),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _confirmDelete();
+                  },
                 ),
-                subtitle: const Text('Permanently remove this post'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _confirmDelete();
-                },
-              ),
-              
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(d.settingsCancel),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   void _markAsReunited() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('🎉 Pet Found!'),
-        content: const Text(
-          'Great news! Marking this pet as reunited will archive the post. Continue?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
-            child: const Text('Mark as Reunited'),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final d = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          title: Text(d.petDetailMarkFoundTitle),
+          content: Text(d.petDetailMarkFoundBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(d.settingsCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
+              child: Text(d.petDetailMarkReunitedButton),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true) {
@@ -292,18 +302,18 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
         await repo.updatePet(petId: _pet.id, status: 'REUNITED');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('🎉 Pet marked as reunited!'),
+            SnackBar(
+              content: Text(context.l10n.petDetailReunitedSnack),
               backgroundColor: Colors.green,
             ),
           );
-          ref.refresh(lostPetsProvider);
+          ref.invalidate(lostPetsProvider);
           Navigator.pop(context);
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(content: Text(context.l10n.petDetailGenericError(e.toString()))),
           );
         }
       }
@@ -313,23 +323,24 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
   void _confirmDelete() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Post'),
-        content: const Text(
-          'Are you sure you want to permanently delete this post? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final d = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          title: Text(d.petDetailDeletePostTitle),
+          content: Text(d.petDetailDeletePostBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(d.settingsCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: Text(d.settingsDelete),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true) {
@@ -340,15 +351,15 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
             .eq('id', _pet.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Post deleted')),
+            SnackBar(content: Text(context.l10n.petDetailPostDeletedSnack)),
           );
-          ref.refresh(lostPetsProvider);
+          ref.invalidate(lostPetsProvider);
           Navigator.pop(context);
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(content: Text(context.l10n.petDetailGenericError(e.toString()))),
           );
         }
       }
@@ -358,6 +369,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final hasMultipleImages = _pet.images.length > 1;
 
     return Scaffold(
@@ -369,16 +381,21 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
             pinned: true,
             backgroundColor: AppTheme.primaryGreen,
             actions: [
+              IconButton(
+                icon: const Icon(Icons.share_rounded, color: Colors.white),
+                onPressed: () => PetShareCard.showPreviewThenShare(context, _pet),
+                tooltip: l10n.petDetailShareImageTooltip,
+              ),
               if (_isOwner) ...[
                 IconButton(
                   icon: const Icon(Icons.archive_outlined, color: Colors.white),
                   onPressed: _showArchiveDialog,
-                  tooltip: 'Archive',
+                  tooltip: l10n.petDetailArchiveTooltip,
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit, color: Colors.white),
                   onPressed: _showEditDialog,
-                  tooltip: 'Edit',
+                  tooltip: l10n.petDetailEditTooltip,
                 ),
               ] else ...[
                  PopupMenuButton<String>(
@@ -386,28 +403,31 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                      if (value == 'report') _reportPost();
                      if (value == 'block') _blockUser();
                    },
-                   itemBuilder: (context) => [
-                     const PopupMenuItem(
-                       value: 'report',
-                       child: Row(
-                         children: [
-                           Icon(Icons.flag_outlined, color: Colors.orange),
-                           SizedBox(width: 8),
-                           Text('Report Post'),
-                         ],
+                   itemBuilder: (menuContext) {
+                     final m = AppLocalizations.of(menuContext)!;
+                     return [
+                       PopupMenuItem(
+                         value: 'report',
+                         child: Row(
+                           children: [
+                             const Icon(Icons.flag_outlined, color: Colors.orange),
+                             const SizedBox(width: 8),
+                             Text(m.petDetailReportPost),
+                           ],
+                         ),
                        ),
-                     ),
-                     const PopupMenuItem(
-                       value: 'block',
-                       child: Row(
-                         children: [
-                           Icon(Icons.block, color: Colors.red),
-                           SizedBox(width: 8),
-                           Text('Block User'),
-                         ],
+                       PopupMenuItem(
+                         value: 'block',
+                         child: Row(
+                           children: [
+                             const Icon(Icons.block, color: Colors.red),
+                             const SizedBox(width: 8),
+                             Text(m.petDetailBlockUser),
+                           ],
+                         ),
                        ),
-                     ),
-                   ],
+                     ];
+                   },
                  ),
               ],
             ],
@@ -524,7 +544,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          _pet.status,
+                          localizedPetStatus(context, _pet.status),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -546,7 +566,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        "Photo ${_currentImageIndex + 1} of ${_pet.images.length}",
+                        l10n.petDetailPhotoOf(_currentImageIndex + 1, _pet.images.length),
                         style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
                     ),
@@ -582,18 +602,14 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _isExpired 
-                                      ? 'Report Expired' 
-                                      : 'Expires in',
+                                  _isExpired ? l10n.petDetailReportExpiredTitle : l10n.petDetailExpiresInLabel,
                                   style: TextStyle(
                                     color: Colors.grey[600],
                                     fontSize: 12,
                                   ),
                                 ),
                                 Text(
-                                  _isExpired 
-                                      ? 'This report is no longer active' 
-                                      : _formatCountdown(_timeRemaining!),
+                                  _isExpired ? l10n.petDetailReportExpiredBody : _formatCountdown(context, _timeRemaining!),
                                   style: TextStyle(
                                     color: _isExpired 
                                         ? Colors.grey[700] 
@@ -612,7 +628,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                   const SizedBox(height: 24),
 
                   // Info Grid
-                  _buildInfoGrid(context),
+                  _buildInfoGrid(context, l10n),
 
                   const SizedBox(height: 24),
                   const Divider(),
@@ -620,12 +636,12 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
 
                   // Description
                   Text(
-                    "Description",
+                    l10n.petDetailDescriptionHeading,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _pet.description ?? "No description provided.",
+                    _pet.description ?? l10n.petDetailNoDescription,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: Colors.grey[700],
                           height: 1.5,
@@ -637,7 +653,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                   // Location Map
                   if (_pet.lat != null && _pet.lng != null) ...[
                     Text(
-                      "Last Seen Location",
+                      l10n.petDetailLastSeenHeading,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 12),
@@ -696,9 +712,9 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                                     children: [
                                       Icon(Icons.map, size: 16, color: AppTheme.primaryGreen),
                                       const SizedBox(width: 8),
-                                      const Text(
-                                        "See on Map",
-                                        style: TextStyle(
+                                      Text(
+                                        l10n.petDetailSeeOnMap,
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 12,
                                         ),
@@ -717,14 +733,14 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                   const SizedBox(height: 24),
 
                   // Owner Card
-                  _buildOwnerCard(context),
+                  _buildOwnerCard(context, l10n),
 
                   // Post ID
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 24, bottom: 8),
                       child: SelectableText(
-                        'Post ID: ${_pet.id}',
+                        l10n.petDetailPostId(_pet.id),
                         style: TextStyle(color: Colors.grey[400], fontSize: 10),
                       ),
                     ),
@@ -760,14 +776,19 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     );
   }
 
-  Widget _buildInfoGrid(BuildContext context) {
+  Widget _buildInfoGrid(BuildContext context, AppLocalizations l10n) {
     return Wrap(
       spacing: 16,
       runSpacing: 16,
       children: [
-        _buildInfoItem(Icons.pets, "Species", _pet.species),
-        if (_pet.sex != null) _buildInfoItem(_pet.sex == 'Male' ? Icons.male : Icons.female, "Sex", _pet.sex!),
-        if (_pet.colorMain != null) _buildInfoItem(Icons.palette, "Color", _pet.colorMain!),
+        _buildInfoItem(Icons.pets, l10n.petDetailInfoSpecies, _pet.species),
+        if (_pet.sex != null)
+          _buildInfoItem(
+            _pet.sex == 'Male' ? Icons.male : Icons.female,
+            l10n.petDetailInfoSex,
+            localizedSex(context, _pet.sex!),
+          ),
+        if (_pet.colorMain != null) _buildInfoItem(Icons.palette, l10n.petDetailInfoColor, _pet.colorMain!),
       ],
     );
   }
@@ -798,7 +819,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     );
   }
 
-  Widget _buildOwnerCard(BuildContext context) {
+  Widget _buildOwnerCard(BuildContext context, AppLocalizations l10n) {
     // If user is owner, show management card
     if (_isOwner) {
       if (_pet.status == 'LOST') {
@@ -831,17 +852,17 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                     child: const Icon(Icons.manage_accounts, color: Colors.blue),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Your Post",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
+                          l10n.petDetailYourPostTitle,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
                         ),
                         Text(
-                          "Make changes or verify",
-                          style: TextStyle(fontSize: 12, color: Colors.black54),
+                          l10n.petDetailYourPostSubtitle,
+                          style: const TextStyle(fontSize: 12, color: Colors.black54),
                         )
                       ],
                     ),
@@ -858,7 +879,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                   icon: _isCheckingMatches 
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.saved_search),
-                  label: Text(_isCheckingMatches ? "Checking Database..." : "Recheck Database for Matches"),
+                  label: Text(_isCheckingMatches ? l10n.petDetailCheckingDatabase : l10n.petDetailRecheckMatches),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -886,7 +907,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
             children: [
               const Icon(Icons.person, color: Colors.grey),
               const SizedBox(width: 12),
-              const Text("You are the owner of this post", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              Text(l10n.petDetailOwnerOfPost, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
             ],
           ),
         );
@@ -897,7 +918,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     return FutureBuilder<Map<String, dynamic>?>(
       future: _getOwnerProfile(),
       builder: (context, snapshot) {
-        final ownerName = snapshot.data?['full_name'] as String? ?? 'Pet Owner';
+        final ownerName = snapshot.data?['full_name'] as String? ?? l10n.petDetailDefaultOwnerName;
         final ownerAvatar = snapshot.data?['avatar_url'] as String?;
 
         return Container(
@@ -935,7 +956,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Post owned by',
+                          l10n.petDetailPostOwnedBy,
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -964,9 +985,9 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                     child: ElevatedButton.icon(
                       onPressed: _isOwner ? null : _startChat,
                       icon: const Icon(Icons.chat_bubble_rounded, size: 20),
-                      label: const Text(
-                        'Chat Now',
-                        style: TextStyle(
+                      label: Text(
+                        l10n.petDetailChatNow,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -991,9 +1012,9 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                           ? _callOwner
                           : null,
                       icon: const Icon(Icons.phone, size: 20),
-                      label: const Text(
-                        'Contact',
-                        style: TextStyle(
+                      label: Text(
+                        l10n.petDetailContact,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1035,7 +1056,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
       
       if (matches.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No new matches found at this time.')),
+          SnackBar(content: Text(context.l10n.petDetailNoNewMatches)),
         );
       } else {
         _showMatchResults(matches);
@@ -1043,7 +1064,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error checking matches: $e')),
+          SnackBar(content: Text(context.l10n.petDetailErrorCheckingMatches(e.toString()))),
         );
       }
     } finally {
@@ -1056,53 +1077,56 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
   void _showMatchResults(List<Map<String, dynamic>> matches) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.check_circle_outline, color: AppTheme.primaryGreen),
-            const SizedBox(width: 8),
-            Text('${matches.length} Potential Match(es)!'),
+      builder: (ctx) {
+        final d = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.check_circle_outline, color: AppTheme.primaryGreen),
+              const SizedBox(width: 8),
+              Flexible(child: Text(d.petDetailMatchResultsTitle(matches.length))),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: matches.length,
+              separatorBuilder: (_, _) => const Divider(),
+              itemBuilder: (ctx, index) {
+                final match = matches[index];
+                final foundPet = match['foundPet'] as Pet;
+                final score = ((match['score'] as double) * 100).toInt();
+
+                return ListTile(
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: foundPet.imageUrl != null
+                        ? Image.network(foundPet.imageUrl!, width: 50, height: 50, fit: BoxFit.cover)
+                        : Container(width: 50, height: 50, color: Colors.grey[200], child: const Icon(Icons.pets)),
+                  ),
+                  title: Text(d.petDetailMatchListTileTitle(foundPet.species, score)),
+                  subtitle: Text(foundPet.description ?? d.petFeedNoDescription),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => PetDetailScreen(pet: foundPet)),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(d.petDetailClose),
+            ),
           ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.separated(
-            shrinkWrap: true,
-            itemCount: matches.length,
-            separatorBuilder: (_, __) => const Divider(),
-            itemBuilder: (ctx, index) {
-              final match = matches[index];
-              final foundPet = match['foundPet'] as Pet;
-              final score = ((match['score'] as double) * 100).toInt();
-              
-              return ListTile(
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: foundPet.imageUrl != null 
-                      ? Image.network(foundPet.imageUrl!, width: 50, height: 50, fit: BoxFit.cover)
-                      : Container(width: 50, height: 50, color: Colors.grey[200], child: const Icon(Icons.pets)),
-                ),
-                title: Text('Found ${foundPet.species} (${score}% match)'),
-                subtitle: Text(foundPet.description ?? 'No description'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => PetDetailScreen(pet: foundPet)),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1123,7 +1147,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
   Future<void> _startChat() async {
     if (_pet.userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot start chat: Owner information not available')),
+        SnackBar(content: Text(context.l10n.petDetailChatNoOwner)),
       );
       return;
     }
@@ -1131,11 +1155,12 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to start a chat')),
+        SnackBar(content: Text(context.l10n.petDetailChatLoginRequired)),
       );
       return;
     }
 
+    final defaultOwnerLabel = context.l10n.petDetailDefaultOwnerName;
     try {
       final chatRepo = ChatRepository(Supabase.instance.client);
       final conversationId = await chatRepo.getOrCreateConversation(
@@ -1146,10 +1171,11 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
       if (mounted && conversationId != null) {
         // Get owner profile for name
         final ownerProfile = await _getOwnerProfile();
-        final ownerName = ownerProfile?['full_name'] as String? ?? 'Pet Owner';
+        final ownerName = ownerProfile?['full_name'] as String? ?? defaultOwnerLabel;
         final ownerAvatar = ownerProfile?['avatar_url'] as String? ?? 
             'https://i.pravatar.cc/150?u=${_pet.userId}';
 
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1168,7 +1194,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to start chat: $e')),
+          SnackBar(content: Text(context.l10n.petDetailChatFailed(e.toString()))),
         );
       }
     }
@@ -1186,7 +1212,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cannot make phone call')),
+          SnackBar(content: Text(context.l10n.petDetailCannotCall)),
         );
       }
     }
@@ -1196,34 +1222,37 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     final reasonController = TextEditingController();
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Report Post'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Why are you reporting this post?'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                hintText: 'e.g., Inappropriate content, spam...',
-                border: OutlineInputBorder(),
+      builder: (ctx) {
+        final d = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          title: Text(d.petDetailReportDialogTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(d.petDetailReportDialogPrompt),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                decoration: InputDecoration(
+                  hintText: d.petDetailReportHint,
+                  border: const OutlineInputBorder(),
+                ),
+                maxLines: 3,
               ),
-              maxLines: 3,
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(d.settingsCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, reasonController.text),
+              child: Text(d.petDetailReportSubmit),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, reasonController.text),
-            child: const Text('Report'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     if (result != null && result.isNotEmpty) {
@@ -1234,7 +1263,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
         if (currentUser == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please log in to report content')),
+              SnackBar(content: Text(context.l10n.petDetailReportLoginRequired)),
             );
           }
           return;
@@ -1250,13 +1279,13 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Report submitted. Thank you for helping keep our community safe.')),
+            SnackBar(content: Text(context.l10n.petDetailReportThanks)),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error submitting report: $e')),
+            SnackBar(content: Text(context.l10n.petDetailReportError(e.toString()))),
           );
         }
       }
@@ -1266,23 +1295,24 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
   void _blockUser() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Block User'),
-        content: const Text(
-          'Are you sure you want to block this user? You will no longer see their posts.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Block'),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final d = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          title: Text(d.petDetailBlockDialogTitle),
+          content: Text(d.petDetailBlockDialogBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(d.settingsCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: Text(d.petDetailBlockSubmit),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true) {
@@ -1293,7 +1323,7 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
         if (currentUser == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please log in to block users')),
+              SnackBar(content: Text(context.l10n.petDetailBlockLoginRequired)),
             );
           }
           return;
@@ -1312,14 +1342,14 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User blocked.')),
+            SnackBar(content: Text(context.l10n.petDetailUserBlocked)),
           );
           Navigator.pop(context); // Close detail screen as context is now hidden
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error blocking user: $e')),
+            SnackBar(content: Text(context.l10n.petDetailBlockError(e.toString()))),
           );
         }
       }

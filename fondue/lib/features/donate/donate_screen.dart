@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class DonateScreen extends StatefulWidget {
+import '../../core/config/constants.dart';
+import 'donation_providers.dart';
+import 'latest_donors_strip.dart';
+import 'top_donors_screen.dart';
+
+class DonateScreen extends ConsumerStatefulWidget {
   const DonateScreen({super.key});
 
   @override
-  State<DonateScreen> createState() => _DonateScreenState();
+  ConsumerState<DonateScreen> createState() => _DonateScreenState();
 }
 
-class _DonateScreenState extends State<DonateScreen> {
-  static const _promptPayNumber = '0877484066';
-  bool _saving = false;
-  bool _saved = false;
+class _DonateScreenState extends ConsumerState<DonateScreen> {
   final _feedbackController = TextEditingController();
   bool _feedbackSent = false;
   bool _sending = false;
@@ -27,40 +27,12 @@ class _DonateScreenState extends State<DonateScreen> {
     super.dispose();
   }
 
-  Future<void> _saveQR() async {
-    setState(() => _saving = true);
-    try {
-      final response = await http.get(Uri.parse('https://promptpay.io/$_promptPayNumber.png'));
-      if (response.statusCode == 200) {
-        final dir = await getTemporaryDirectory();
-        final file = File('${dir.path}/promptpay-donate.png');
-        await file.writeAsBytes(response.bodyBytes);
-        
-        // ignore: unused_local_variable
-        final result = await Process.run('open', [file.path]);
-        
-        if (mounted) {
-          setState(() { _saving = false; _saved = true; });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('บันทึก QR สำเร็จ! เปิดแอปธนาคารแล้วสแกนจากรูปภาพได้เลย', style: GoogleFonts.prompt()),
-              backgroundColor: const Color(0xFF22C55E),
-              duration: const Duration(seconds: 3),
-            ),
-          );
-          Future.delayed(const Duration(seconds: 3), () {
-            if (mounted) setState(() => _saved = false);
-          });
-        }
-      }
-    } catch (e) {
+  Future<void> _openStripeOnWeb() async {
+    final uri = Uri.parse('${AppConstants.apiBaseUrl}/donate');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('กรุณากดค้างที่รูป QR เพื่อบันทึก', style: GoogleFonts.prompt()),
-            backgroundColor: const Color(0xFFF59E0B),
-          ),
+          SnackBar(content: Text('เปิดเบราว์เซอร์ไม่สำเร็จ', style: GoogleFonts.prompt())),
         );
       }
     }
@@ -78,7 +50,10 @@ class _DonateScreenState extends State<DonateScreen> {
       );
     } catch (_) {}
     if (mounted) {
-      setState(() { _sending = false; _feedbackSent = true; });
+      setState(() {
+        _sending = false;
+        _feedbackSent = true;
+      });
       _feedbackController.clear();
       Future.delayed(const Duration(seconds: 5), () {
         if (mounted) setState(() => _feedbackSent = false);
@@ -88,6 +63,8 @@ class _DonateScreenState extends State<DonateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final latestAsync = ref.watch(latestDonationsProvider);
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -103,19 +80,31 @@ class _DonateScreenState extends State<DonateScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Column(
               children: [
-                // Back button
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back, size: 16, color: Color(0x99FFFFFF)),
-                    label: Text('กลับ', style: GoogleFonts.prompt(color: const Color(0x99FFFFFF), fontSize: 14)),
-                  ),
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back, size: 16, color: Color(0x99FFFFFF)),
+                      label: Text('กลับ', style: GoogleFonts.prompt(color: const Color(0x99FFFFFF), fontSize: 14)),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (_) => const TopDonorsScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.emoji_events_outlined, size: 18, color: Color(0xFFFBBF24)),
+                      label: Text(
+                        'Top Donate',
+                        style: GoogleFonts.prompt(color: const Color(0xFFFBBF24), fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                    ),
+                  ],
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
 
-                // Hero
                 const Text('☕', style: TextStyle(fontSize: 56)),
                 const SizedBox(height: 12),
                 ShaderMask(
@@ -131,125 +120,61 @@ class _DonateScreenState extends State<DonateScreen> {
                 Text(
                   'เราสร้างแอปนี้เพื่อคนไทยทุกคน 💛\nน้ำใจของคุณช่วยให้เราพัฒนาต่อไปได้ครับ',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.prompt(fontSize: 14, color: Colors.white.withOpacity(0.7), height: 1.6),
+                  style: GoogleFonts.prompt(fontSize: 14, color: Colors.white.withValues(alpha: 0.7), height: 1.6),
                 ),
 
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
 
-                // QR Card
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 60, offset: const Offset(0, 20))],
+                latestAsync.when(
+                  loading: () => const SizedBox(
+                    height: 88,
+                    child: Center(child: CircularProgressIndicator(color: Color(0xFFFBBF24), strokeWidth: 2)),
                   ),
-                  child: Column(
-                    children: [
-                      Container(
-                        height: 4,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(colors: [Color(0xFFFBBF24), Color(0xFFF472B6), Color(0xFFA78BFA)]),
-                          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                        child: Column(
-                          children: [
-                            Text('สแกนเพื่อบริจาค',
-                                style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF6B7280))),
-                            const SizedBox(height: 4),
-                            ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                colors: [Color(0xFF1E40AF), Color(0xFF7C3AED)],
-                              ).createShader(bounds),
-                              child: Text('PromptPay',
-                                  style: GoogleFonts.prompt(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
-                            ),
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFFE5E7EB), width: 2),
-                              ),
-                              child: Image.network(
-                                'https://promptpay.io/$_promptPayNumber.png',
-                                width: 200, height: 200, fit: BoxFit.contain,
-                                loadingBuilder: (_, child, progress) {
-                                  if (progress == null) return child;
-                                  return SizedBox(
-                                    width: 200, height: 200,
-                                    child: Center(child: CircularProgressIndicator(
-                                      value: progress.expectedTotalBytes != null
-                                          ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes! : null,
-                                      color: const Color(0xFF6366F1),
-                                    )),
-                                  );
-                                },
-                                errorBuilder: (_, __, ___) => const SizedBox(
-                                  width: 200, height: 200,
-                                  child: Center(child: Icon(Icons.qr_code, size: 80, color: Color(0xFFCBD5E1))),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: _saving ? null : _saveQR,
-                                icon: _saving
-                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                    : Icon(_saved ? Icons.check : Icons.download, size: 16),
-                                label: Text(
-                                  _saved ? 'บันทึกแล้ว ✓' : 'บันทึก QR เพื่อโอนผ่าน Mobile Banking',
-                                  style: GoogleFonts.prompt(fontSize: 13, fontWeight: FontWeight.w600),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _saved ? const Color(0xFF22C55E) : const Color(0xFF6366F1),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  elevation: 0,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text('📱 บันทึกรูป QR → เปิดแอปธนาคาร → สแกน QR จากรูปภาพ',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.prompt(fontSize: 11, color: const Color(0xFF9CA3AF), height: 1.5)),
-                          ],
-                        ),
-                      ),
-                    ],
+                  error: (_, _) => const SizedBox.shrink(),
+                  data: (list) => LatestDonorsStrip(donations: list, forLightBackground: false),
+                ),
+
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _openStripeOnWeb,
+                    icon: const Icon(Icons.credit_card, color: Color(0xFF6366F1)),
+                    label: Text(
+                      'เลี้ยงกาแฟด้วยบัตร / Apple Pay (Stripe) — เปิดเว็บ',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.prompt(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.white),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                      side: const BorderSide(color: Color(0xFF6366F1)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 24),
 
-                // Amount suggestions
                 Row(
                   children: [
-                    _AmountCard(emoji: '☕', amount: '฿20', desc: 'กาแฟ 1 แก้ว'),
+                    _AmountCard(emoji: '☕', amount: '฿30', desc: 'กาแฟรถเข็น'),
                     const SizedBox(width: 10),
-                    _AmountCard(emoji: '🍜', amount: '฿50', desc: 'ข้าวกลางวัน'),
+                    _AmountCard(emoji: '📦', amount: '฿50', desc: 'Café Amazon'),
                     const SizedBox(width: 10),
-                    _AmountCard(emoji: '💪', amount: '฿100', desc: 'ค่าเซิร์ฟเวอร์'),
+                    _AmountCard(emoji: '☕', amount: '฿99', desc: 'Starbucks'),
                   ],
                 ),
 
                 const SizedBox(height: 24),
 
-                // Feedback section
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withOpacity(0.12)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,17 +197,17 @@ class _DonateScreenState extends State<DonateScreen> {
                                 const Text('💛', style: TextStyle(fontSize: 40)),
                                 const SizedBox(height: 8),
                                 Text('ขอบคุณสำหรับข้อความครับ!',
-                                    style: GoogleFonts.prompt(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.8))),
+                                    style: GoogleFonts.prompt(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.8))),
                                 const SizedBox(height: 4),
                                 Text('ทีมงานจะอ่านทุกข้อความ 🙏',
-                                    style: GoogleFonts.prompt(fontSize: 12, color: Colors.white.withOpacity(0.5))),
+                                    style: GoogleFonts.prompt(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
                               ],
                             ),
                           ),
                         ),
                       ] else ...[
                         Text('อยากให้เพิ่มฟีเจอร์อะไร? มีข้อเสนอแนะ? หรือแค่อยากส่งกำลังใจ — เขียนถึงเราได้เลยครับ 😊',
-                            style: GoogleFonts.prompt(fontSize: 13, color: Colors.white.withOpacity(0.6), height: 1.6)),
+                            style: GoogleFonts.prompt(fontSize: 13, color: Colors.white.withValues(alpha: 0.6), height: 1.6)),
                         const SizedBox(height: 12),
                         TextField(
                           controller: _feedbackController,
@@ -290,16 +215,16 @@ class _DonateScreenState extends State<DonateScreen> {
                           style: GoogleFonts.prompt(color: Colors.white, fontSize: 14),
                           decoration: InputDecoration(
                             hintText: 'เขียนข้อความถึงทีมงาน...',
-                            hintStyle: GoogleFonts.prompt(color: Colors.white.withOpacity(0.3), fontSize: 14),
+                            hintStyle: GoogleFonts.prompt(color: Colors.white.withValues(alpha: 0.3), fontSize: 14),
                             filled: true,
-                            fillColor: Colors.white.withOpacity(0.08),
+                            fillColor: Colors.white.withValues(alpha: 0.08),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -336,12 +261,11 @@ class _DonateScreenState extends State<DonateScreen> {
 
                 const SizedBox(height: 32),
 
-                // Footer
                 Text('❤️ ขอบคุณทุกน้ำใจ',
-                    style: GoogleFonts.prompt(fontSize: 13, color: Colors.white.withOpacity(0.4))),
+                    style: GoogleFonts.prompt(fontSize: 13, color: Colors.white.withValues(alpha: 0.4))),
                 const SizedBox(height: 4),
                 Text('Made with love for Thailand 🇹🇭',
-                    style: GoogleFonts.prompt(fontSize: 11, color: Colors.white.withOpacity(0.3))),
+                    style: GoogleFonts.prompt(fontSize: 11, color: Colors.white.withValues(alpha: 0.3))),
 
                 const SizedBox(height: 24),
               ],
@@ -366,9 +290,9 @@ class _AmountCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: Column(
           children: [
@@ -376,7 +300,7 @@ class _AmountCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(amount, style: GoogleFonts.prompt(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
             const SizedBox(height: 2),
-            Text(desc, style: GoogleFonts.prompt(fontSize: 10, color: Colors.white.withOpacity(0.5))),
+            Text(desc, style: GoogleFonts.prompt(fontSize: 10, color: Colors.white.withValues(alpha: 0.5))),
           ],
         ),
       ),

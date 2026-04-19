@@ -1,15 +1,74 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Heart, ArrowLeft, Download, MessageCircle, Send } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, MessageCircle, Send } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DonatePage() {
-  const [saved, setSaved] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [sending, setSending] = useState(false);
-  const PROMPTPAY_NUMBER = '0877484066';
+  const [donorName, setDonorName] = useState('');
+  const [customThb, setCustomThb] = useState('');
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [banner, setBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search).get('donation');
+    if (q === 'success') {
+      setBanner('ขอบคุณที่เลี้ยงกาแฟทีมงาน — น้ำใจของคุณถึงเราแล้ว 💛');
+      window.history.replaceState({}, '', '/donate');
+    } else if (q === 'cancel') {
+      setBanner('ยกเลิกการเลี้ยงกาแฟ — ลองใหม่เมื่อพร้อมได้ครับ');
+      window.history.replaceState({}, '', '/donate');
+    }
+  }, []);
+
+  const startStripeCheckout = async (amountThb: number) => {
+    setCheckoutError(null);
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch('/api/donations/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountThb,
+          displayName: donorName.trim() || undefined,
+        }),
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok) {
+        if (res.status === 503 && (data.error ?? '').toLowerCase().includes('stripe')) {
+          setCheckoutError(
+            'ระบบชำระเงินยังไม่พร้อมบนเซิร์ฟเวอร์นี้ (ตั้งค่า STRIPE_SECRET_KEY ใน Vercel / .env แล้วลองใหม่)',
+          );
+        } else {
+          setCheckoutError(data.error ?? 'เริ่มชำระเงินไม่สำเร็จ');
+        }
+        return;
+      }
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setCheckoutError('ไม่ได้รับลิงก์ชำระเงิน');
+    } catch {
+      setCheckoutError('เครือข่ายมีปัญหา ลองใหม่ภายหลัง');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const onCustomDonate = () => {
+    const n = parseInt(customThb.replace(/\D/g, ''), 10);
+    if (!Number.isFinite(n) || n < 10) {
+      setCheckoutError('กรุณากรอกจำนวนเงินเป็นบาทเต็ม (ขั้นต่ำ 10)');
+      return;
+    }
+    void startStripeCheckout(n);
+  };
 
   const handleSendFeedback = async () => {
     if (!feedback.trim()) return;
@@ -25,26 +84,6 @@ export default function DonatePage() {
     setSending(false);
     setFeedback('');
     setTimeout(() => setFeedbackSent(false), 5000);
-  };
-
-  const handleSaveQR = async () => {
-    try {
-      const res = await fetch(`https://promptpay.io/${PROMPTPAY_NUMBER}.png`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'promptpay-donate.png';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch {
-      // Fallback: open in new tab
-      window.open(`https://promptpay.io/${PROMPTPAY_NUMBER}.png`, '_blank');
-    }
   };
 
   return (
@@ -112,112 +151,6 @@ export default function DonatePage() {
           margin: 0 auto;
         }
 
-        .qr-card {
-          background: rgba(255,255,255,0.95);
-          border-radius: 24px;
-          padding: 28px 24px;
-          text-align: center;
-          margin-bottom: 24px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
-          position: relative;
-          overflow: hidden;
-        }
-
-        .qr-card::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 4px;
-          background: linear-gradient(90deg, #fbbf24, #f472b6, #a78bfa);
-        }
-
-        .qr-label {
-          font-size: 13px;
-          color: #6b7280;
-          font-weight: 600;
-          margin-bottom: 4px;
-          letter-spacing: 0.3px;
-        }
-
-        .qr-brand {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          margin-bottom: 16px;
-        }
-
-        .qr-brand-text {
-          font-size: 20px;
-          font-weight: 700;
-          background: linear-gradient(135deg, #1e40af, #7c3aed);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .qr-image-wrap {
-          background: white;
-          border-radius: 16px;
-          padding: 16px;
-          display: inline-block;
-          margin-bottom: 16px;
-          border: 2px solid #e5e7eb;
-        }
-
-        .qr-image-wrap img {
-          width: 220px;
-          height: 220px;
-          display: block;
-        }
-
-        .qr-number {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          margin-top: 8px;
-        }
-
-        .qr-number-text {
-          font-size: 22px;
-          font-weight: 700;
-          color: #1e293b;
-          letter-spacing: 1.5px;
-          font-variant-numeric: tabular-nums;
-        }
-
-        .save-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          width: 100%;
-          padding: 12px 20px;
-          background: linear-gradient(135deg, #6366f1, #8b5cf6);
-          border: none;
-          border-radius: 12px;
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
-          font-family: inherit;
-          margin-top: 12px;
-        }
-        .save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.4); }
-        .save-btn.saved { background: linear-gradient(135deg, #22c55e, #16a34a); }
-
-        .qr-instruction {
-          font-size: 12px;
-          color: #9ca3af;
-          margin-top: 12px;
-          line-height: 1.6;
-          text-align: center;
-        }
-
         .message-card {
           background: rgba(255,255,255,0.08);
           backdrop-filter: blur(20px);
@@ -247,46 +180,6 @@ export default function DonatePage() {
           margin-bottom: 10px;
         }
 
-        .amount-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
-          margin-bottom: 24px;
-        }
-
-        .amount-card {
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 14px;
-          padding: 14px 8px;
-          text-align: center;
-          transition: all 0.2s;
-          cursor: default;
-        }
-        .amount-card:hover {
-          background: rgba(255,255,255,0.12);
-          border-color: rgba(255,255,255,0.2);
-          transform: translateY(-2px);
-        }
-
-        .amount-emoji {
-          font-size: 24px;
-          margin-bottom: 6px;
-          display: block;
-        }
-
-        .amount-value {
-          font-size: 18px;
-          font-weight: 700;
-          color: white;
-          margin-bottom: 2px;
-        }
-
-        .amount-desc {
-          font-size: 11px;
-          color: rgba(255,255,255,0.5);
-        }
-
         .donate-footer {
           text-align: center;
           color: rgba(255,255,255,0.4);
@@ -303,6 +196,208 @@ export default function DonatePage() {
         @keyframes heartbeat {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.2); }
+        }
+
+        .donate-banner {
+          background: rgba(34, 197, 94, 0.15);
+          border: 1px solid rgba(34, 197, 94, 0.35);
+          color: #bbf7d0;
+          padding: 12px 14px;
+          border-radius: 12px;
+          font-size: 14px;
+          line-height: 1.5;
+          margin-bottom: 20px;
+          text-align: center;
+        }
+
+        .stripe-card {
+          background: rgba(255,255,255,0.08);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 20px;
+          padding: 22px 20px;
+          margin-bottom: 22px;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .stripe-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 16px;
+          font-weight: 700;
+          margin-bottom: 6px;
+          color: #e0e7ff;
+        }
+
+        .stripe-desc {
+          font-size: 12px;
+          color: rgba(255,255,255,0.55);
+          margin-bottom: 16px;
+          line-height: 1.5;
+        }
+
+        .stripe-name-input {
+          width: 100%;
+          padding: 10px 12px;
+          margin-bottom: 14px;
+          border-radius: 10px;
+          border: 1px solid rgba(255,255,255,0.15);
+          background: rgba(255,255,255,0.06);
+          color: white;
+          font-size: 14px;
+          font-family: inherit;
+          outline: none;
+        }
+        .stripe-name-input::placeholder { color: rgba(255,255,255,0.35); }
+        .stripe-name-input:focus { border-color: rgba(129, 140, 248, 0.8); }
+
+        .stripe-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+
+        .stripe-title-icon {
+          width: 28px;
+          height: 28px;
+          object-fit: contain;
+          flex-shrink: 0;
+          filter: drop-shadow(0 1px 4px rgba(0,0,0,0.35));
+        }
+
+        .stripe-tier {
+          flex-direction: column;
+          gap: 6px;
+          padding: 14px 6px 12px;
+          min-height: 118px;
+        }
+
+        .stripe-tier-icon {
+          width: 44px;
+          height: 44px;
+          object-fit: contain;
+          flex-shrink: 0;
+          filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+        }
+
+        /* Café Amazon: official OG promo art from cafe-amazon.com — crop toward cup/logo on the right */
+        .stripe-tier-icon--photo {
+          object-fit: cover;
+          border-radius: 10px;
+          box-sizing: border-box;
+          border: 1px solid rgba(255,255,255,0.22);
+        }
+        .stripe-tier-icon--cafe-amazon {
+          object-position: 84% 44%;
+        }
+
+        /* Starbucks siren (Wikimedia / Wikipedia fair-use file) — light backing for contrast on purple */
+        .stripe-tier-icon--starbucks {
+          object-fit: contain;
+          background: rgba(255,255,255,0.14);
+          border-radius: 50%;
+          padding: 3px;
+        }
+
+        .stripe-tier-label {
+          font-size: 11px;
+          font-weight: 700;
+          line-height: 1.25;
+          text-align: center;
+          max-width: 100%;
+          padding: 0 2px;
+        }
+
+        .stripe-tier-price {
+          font-size: 14px;
+          font-weight: 800;
+          opacity: 0.92;
+          letter-spacing: 0.02em;
+        }
+
+        .stripe-cta {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 12px 10px;
+          border-radius: 12px;
+          border: none;
+          font-size: 15px;
+          font-weight: 700;
+          font-family: inherit;
+          cursor: pointer;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: white;
+          transition: transform 0.15s, box-shadow 0.15s;
+          box-sizing: border-box;
+        }
+        .stripe-grid .stripe-cta {
+          width: 100%;
+        }
+        .stripe-cta:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(99,102,241,0.45);
+        }
+        .stripe-cta:disabled {
+          opacity: 0.55;
+          cursor: default;
+        }
+
+        .stripe-custom-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: stretch;
+        }
+
+        .stripe-custom-input {
+          flex: 1 1 120px;
+          min-width: 0;
+          padding: 10px 12px;
+          border-radius: 10px;
+          border: 1px solid rgba(255,255,255,0.15);
+          background: rgba(255,255,255,0.06);
+          color: white;
+          font-size: 14px;
+          font-family: inherit;
+          outline: none;
+        }
+        .stripe-custom-input:focus { border-color: rgba(129, 140, 248, 0.8); }
+
+        .stripe-custom-row .stripe-cta {
+          flex: 0 0 auto;
+          width: auto;
+          min-width: 132px;
+          padding-left: 14px;
+          padding-right: 14px;
+          white-space: nowrap;
+        }
+
+        .stripe-custom-row .stripe-cta .stripe-btn-icon {
+          width: 22px;
+          height: 22px;
+          object-fit: contain;
+          flex-shrink: 0;
+        }
+
+        @media (max-width: 360px) {
+          .stripe-custom-row .stripe-cta {
+            flex: 1 1 100%;
+            width: 100%;
+          }
+        }
+
+        .stripe-error {
+          margin-top: 10px;
+          font-size: 13px;
+          color: #fecaca;
+          text-align: center;
+          line-height: 1.5;
+          padding: 0 4px;
         }
       `}</style>
 
@@ -321,49 +416,89 @@ export default function DonatePage() {
           </p>
         </div>
 
-        {/* QR Card */}
-        <div className="qr-card">
-          <div className="qr-label">สแกนเพื่อบริจาค</div>
-          <div className="qr-brand">
-            <span className="qr-brand-text">PromptPay</span>
-          </div>
-          <div className="qr-image-wrap">
-            <img
-              src={`https://promptpay.io/${PROMPTPAY_NUMBER}.png`}
-              alt="PromptPay QR Code"
-              width={220}
-              height={220}
-            />
-          </div>
-          <button
-            className={`save-btn ${saved ? 'saved' : ''}`}
-            onClick={handleSaveQR}
-          >
-            <Download size={16} />
-            {saved ? 'บันทึกแล้ว ✓' : 'บันทึก QR เพื่อโอนผ่าน Mobile Banking'}
-          </button>
-          <div className="qr-instruction">
-            📱 บันทึกรูป QR → เปิดแอปธนาคาร → สแกน QR จากรูปภาพ
-          </div>
-        </div>
+        {banner && <div className="donate-banner">{banner}</div>}
 
-        {/* Suggested amounts */}
-        <div className="amount-grid">
-          <div className="amount-card">
-            <span className="amount-emoji">☕</span>
-            <div className="amount-value">฿20</div>
-            <div className="amount-desc">กาแฟ 1 แก้ว</div>
+        {/* Stripe */}
+        <div className="stripe-card">
+          <div className="stripe-title">
+            <img className="stripe-title-icon" src="/icons/donate.svg" alt="" width={28} height={28} />
+            เลี้ยงกาแฟด้วยบัตร / Apple Pay
           </div>
-          <div className="amount-card">
-            <span className="amount-emoji">🍜</span>
-            <div className="amount-value">฿50</div>
-            <div className="amount-desc">ข้าวกลางวัน</div>
+          <p className="stripe-desc">
+            ชำระผ่าน Stripe (THB) — ระบุชื่อเพื่อขึ้นกระดานเกียรติยศในแอป (ไม่บังคับ)
+          </p>
+          <input
+            className="stripe-name-input"
+            placeholder="ชื่อที่แสดงบนกระดาน (ไม่บังคับ)"
+            value={donorName}
+            onChange={(e) => setDonorName(e.target.value)}
+            maxLength={60}
+            disabled={checkoutLoading}
+          />
+          <div className="stripe-grid">
+            <button
+              type="button"
+              className="stripe-cta stripe-tier"
+              disabled={checkoutLoading}
+              onClick={() => void startStripeCheckout(30)}
+            >
+              <img className="stripe-tier-icon" src="/icons/donate.svg" alt="" width={44} height={44} />
+              <span className="stripe-tier-label">กาแฟรถเข็น</span>
+              <span className="stripe-tier-price">฿30</span>
+            </button>
+            <button
+              type="button"
+              className="stripe-cta stripe-tier"
+              disabled={checkoutLoading}
+              onClick={() => void startStripeCheckout(50)}
+            >
+              <img
+                className="stripe-tier-icon stripe-tier-icon--photo stripe-tier-icon--cafe-amazon"
+                src="/brand/cafe-amazon.png"
+                alt="Café Amazon"
+                width={44}
+                height={44}
+              />
+              <span className="stripe-tier-label">Café Amazon</span>
+              <span className="stripe-tier-price">฿50</span>
+            </button>
+            <button
+              type="button"
+              className="stripe-cta stripe-tier"
+              disabled={checkoutLoading}
+              onClick={() => void startStripeCheckout(99)}
+            >
+              <img
+                className="stripe-tier-icon stripe-tier-icon--starbucks"
+                src="/brand/starbucks.svg"
+                alt="Starbucks"
+                width={44}
+                height={44}
+              />
+              <span className="stripe-tier-label">Starbucks</span>
+              <span className="stripe-tier-price">฿99</span>
+            </button>
           </div>
-          <div className="amount-card">
-            <span className="amount-emoji">💪</span>
-            <div className="amount-value">฿100</div>
-            <div className="amount-desc">ค่าเซิร์ฟเวอร์</div>
+          <div className="stripe-custom-row">
+            <input
+              className="stripe-custom-input"
+              inputMode="numeric"
+              placeholder="จำนวนอื่น (บาทเต็ม)"
+              value={customThb}
+              onChange={(e) => setCustomThb(e.target.value)}
+              disabled={checkoutLoading}
+            />
+            <button type="button" className="stripe-cta" disabled={checkoutLoading} onClick={onCustomDonate}>
+              <img className="stripe-btn-icon" src="/icons/donate.svg" alt="" width={22} height={22} />
+              เลี้ยงกาแฟ
+            </button>
           </div>
+          {checkoutLoading && (
+            <div style={{ textAlign: 'center', marginTop: 10, fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>
+              กำลังเปิด Stripe เพื่อเลี้ยงกาแฟ…
+            </div>
+          )}
+          {checkoutError && <div className="stripe-error">{checkoutError}</div>}
         </div>
 
         {/* Feedback section */}

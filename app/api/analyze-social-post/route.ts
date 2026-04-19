@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         Do not include markdown formatting, just the raw JSON.
         
         Required fields:
-        - species: "dog", "cat", or "other" (infer from image or text)
+        - species: "dog", "cat", or null if the pet is not clearly a dog or cat (do not use "other" — birds, rabbits, etc. should be null)
         - pet_name: Name of the pet if mentioned, otherwise null
         - breed: Breed if mentioned or visually obvious, otherwise null
         - color: Description of color/pattern
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         - reward: Reward amount if mentioned, otherwise null
         - owner_name: Name of the owner if mentioned, otherwise null
         
-        If the image is not a lost pet post, still try to extract visual pet details (species, color, breed).
+        If the image is not a lost pet post, still try to extract visual pet details for dogs and cats only (species dog/cat or null).
         `;
 
         const result = await model.generateContent([
@@ -79,6 +79,12 @@ export async function POST(request: NextRequest) {
         } catch (e) {
             console.error('Failed to parse Gemini response:', text);
             return NextResponse.json({ success: false, error: 'Failed to parse AI response' }, { status: 500 });
+        }
+
+        // App focus: dogs and cats only — drop any other species label from imports
+        if (data.species != null) {
+            const s = String(data.species).trim().toLowerCase();
+            data.species = s === 'dog' || s === 'cat' ? s : null;
         }
 
         return NextResponse.json({ success: true, data });
