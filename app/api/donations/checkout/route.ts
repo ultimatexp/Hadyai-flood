@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         },
       },
     ],
-    success_url: `${origin}/donate?donation=success`,
+    success_url: `${origin}/donate/thank-you?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/donate?donation=cancel`,
     metadata: {
       display_name: displayName ?? '',
