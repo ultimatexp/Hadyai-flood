@@ -161,9 +161,6 @@ export default function DonateThankYouPage() {
         {sessionId ? <div className="thankyou-meta">Stripe session: {sessionId}</div> : null}
 
         <div className="thankyou-actions">
-          <Link className="thankyou-btn thankyou-btn-primary" href="/fuel">
-            กลับหน้าหลัก
-          </Link>
           <Link className="thankyou-btn thankyou-btn-secondary" href="/donate">
             ไปหน้าเลี้ยงกาแฟ
           </Link>
