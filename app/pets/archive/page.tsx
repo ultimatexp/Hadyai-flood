@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { Search, Filter, MapPin, Calendar, PawPrint, Loader2, Plus } from "lucide-react";
 import { ThaiButton } from "@/components/ui/thai-button";
 import { LostPetForm } from "@/components/pet/lost-pet-form";
@@ -78,7 +78,9 @@ export default function PetArchivePage() {
                             </h1>
                             <p className="text-gray-600">รวมรายการสัตว์เลี้ยงที่กำลังตามหา</p>
                         </div>
-                        <LostPetForm />
+                        <Suspense fallback={<ThaiButton disabled>กำลังโหลด...</ThaiButton>}>
+                            <LostPetForm />
+                        </Suspense>
                     </div>
 
                     {/* Search and Filters */}

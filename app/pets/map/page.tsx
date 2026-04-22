@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { getAllPetLocations } from "@/app/actions/map";
 import { getShelters } from "@/app/actions/shelter";
@@ -22,7 +22,7 @@ const MapWithNoSSR = dynamic(() => import("@/components/map/pet-map"), {
     ),
 });
 
-export default function PetMapPage() {
+function PetMapPageInner() {
     const [pets, setPets] = useState<any[]>([]);
     const [shelters, setShelters] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -171,5 +171,19 @@ export default function PetMapPage() {
             </div>
             <LostPetForm open={isLostPetFormOpen} onOpenChange={setIsLostPetFormOpen} />
         </div>
+    );
+}
+
+export default function PetMapPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="w-full h-screen flex items-center justify-center bg-gray-100">
+                    <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                </div>
+            }
+        >
+            <PetMapPageInner />
+        </Suspense>
     );
 }
