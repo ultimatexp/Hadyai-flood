@@ -65,6 +65,9 @@ export default function AdminModerationPage() {
             if (report.entity_type === "pet" && report.entity_id) {
                 await supabase.from("pets").delete().eq("id", report.entity_id);
             }
+            if (report.entity_type === "feed_post" && report.entity_id) {
+                await supabase.from("feed_posts").delete().eq("id", report.entity_id);
+            }
 
             await supabase
                 .from("reports")

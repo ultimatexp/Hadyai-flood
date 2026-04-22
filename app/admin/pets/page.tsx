@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Loader2, Trash2, Search, Filter, Pencil } from "lucide-react";
+import { Loader2, Trash2, Search, Pencil } from "lucide-react";
 import { ThaiButton } from "@/components/ui/thai-button";
 import { EditPetDialog } from "./edit-pet-dialog";
 
@@ -13,6 +13,8 @@ export default function AdminPetsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [editingPet, setEditingPet] = useState<any>(null);
+    const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
 
     useEffect(() => {
         fetchPets();
@@ -48,6 +50,7 @@ export default function AdminPetsPage() {
             alert("Failed to delete pet: " + error.message);
         } else {
             setPets(prev => prev.filter(p => p.id !== id));
+            setSelectedPetIds(prev => prev.filter(selectedId => selectedId !== id));
         }
         setDeletingId(null);
     };
@@ -62,6 +65,54 @@ export default function AdminPetsPage() {
 
         return matchesSearch && matchesStatus;
     });
+
+    const allFilteredSelected = filteredPets.length > 0 && filteredPets.every((pet) => selectedPetIds.includes(pet.id));
+    const selectedFilteredCount = filteredPets.filter((pet) => selectedPetIds.includes(pet.id)).length;
+
+    const togglePetSelection = (id: string) => {
+        setSelectedPetIds((prev) => {
+            if (prev.includes(id)) return prev.filter((selectedId) => selectedId !== id);
+            return [...prev, id];
+        });
+    };
+
+    const toggleSelectAllFiltered = () => {
+        if (allFilteredSelected) {
+            const filteredIds = new Set(filteredPets.map((pet) => pet.id));
+            setSelectedPetIds((prev) => prev.filter((id) => !filteredIds.has(id)));
+            return;
+        }
+        const merged = new Set(selectedPetIds);
+        filteredPets.forEach((pet) => merged.add(pet.id));
+        setSelectedPetIds(Array.from(merged));
+    };
+
+    const handleBulkDelete = async () => {
+        const idsToDelete = filteredPets
+            .map((pet) => pet.id)
+            .filter((id) => selectedPetIds.includes(id));
+
+        if (idsToDelete.length === 0) {
+            alert("No selected pets in current filter.");
+            return;
+        }
+
+        if (!confirm(`Delete ${idsToDelete.length} selected pets? This action cannot be undone.`)) return;
+
+        setBulkDeleting(true);
+        const { error } = await supabase
+            .from("pets")
+            .delete()
+            .in("id", idsToDelete);
+
+        if (error) {
+            alert("Failed to delete selected pets: " + error.message);
+        } else {
+            setPets((prev) => prev.filter((pet) => !idsToDelete.includes(pet.id)));
+            setSelectedPetIds((prev) => prev.filter((id) => !idsToDelete.includes(id)));
+        }
+        setBulkDeleting(false);
+    };
 
     return (
         <div>
@@ -88,6 +139,20 @@ export default function AdminPetsPage() {
                         <option value="FOUND">เจอแล้ว (Found)</option>
                         <option value="LOST">หาย (Lost)</option>
                     </select>
+                    <ThaiButton
+                        size="sm"
+                        variant="danger"
+                        onClick={handleBulkDelete}
+                        disabled={selectedFilteredCount === 0 || bulkDeleting}
+                        className="whitespace-nowrap"
+                    >
+                        {bulkDeleting ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                        ) : (
+                            <Trash2 className="w-4 h-4 mr-1" />
+                        )}
+                        Delete Selected ({selectedFilteredCount})
+                    </ThaiButton>
                 </div>
             </div>
 
@@ -96,6 +161,15 @@ export default function AdminPetsPage() {
                     <table className="w-full text-sm text-left">
                         <thead className="bg-gray-50 text-gray-700 uppercase">
                             <tr>
+                                <th className="px-6 py-3 w-10">
+                                    <input
+                                        type="checkbox"
+                                        checked={allFilteredSelected}
+                                        onChange={toggleSelectAllFiltered}
+                                        aria-label="Select all filtered pets"
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                </th>
                                 <th className="px-6 py-3">Image</th>
                                 <th className="px-6 py-3">Status</th>
                                 <th className="px-6 py-3">Info</th>
@@ -107,7 +181,7 @@ export default function AdminPetsPage() {
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                                         <div className="flex flex-col items-center gap-2">
                                             <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
                                             <p>Loading pets...</p>
@@ -116,13 +190,22 @@ export default function AdminPetsPage() {
                                 </tr>
                             ) : filteredPets.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                                         No pets found matching your criteria.
                                     </td>
                                 </tr>
                             ) : (
                                 filteredPets.map((pet) => (
                                     <tr key={pet.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedPetIds.includes(pet.id)}
+                                                onChange={() => togglePetSelection(pet.id)}
+                                                aria-label={`Select pet ${pet.id}`}
+                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                        </td>
                                         <td className="px-6 py-4">
                                             <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
                                                 {pet.image_url ? (

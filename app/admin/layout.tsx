@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, PawPrint, Shield } from "lucide-react";
+import { LayoutDashboard, PawPrint, Shield, Newspaper } from "lucide-react";
 
 export default function AdminLayout({
     children,
@@ -31,6 +31,13 @@ export default function AdminLayout({
                             >
                                 <PawPrint className="w-4 h-4" />
                                 Pets
+                            </Link>
+                            <Link
+                                href="/admin/feeds"
+                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-cyan-700 hover:bg-cyan-50 rounded-lg transition-colors flex items-center gap-2"
+                            >
+                                <Newspaper className="w-4 h-4" />
+                                Feeds
                             </Link>
                             <Link
                                 href="/admin/moderation"
@@ -71,6 +78,12 @@ export default function AdminLayout({
                         className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
                     >
                         Pets
+                    </Link>
+                    <Link
+                        href="/admin/feeds"
+                        className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-cyan-700 hover:bg-cyan-50 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+                    >
+                        Feeds
                     </Link>
                     <Link
                         href="/admin/moderation"
