@@ -81,6 +81,23 @@ function FindPetPageInner() {
         }
     }, [searchParams]);
 
+    // Deep-link dialog: /find-pet?open=lost
+    useEffect(() => {
+        const open = searchParams.get("open");
+        if (open !== "lost") return;
+
+        if (!user) {
+            toastWarning('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
+            const qs = searchParams.toString();
+            const nextPath = `${pathname}${qs ? `?${qs}` : ""}`;
+            router.push(`/login?next=${encodeURIComponent(nextPath)}`);
+            return;
+        }
+
+        setIsLostPetFormOpen(true);
+        setIsDropdownOpen(false);
+    }, [pathname, router, searchParams, toastWarning, user]);
+
     const handleReportLostPetClick = () => {
         if (!user) {
             toastWarning('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
