@@ -149,6 +149,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       );
       
       // Mark onboarding as complete
+      await repo.acceptTerms();
       await repo.completeOnboarding();
 
       if (mounted) {

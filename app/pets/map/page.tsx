@@ -10,7 +10,7 @@ import { ThaiButton } from "@/components/ui/thai-button";
 import { LostPetForm } from "@/components/pet/lost-pet-form";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 // Dynamically import Map component to avoid SSR issues
 const MapWithNoSSR = dynamic(() => import("@/components/map/pet-map"), {
@@ -31,6 +31,8 @@ export default function PetMapPage() {
     const [isLostPetFormOpen, setIsLostPetFormOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, setUser);
@@ -40,7 +42,9 @@ export default function PetMapPage() {
     const handleReportLostPetClick = () => {
         if (!user) {
             alert('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
-            router.push('/login');
+            const qs = searchParams.toString();
+            const nextPath = `${pathname}${qs ? `?${qs}` : ""}`;
+            router.push(`/login?next=${encodeURIComponent(nextPath)}`);
             return;
         }
         setIsLostPetFormOpen(true);

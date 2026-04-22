@@ -1,6 +1,6 @@
 "use client";
 
-import PhoneLogin from "@/components/auth/phone-login";
+import LineLiffLogin from "@/components/auth/line-liff-login";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { useEffect } from "react";
@@ -16,8 +16,7 @@ export default function HelperLoginPage() {
             if (user) {
                 const { syncUserRole, updateUserProfile } = await import("@/app/actions/auth");
 
-                if (user.isAnonymous) {
-                    // Admin Login: Auto-set name to skip onboarding
+                if (user.isAnonymous || user.uid === "web_admin_console") {
                     await updateUserProfile(user.uid, { name: "Administrator" });
                 }
 
@@ -47,7 +46,7 @@ export default function HelperLoginPage() {
                     <p className="text-gray-500 mt-2">ระบบสำหรับอาสาสมัครและเจ้าหน้าที่</p>
                 </div>
 
-                <PhoneLogin minimal onSuccess={() => { }} />
+                <LineLiffLogin minimal showStaffGate onSuccess={() => { }} />
             </div>
         </div>
     );

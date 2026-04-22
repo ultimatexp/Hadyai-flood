@@ -1,6 +1,6 @@
 "use client";
 
-import PhoneLogin from "@/components/auth/phone-login";
+import LineLiffLogin from "@/components/auth/line-liff-login";
 import Link from "next/link";
 import { ChevronLeft, Users, Heart } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -8,25 +8,43 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
+function resolveSafeReturnPath(raw: string | null): string | null {
+    if (!raw) return null;
+    if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+    if (raw.startsWith("/login")) return null;
+    return raw;
+}
+
 export default function LoginPage() {
     const router = useRouter();
     const [selectedRole, setSelectedRole] = useState<'member' | 'volunteer' | null>(null);
+    const [returnTo, setReturnTo] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const next = new URLSearchParams(window.location.search).get("next");
+        setReturnTo(resolveSafeReturnPath(next));
+    }, []);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user && selectedRole) {
                 const { syncUserRole, updateUserProfile } = await import("@/app/actions/auth");
 
-                if (user.isAnonymous) {
-                    // Admin Login: Auto-set name to skip onboarding
+                if (user.isAnonymous || user.uid === "web_admin_console") {
                     await updateUserProfile(user.uid, { name: "Administrator" });
                 }
 
                 // Sync role based on selection
                 await syncUserRole(user.uid, selectedRole);
 
-                // Redirect based on role
-                if (selectedRole === 'volunteer') {
+                if (returnTo) {
+                    router.push(returnTo);
+                    return;
+                }
+
+                // Redirect fallback based on role
+                if (selectedRole === "volunteer") {
                     router.push("/helper");
                 } else {
                     router.push("/");
@@ -34,7 +52,7 @@ export default function LoginPage() {
             }
         });
         return () => unsubscribe();
-    }, [router, selectedRole]);
+    }, [router, returnTo, selectedRole]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 flex flex-col items-center justify-center p-4">
@@ -111,11 +129,11 @@ export default function LoginPage() {
                             <p className="text-gray-500 mt-2">
                                 {selectedRole === 'volunteer'
                                     ? 'ระบบสำหรับอาสาสมัครและเจ้าหน้าที่'
-                                    : 'เข้าสู่ระบบด้วยเบอร์โทรศัพท์'}
+                                    : 'เข้าสู่ระบบด้วย LINE (รองรับ LIFF)'}
                             </p>
                         </div>
 
-                        <PhoneLogin minimal onSuccess={() => { }} />
+                        <LineLiffLogin minimal onSuccess={() => { }} />
                     </div>
                 )}
             </div>

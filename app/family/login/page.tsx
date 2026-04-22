@@ -1,6 +1,6 @@
 "use client";
 
-import PhoneLogin from "@/components/auth/phone-login";
+import LineLiffLogin from "@/components/auth/line-liff-login";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
 import { auth } from "@/lib/firebase";
@@ -32,7 +32,7 @@ function FamilyLoginContent() {
                     <p className="text-blue-100 mt-2">ติดตามสถานะคนในครอบครัว</p>
                 </div>
                 <div className="p-6">
-                    <PhoneLogin minimal onSuccess={() => router.push(redirectUrl)} />
+                    <LineLiffLogin minimal onSuccess={() => router.push(redirectUrl)} />
                 </div>
             </div>
         </div>

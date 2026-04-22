@@ -1,10 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+function resolveBaseUrl(request: NextRequest): string {
+  const explicitBaseUrl =
+    process.env.LINE_LOGIN_BASE_URL?.replace(/\/$/, '') ??
+    process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, '');
+
+  if (process.env.NODE_ENV === 'production' && explicitBaseUrl) {
+    return explicitBaseUrl;
+  }
+
+  return request.nextUrl.origin;
+}
+
+export async function GET(request: NextRequest) {
   const channelId = process.env.LINE_CHANNEL_ID;
-  // Determine the base URL from environment or default
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+  const baseUrl = resolveBaseUrl(request);
   const redirectUri = `${baseUrl}/api/auth/line/callback`;
   
   // Generate a random state for CSRF protection

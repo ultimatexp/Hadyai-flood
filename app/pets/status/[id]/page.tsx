@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getPetDetails, updatePetStatus, addPetImages, updatePetDetails } from "@/app/actions/pet";
 import { supabase } from "@/lib/supabase";
 import { Loader2, ShieldCheck, ShieldAlert, ShieldQuestion, Clock, MapPin, Phone, User, PawPrint, CheckCircle, ArrowLeft, ChevronLeft, ChevronRight, Pencil, ImagePlus, Eye, EyeOff } from "lucide-react";
@@ -23,6 +23,10 @@ export default function PetStatusPage() {
     const params = useParams();
     const id = params?.id as string;
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const qs = searchParams.toString();
+    const loginHref = `/login?next=${encodeURIComponent(`${pathname}${qs ? `?${qs}` : ""}`)}`;
 
     const [petData, setPetData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -383,7 +387,7 @@ export default function PetStatusPage() {
                     ) : (
                         <div className="bg-white p-6 rounded-xl border shadow-sm text-center">
                             <p className="text-gray-600 mb-4">กรุณาเข้าสู่ระบบเพื่อส่งข้อความถึงเจ้าของ</p>
-                            <Link href="/login">
+                            <Link href={loginHref}>
                                 <ThaiButton>เข้าสู่ระบบ</ThaiButton>
                             </Link>
                         </div>

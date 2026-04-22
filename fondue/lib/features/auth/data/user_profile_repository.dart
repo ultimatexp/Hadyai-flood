@@ -5,6 +5,8 @@ class UserProfileRepository {
 
   UserProfileRepository(this._client);
 
+  static const String currentTermsVersion = '2026-02-08';
+
   Future<void> updateProfile({
     String? name,
     String? contactInfo,
@@ -34,6 +36,21 @@ class UserProfileRepository {
     await _client.auth.updateUser(
       UserAttributes(
         data: {'onboarding_completed': true},
+      ),
+    );
+  }
+
+  Future<void> acceptTerms() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    await _client.auth.updateUser(
+      UserAttributes(
+        data: {
+          'terms_accepted': true,
+          'terms_version': currentTermsVersion,
+          'terms_accepted_at': DateTime.now().toIso8601String(),
+        },
       ),
     );
   }

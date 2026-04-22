@@ -16,6 +16,8 @@ import '../domain/user_stats.dart';
 import 'widgets/reaction_widgets.dart';
 import 'widgets/comment_sheet.dart';
 import '../../dashboard/presentation/dashboard_screen.dart';
+import '../../moderation/presentation/report_dialog.dart';
+import '../../moderation/presentation/block_user_dialog.dart';
 
 /// Instagram-style user profile page.
 /// Pass [userId] to view another user's profile, or leave null for own profile.
@@ -165,6 +167,48 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                                 content: Text('คัดลอกลิงก์โปรไฟล์แล้ว 🔗')),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (!_isOwnProfile && widget.userId != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _ActionButton(
+                        label: 'รายงานผู้ใช้',
+                        icon: Icons.flag_outlined,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          ReportDialog.show(
+                            context,
+                            reportedUserId: widget.userId,
+                            entityId: widget.userId!,
+                            entityType: 'user',
+                            reportedName: _getOtherName(postsAsync) ?? 'ผู้ใช้',
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _ActionButton(
+                        label: 'บล็อกผู้ใช้',
+                        icon: Icons.block,
+                        onTap: () async {
+                          HapticFeedback.selectionClick();
+                          await BlockUserDialog.show(
+                            context,
+                            ref,
+                            blockedUserId: widget.userId!,
+                            blockedUserName: _getOtherName(postsAsync) ?? 'ผู้ใช้',
                           );
                         },
                       ),

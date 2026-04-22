@@ -4,6 +4,7 @@ import '../domain/reaction.dart';
 import '../domain/feed_post.dart';
 import '../domain/story.dart';
 import '../domain/user_stats.dart';
+import '../../pets/presentation/pet_providers.dart';
 
 final _supabase = Supabase.instance.client;
 
@@ -364,7 +365,10 @@ Future<List<BadgeType>> _checkBadges(String userId) async {
 
 /// Feed posts provider with pagination
 final feedPostsProvider = FutureProvider.autoDispose<List<FeedPost>>((ref) async {
-  return fetchFeedPosts();
+  final blockedIds = await ref.watch(blockedUsersProvider.future).catchError((_) => <String>[]);
+  final posts = await fetchFeedPosts();
+  if (blockedIds.isEmpty) return posts;
+  return posts.where((p) => p.userId == null || !blockedIds.contains(p.userId)).toList();
 });
 
 /// Active stories provider
@@ -448,5 +452,8 @@ Future<List<FeedPost>> fetchUserPosts(String userId, {int limit = 50}) async {
 
 /// User posts provider for profile page
 final userPostsProvider = FutureProvider.autoDispose.family<List<FeedPost>, String>((ref, userId) async {
-  return fetchUserPosts(userId);
+  final blockedIds = await ref.watch(blockedUsersProvider.future).catchError((_) => <String>[]);
+  final posts = await fetchUserPosts(userId);
+  if (blockedIds.isEmpty) return posts;
+  return posts.where((p) => p.userId == null || !blockedIds.contains(p.userId)).toList();
 });

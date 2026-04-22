@@ -12,6 +12,8 @@ import 'create_post_screen.dart';
 import '../../pets/presentation/pet_food_scan_screen.dart';
 import '../../../shared/page_transitions.dart';
 import 'user_profile_page.dart';
+import '../../moderation/presentation/report_dialog.dart';
+import '../../moderation/presentation/block_user_dialog.dart';
 /// Instagram-style community feed screen
 class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
@@ -205,17 +207,17 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 // FEED CARD
 // ============================================================
 
-class _FeedCard extends StatefulWidget {
+class _FeedCard extends ConsumerStatefulWidget {
   final FeedPost post;
   final VoidCallback onReactionChanged;
 
   const _FeedCard({required this.post, required this.onReactionChanged});
 
   @override
-  State<_FeedCard> createState() => _FeedCardState();
+  ConsumerState<_FeedCard> createState() => _FeedCardState();
 }
 
-class _FeedCardState extends State<_FeedCard> {
+class _FeedCardState extends ConsumerState<_FeedCard> {
   late Set<ReactionType> _myReactions;
   late ReactionCounts _counts;
   late int _commentCount;
@@ -235,6 +237,20 @@ class _FeedCardState extends State<_FeedCard> {
 
   Future<void> _loadPreviewComments() async {
     try {
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      List<String> blocked = [];
+      if (currentUserId != null) {
+        try {
+          final rows = await Supabase.instance.client
+              .from('blocked_users')
+              .select('blocked_id')
+              .eq('blocker_id', currentUserId);
+          blocked = (rows as List)
+              .map((r) => r['blocked_id'] as String)
+              .toList();
+        } catch (_) {}
+      }
+
       final rows = await Supabase.instance.client
           .from('feed_comments')
           .select('*')
@@ -243,7 +259,13 @@ class _FeedCardState extends State<_FeedCard> {
           .limit(2);
       if (mounted) {
         setState(() {
-          _previewComments = rows.map<FeedComment>((r) => FeedComment.fromJson(r)).toList().reversed.toList();
+          final all = rows
+              .map<FeedComment>((r) => FeedComment.fromJson(r))
+              .toList();
+          final visible = blocked.isEmpty
+              ? all
+              : all.where((c) => !blocked.contains(c.userId)).toList();
+          _previewComments = visible.reversed.toList();
         });
       }
     } catch (_) {}
@@ -346,8 +368,13 @@ class _FeedCardState extends State<_FeedCard> {
                     color: Colors.red[400]!,
                     onTap: () {
                       Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('ขอบคุณ ส่งรายงานแล้ว')),
+                      final post = widget.post;
+                      ReportDialog.show(
+                        context,
+                        reportedUserId: post.userId,
+                        entityId: post.id,
+                        entityType: 'feed_post',
+                        reportedName: post.title,
                       );
                     },
                   ),
@@ -442,11 +469,41 @@ class _FeedCardState extends State<_FeedCard> {
                   title: const Text('รายงานโพสต์', style: TextStyle(fontWeight: FontWeight.w600)),
                   onTap: () {
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('ขอบคุณ ส่งรายงานแล้ว')),
+                    final post = widget.post;
+                    ReportDialog.show(
+                      context,
+                      reportedUserId: post.userId,
+                      entityId: post.id,
+                      entityType: 'feed_post',
+                      reportedName: post.title,
                     );
                   },
                 ),
+                if (widget.post.userId != null) ...[
+                  const SizedBox(height: 4),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.block, color: Colors.red),
+                    ),
+                    title: const Text('บล็อกผู้ใช้', style: TextStyle(fontWeight: FontWeight.w600)),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final post = widget.post;
+                      final name = post.authorName ?? 'ผู้ใช้';
+                      await BlockUserDialog.show(
+                        context,
+                        ref,
+                        blockedUserId: post.userId!,
+                        blockedUserName: name,
+                      );
+                    },
+                  ),
+                ],
               ],
               const SizedBox(height: 12),
             ],

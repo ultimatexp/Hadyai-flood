@@ -11,7 +11,7 @@ import { Loader2, Upload, MapPin, Check, ChevronRight, ChevronLeft, X, Plus, Fac
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 // Dynamically import MapPicker
 const MapPicker = dynamic(() => import("@/components/map/map-picker"), {
@@ -27,6 +27,8 @@ interface LostPetFormProps {
 export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormProps) {
     // Form component for reporting lost pets
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [internalOpen, setInternalOpen] = useState(false);
     const isControlled = externalOpen !== undefined;
     const open = isControlled ? externalOpen : internalOpen;
@@ -322,8 +324,9 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
     const handleOpenDialog = () => {
         if (!user) {
             alert('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
-            // Redirect to login page
-            router.push('/login');
+            const qs = searchParams?.toString();
+            const nextPath = `${pathname}${qs ? `?${qs}` : ""}`;
+            router.push(`/login?next=${encodeURIComponent(nextPath)}`);
             return;
         }
         setOpen(true);

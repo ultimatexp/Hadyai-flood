@@ -18,6 +18,8 @@ import '../../social/data/social_providers.dart';
 import '../data/dashboard_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/presentation/onboarding_screen.dart';
+import '../../auth/presentation/terms_gate_screen.dart';
+import '../../auth/data/user_profile_repository.dart';
 import '../../../shared/page_transitions.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -76,6 +78,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       
       if (user != null && !user.isAnonymous) {
         final onboardingCompleted = user.userMetadata?['onboarding_completed'] == true;
+        final termsAccepted = user.userMetadata?['terms_accepted'] == true;
+        final termsVersion = user.userMetadata?['terms_version'] as String?;
+
+        if (!termsAccepted || termsVersion != UserProfileRepository.currentTermsVersion) {
+          if (mounted) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TermsGateScreen()),
+            );
+          }
+          return;
+        }
         if (!onboardingCompleted) {
           if (mounted) {
             Navigator.push(

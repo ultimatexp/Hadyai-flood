@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/social_providers.dart';
+import '../../../moderation/domain/content_filter.dart';
 
 /// A single comment
 class FeedComment {
@@ -90,6 +91,20 @@ class _CommentSheetState extends State<CommentSheet> {
 
   Future<void> _loadComments() async {
     try {
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      List<String> blocked = [];
+      if (currentUserId != null) {
+        try {
+          final rows = await Supabase.instance.client
+              .from('blocked_users')
+              .select('blocked_id')
+              .eq('blocker_id', currentUserId);
+          blocked = (rows as List)
+              .map((r) => r['blocked_id'] as String)
+              .toList();
+        } catch (_) {}
+      }
+
       final rows = await Supabase.instance.client
           .from('feed_comments')
           .select('*')
@@ -98,7 +113,10 @@ class _CommentSheetState extends State<CommentSheet> {
 
       if (mounted) {
         setState(() {
-          _comments = rows.map<FeedComment>((r) => FeedComment.fromJson(r)).toList();
+          final all = rows.map<FeedComment>((r) => FeedComment.fromJson(r)).toList();
+          _comments = blocked.isEmpty
+              ? all
+              : all.where((c) => !blocked.contains(c.userId)).toList();
           _totalCount = _comments.length;
           _isLoading = false;
         });
@@ -124,6 +142,17 @@ class _CommentSheetState extends State<CommentSheet> {
   Future<void> _sendComment() async {
     final body = _controller.text.trim();
     if (body.isEmpty) return;
+
+    final filterResult = ContentFilter.checkText(body);
+    if (!filterResult.isAllowed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ไม่สามารถส่งได้: ตรวจพบข้อความไม่เหมาะสม'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null || user.isAnonymous) {

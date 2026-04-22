@@ -9,6 +9,7 @@ import '../../pets/presentation/location_picker_screen.dart';
 import '../domain/feed_post.dart';
 import '../domain/user_stats.dart';
 import '../data/social_providers.dart';
+import '../../moderation/domain/content_filter.dart';
 
 /// Instagram-style Create Post screen
 class CreatePostScreen extends StatefulWidget {
@@ -120,6 +121,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (caption.isEmpty && _selectedImage == null && _pickedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาเขียนข้อความ เลือกรูปภาพ หรือระบุสถานที่')),
+      );
+      return;
+    }
+
+    final filterResult = ContentFilter.checkText(caption);
+    if (!filterResult.isAllowed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ไม่สามารถโพสต์ได้: ตรวจพบข้อความไม่เหมาะสม'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }

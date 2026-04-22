@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/moderation_providers.dart';
 import '../../pets/presentation/pet_providers.dart';
+import '../../social/data/social_providers.dart';
 
 class BlockUserDialog {
   /// Show block confirmation dialog. Returns true if user was blocked.
@@ -45,11 +46,13 @@ class BlockUserDialog {
       await repo.blockUser(
         blockerId: user.id,
         blockedId: blockedUserId,
+        reasonForDeveloper: 'User blocked from UI (possible abusive behavior).',
       );
 
       // Refresh blocked users list and pet feed
       ref.invalidate(blockedUsersProvider);
       ref.invalidate(lostPetsProvider);
+      ref.invalidate(feedPostsProvider);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -64,6 +67,7 @@ class BlockUserDialog {
                 );
                 ref.invalidate(blockedUsersProvider);
                 ref.invalidate(lostPetsProvider);
+                ref.invalidate(feedPostsProvider);
               },
             ),
           ),

@@ -29,10 +29,23 @@ class ModerationRepository {
   Future<void> blockUser({
     required String blockerId,
     required String blockedId,
+    String? reasonForDeveloper,
   }) async {
     await _client.from('blocked_users').upsert({
       'blocker_id': blockerId,
       'blocked_id': blockedId,
+    });
+
+    // Guideline 1.2: blocking should also notify the developer.
+    // We record it as a "report" so it shows up in the moderation queue.
+    await _client.from('reports').insert({
+      'reporter_id': blockerId,
+      'reported_user_id': blockedId,
+      'entity_id': blockedId,
+      'entity_type': 'user',
+      'reason': 'Blocked user',
+      'details': reasonForDeveloper,
+      'status': 'pending',
     });
   }
 

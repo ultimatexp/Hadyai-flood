@@ -1,7 +1,7 @@
 "use client";
 
 import { compressImage } from "@/lib/image-utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import {
     ArrowLeft,
     Search,
@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ThaiButton } from "@/components/ui/thai-button";
 import { useToast } from "@/components/ui/toast";
 import { LostPetForm } from "@/components/pet/lost-pet-form";
@@ -58,8 +58,10 @@ function deg2rad(deg: number) {
     return deg * (Math.PI / 180);
 }
 
-export default function FindPetPage() {
+function FindPetPageInner() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { toastSuccess, toastError, toastWarning, toastInfo } = useToast();
     const [mode, setMode] = useState<'found' | 'lost'>('found');
     const [user, setUser] = useState<any>(null);
@@ -71,10 +73,20 @@ export default function FindPetPage() {
         return () => unsubscribe();
     }, []);
 
+    // Deep-link tabs: /find-pet?mode=found | /find-pet?mode=lost
+    useEffect(() => {
+        const raw = searchParams.get("mode");
+        if (raw === "found" || raw === "lost") {
+            setMode(raw);
+        }
+    }, [searchParams]);
+
     const handleReportLostPetClick = () => {
         if (!user) {
             toastWarning('กรุณาเข้าสู่ระบบก่อนแจ้งสัตว์หาย');
-            router.push('/login');
+            const qs = searchParams.toString();
+            const nextPath = `${pathname}${qs ? `?${qs}` : ""}`;
+            router.push(`/login?next=${encodeURIComponent(nextPath)}`);
             return;
         }
         setIsLostPetFormOpen(true);
@@ -104,6 +116,15 @@ export default function FindPetPage() {
     const [searched, setSearched] = useState(false);
     const [petAnalysis, setPetAnalysis] = useState<any>(null);
     const [analyzing, setAnalyzing] = useState(false);
+
+    const setModeAndUrl = (next: "found" | "lost") => {
+        setMode(next);
+        setError(null);
+        setSuccess(false);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("mode", next);
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    };
 
     const analyzeImage = async (file: File) => {
         console.log("analyzeImage called");
@@ -554,7 +575,7 @@ export default function FindPetPage() {
                 <div className="flex justify-center mb-8">
                     <div className="bg-white p-1 rounded-full shadow-sm border border-gray-200 inline-flex">
                         <button
-                            onClick={() => { setMode('found'); setError(null); setSuccess(false); }}
+                            onClick={() => setModeAndUrl("found")}
                             className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${mode === 'found'
                                 ? 'bg-green-500 text-white shadow-sm'
                                 : 'text-gray-600 hover:bg-gray-50'
@@ -563,7 +584,7 @@ export default function FindPetPage() {
                             ฉันพบสัตว์เลี้ยง
                         </button>
                         <button
-                            onClick={() => { setMode('lost'); setError(null); setSuccess(false); }}
+                            onClick={() => setModeAndUrl("lost")}
                             className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${mode === 'lost'
                                 ? 'bg-blue-500 text-white shadow-sm'
                                 : 'text-gray-600 hover:bg-gray-50'
@@ -1011,5 +1032,19 @@ export default function FindPetPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function FindPetPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                    <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+                </div>
+            }
+        >
+            <FindPetPageInner />
+        </Suspense>
     );
 }
