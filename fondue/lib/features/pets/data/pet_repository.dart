@@ -1,12 +1,20 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/pet.dart';
+import '../domain/pet_claim.dart';
+import '../domain/pet_transfer.dart';
+import '../domain/claim_transfer_rules.dart';
 
 class PetRepository {
   final SupabaseClient _client;
 
   PetRepository(this._client);
 
-  Future<List<Pet>> fetchPets({String? status, String? species}) async {
+  Future<List<Pet>> fetchPets({
+    String? status,
+    String? species,
+    int limit = 50,
+    int offset = 0,
+  }) async {
     try {
       var query = _client.from('pets').select();
       
@@ -19,9 +27,9 @@ class PetRepository {
         query = query.ilike('species', species);
       }
 
-      // Filter out expired pets (expires_at > now)
+      // Keep non-expired pets and legacy rows with null expires_at.
       final now = DateTime.now().toIso8601String();
-      query = query.gt('expires_at', now);
+      query = query.or('expires_at.is.null,expires_at.gt.$now');
 
       // Filter out REUNITED pets (unless status is explicitly requesting them, which 'All' does not imply for feed)
       // If user specifically asks for 'REUNITED' via status param, we should allow it.
@@ -30,7 +38,9 @@ class PetRepository {
          query = query.neq('status', 'REUNITED');
       }
 
-      final response = await query.order('created_at', ascending: false).limit(50);
+      final response = await query
+          .order('created_at', ascending: false)
+          .range(offset, offset + limit - 1);
 
       final data = response as List<dynamic>;
       return data.map((json) => Pet.fromJson(json)).toList();
@@ -46,7 +56,7 @@ class PetRepository {
         .from('pets')
         .select()
         .eq('status', 'ADOPTABLE')
-        .gt('expires_at', now) // Only show non-expired
+        .or('expires_at.is.null,expires_at.gt.$now')
         .order('created_at', ascending: false);
 
     final data = response as List<dynamic>;
@@ -68,6 +78,247 @@ class PetRepository {
 
     final data = response as List<dynamic>;
     return data.map((json) => Pet.fromJson(json)).toList();
+  }
+
+  Future<List<PetClaim>> fetchClaimsForPet(String petId) async {
+    final response = await _client
+        .from('pet_claims')
+        .select()
+        .eq('pet_id', petId)
+        .order('created_at', ascending: false);
+    final data = response as List<dynamic>;
+    return data.map((e) => PetClaim.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  Future<List<PetClaim>> fetchMyClaimsForPet(String petId) async {
+    final current = _client.auth.currentUser;
+    if (current == null) return [];
+    final response = await _client
+        .from('pet_claims')
+        .select()
+        .eq('pet_id', petId)
+        .eq('claimant_user_id', current.id)
+        .order('created_at', ascending: false);
+    final data = response as List<dynamic>;
+    return data.map((e) => PetClaim.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  Future<PetTransfer?> fetchPendingTransferForPet(String petId) async {
+    final current = _client.auth.currentUser;
+    if (current == null) return null;
+    final response = await _client
+        .from('pet_transfers')
+        .select()
+        .eq('pet_id', petId)
+        .eq('status', 'pending_claimant_confirmation')
+        .or('owner_user_id.eq.${current.id},claimant_user_id.eq.${current.id}')
+        .maybeSingle();
+    if (response == null) return null;
+    return PetTransfer.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  Future<PetClaim> submitClaim({
+    required String petId,
+    String? note,
+  }) async {
+    final current = _client.auth.currentUser;
+    if (current == null) {
+      throw Exception('Please login to submit a claim');
+    }
+    final pet = await fetchPetById(petId);
+    if (pet == null) throw Exception('Pet not found');
+    final ownerUserId = pet.userId;
+    if (ownerUserId == null || ownerUserId.isEmpty) {
+      throw Exception('This post has no owner account');
+    }
+    if (ownerUserId == current.id) {
+      throw Exception('Owner cannot claim own post');
+    }
+
+    final existing = await _client
+        .from('pet_claims')
+        .select('id,status')
+        .eq('pet_id', petId)
+        .eq('claimant_user_id', current.id)
+        .maybeSingle();
+    if (existing != null) {
+      throw Exception('You already submitted a claim');
+    }
+
+    final inserted = await _client.from('pet_claims').insert({
+      'pet_id': petId,
+      'owner_user_id': ownerUserId,
+      'claimant_user_id': current.id,
+      'note': note?.trim().isEmpty ?? true ? null : note?.trim(),
+      'status': 'pending',
+    }).select().single();
+
+    await _notifyUser(
+      userId: ownerUserId,
+      title: 'New ownership claim',
+      message: 'A user submitted a claim for your pet report.',
+      type: 'pet_claim',
+      data: {'pet_id': petId, 'claim_id': inserted['id']},
+    );
+
+    return PetClaim.fromJson(Map<String, dynamic>.from(inserted));
+  }
+
+  Future<PetClaim> acceptClaim(String claimId) async {
+    final current = _client.auth.currentUser;
+    if (current == null) throw Exception('Please login');
+    final claim = await _getClaim(claimId);
+    if (claim == null) throw Exception('Claim not found');
+    final activeTransfer = await _client
+        .from('pet_transfers')
+        .select('id')
+        .eq('pet_id', claim.petId)
+        .eq('status', 'pending_claimant_confirmation')
+        .maybeSingle();
+    final allowed = canOwnerAcceptClaim(
+      isOwner: claim.ownerUserId == current.id,
+      claimStatus: claim.status,
+      hasPendingTransfer: activeTransfer != null,
+    );
+    if (!allowed) {
+      throw Exception('Owner can only accept pending claims without active transfer');
+    }
+
+    final updated = await _client
+        .from('pet_claims')
+        .update({'status': 'accepted'})
+        .eq('id', claimId)
+        .select()
+        .single();
+
+    await _notifyUser(
+      userId: claim.claimantUserId,
+      title: 'Claim accepted',
+      message: 'Owner accepted your claim. Waiting for transfer submission.',
+      type: 'pet_claim',
+      data: {'pet_id': claim.petId, 'claim_id': claimId, 'status': 'accepted'},
+    );
+
+    return PetClaim.fromJson(Map<String, dynamic>.from(updated));
+  }
+
+  Future<PetClaim> rejectClaim(String claimId) async {
+    final current = _client.auth.currentUser;
+    if (current == null) throw Exception('Please login');
+    final claim = await _getClaim(claimId);
+    if (claim == null) throw Exception('Claim not found');
+    final allowed = canOwnerRejectClaim(
+      isOwner: claim.ownerUserId == current.id,
+      claimStatus: claim.status,
+    );
+    if (!allowed) {
+      throw Exception('Owner can only reject pending claims');
+    }
+
+    final updated = await _client
+        .from('pet_claims')
+        .update({'status': 'rejected'})
+        .eq('id', claimId)
+        .select()
+        .single();
+
+    await _notifyUser(
+      userId: claim.claimantUserId,
+      title: 'Claim rejected',
+      message: 'Owner rejected your claim for this pet.',
+      type: 'pet_claim',
+      data: {'pet_id': claim.petId, 'claim_id': claimId, 'status': 'rejected'},
+    );
+
+    return PetClaim.fromJson(Map<String, dynamic>.from(updated));
+  }
+
+  Future<PetTransfer> submitTransferForAcceptedClaim(String claimId) async {
+    final current = _client.auth.currentUser;
+    if (current == null) throw Exception('Please login');
+    final claim = await _getClaim(claimId);
+    if (claim == null) throw Exception('Claim not found');
+    final activeTransfer = await _client
+        .from('pet_transfers')
+        .select('id')
+        .eq('pet_id', claim.petId)
+        .eq('status', 'pending_claimant_confirmation')
+        .maybeSingle();
+    final allowed = canOwnerSubmitTransfer(
+      isOwner: claim.ownerUserId == current.id,
+      claimStatus: claim.status,
+      hasPendingTransfer: activeTransfer != null,
+    );
+    if (!allowed) {
+      throw Exception('Owner can only submit transfer for accepted claim');
+    }
+
+    final inserted = await _client.from('pet_transfers').insert({
+      'pet_id': claim.petId,
+      'claim_id': claim.id,
+      'owner_user_id': claim.ownerUserId,
+      'claimant_user_id': claim.claimantUserId,
+      'status': 'pending_claimant_confirmation',
+      'owner_submitted_at': DateTime.now().toIso8601String(),
+      'expires_at': DateTime.now().add(const Duration(days: 7)).toIso8601String(),
+    }).select().single();
+
+    await _notifyUser(
+      userId: claim.claimantUserId,
+      title: 'Transfer submitted',
+      message: 'Owner submitted transfer. Please confirm to complete handoff.',
+      type: 'pet_transfer',
+      data: {'pet_id': claim.petId, 'claim_id': claim.id, 'transfer_id': inserted['id']},
+    );
+
+    return PetTransfer.fromJson(Map<String, dynamic>.from(inserted));
+  }
+
+  Future<PetTransfer> confirmTransfer(String transferId) async {
+    final current = _client.auth.currentUser;
+    if (current == null) throw Exception('Please login');
+
+    final transferRow = await _client
+        .from('pet_transfers')
+        .select()
+        .eq('id', transferId)
+        .maybeSingle();
+    if (transferRow == null) throw Exception('Transfer not found');
+    final transfer = PetTransfer.fromJson(Map<String, dynamic>.from(transferRow));
+
+    final allowed = canClaimantConfirmTransfer(
+      isDesignatedClaimant: transfer.claimantUserId == current.id,
+      transferStatus: transfer.status,
+    );
+    if (!allowed) {
+      throw Exception('Only designated claimant can confirm pending transfer');
+    }
+
+    final now = DateTime.now().toIso8601String();
+    final updated = await _client
+        .from('pet_transfers')
+        .update({
+          'status': 'confirmed',
+          'confirmed_at': now,
+        })
+        .eq('id', transferId)
+        .select()
+        .single();
+
+    await _client.from('pets').update({
+      'user_id': current.id,
+      'status': 'REUNITED',
+    }).eq('id', transfer.petId);
+
+    await _notifyUser(
+      userId: transfer.ownerUserId,
+      title: 'Transfer confirmed',
+      message: 'Claimant confirmed transfer. Pet ownership has been updated.',
+      type: 'pet_transfer',
+      data: {'pet_id': transfer.petId, 'transfer_id': transfer.id, 'status': 'confirmed'},
+    );
+
+    return PetTransfer.fromJson(Map<String, dynamic>.from(updated));
   }
 
   Future<List<Pet>> fetchLatestFoundPets({int limit = 5}) async {
@@ -166,13 +417,16 @@ class PetRepository {
 
     // 2. Insert to DB with 180-day expiration
     final expiresAt = DateTime.now().add(const Duration(days: 180));
-    
+    final descTrimmed = description?.trim();
+    final descriptionForDb =
+        (descTrimmed == null || descTrimmed.isEmpty) ? null : descTrimmed;
+
     final response = await _client.from('pets').insert({
         'status': status,
         'species': species,
         'pet_name': petName,
         'color_main': color,
-        'description': description,
+        'description': descriptionForDb,
         'sex': sex?.toLowerCase(),
         'lat': lat,
         'lng': lng,
@@ -196,17 +450,28 @@ class PetRepository {
     String? description,
     String? contactInfo,
     double? reward,
+    String? breed,
+    String? marks,
+    /// Overrides `color` only (web column); use with [colorMain] for full parity.
+    String? legacyColor,
   }) async {
-    await _client.from('pets').update({
-      if (petName != null) 'pet_name': petName,
-      if (species != null) 'species': species,
-      if (status != null) 'status': status,
-      if (sex != null) 'sex': sex,
-      if (colorMain != null) 'color_main': colorMain,
-      if (description != null) 'description': description,
-      if (contactInfo != null) 'contact_info': contactInfo,
-      if (reward != null) 'reward': reward,
-    }).eq('id', petId);
+    final updates = <String, dynamic>{};
+    if (petName != null) updates['pet_name'] = petName;
+    if (species != null) updates['species'] = species;
+    if (status != null) updates['status'] = status;
+    if (sex != null) updates['sex'] = sex;
+    if (colorMain != null) {
+      updates['color_main'] = colorMain;
+      updates['color'] = colorMain;
+    }
+    if (legacyColor != null) updates['color'] = legacyColor;
+    if (description != null) updates['description'] = description;
+    if (contactInfo != null) updates['contact_info'] = contactInfo;
+    if (reward != null) updates['reward'] = reward;
+    if (breed != null) updates['breed'] = breed;
+    if (marks != null) updates['marks'] = marks;
+    if (updates.isEmpty) return;
+    await _client.from('pets').update(updates).eq('id', petId);
   }
 
   // UGC: Report Content
@@ -220,7 +485,7 @@ class PetRepository {
     await _client.from('reports').insert({
       'reporter_id': reporterId,
       'entity_id': entityId,
-      'entity_type': 'pet', // Explicitly setting entity_type
+      'entity_type': entityType,
       'reason': reason,
       'reported_user_id': reportedUserId, 
       'status': 'pending',
@@ -250,5 +515,32 @@ class PetRepository {
 
     final data = response as List<dynamic>;
     return data.map((item) => item['blocked_id'] as String).toList();
+  }
+
+  Future<PetClaim?> _getClaim(String claimId) async {
+    final row = await _client.from('pet_claims').select().eq('id', claimId).maybeSingle();
+    if (row == null) return null;
+    return PetClaim.fromJson(Map<String, dynamic>.from(row));
+  }
+
+  Future<void> _notifyUser({
+    required String userId,
+    required String title,
+    required String message,
+    required String type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      await _client.from('notifications').insert({
+        'user_id': userId,
+        'type': type,
+        'title': title,
+        'message': message,
+        'is_read': false,
+        'data': data ?? <String, dynamic>{},
+      });
+    } catch (_) {
+      // non-blocking
+    }
   }
 }

@@ -409,17 +409,43 @@ class _FrostedBottomNav extends StatelessWidget {
               child: unreadChatCount > 0
                   ? ScaleTransition(
                       scale: badgeBounce,
-                      child: Badge(
-                        label: Text('$unreadChatCount',
-                            style: const TextStyle(fontSize: 10)),
-                        backgroundColor: Colors.red,
-                        child: Icon(
-                          Icons.chat_bubble_rounded,
-                          color: isActive
-                              ? const Color(0xFFFF9800)
-                              : Colors.grey[400],
-                          size: 24,
-                        ),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(
+                            Icons.chat_bubble_rounded,
+                            color: isActive
+                                ? const Color(0xFFFF9800)
+                                : Colors.grey[400],
+                            size: 24,
+                          ),
+                          Positioned(
+                            right: -8,
+                            top: -6,
+                            child: Container(
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white, width: 1),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                unreadChatCount > 99 ? '99+' : '$unreadChatCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   : Icon(

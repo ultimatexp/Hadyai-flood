@@ -52,4 +52,19 @@ class InboxRepository {
       print('Error marking all notifications as read: $e');
     }
   }
+
+  Future<int> getUnreadCount() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+    try {
+      final count = await _client
+          .from('notifications')
+          .count(CountOption.exact)
+          .eq('user_id', userId)
+          .eq('is_read', false);
+      return count;
+    } catch (_) {
+      return 0;
+    }
+  }
 }

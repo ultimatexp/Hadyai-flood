@@ -7,6 +7,11 @@ import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility
 import "leaflet-defaulticon-compatibility";
 import { Loader2, MapPin } from "lucide-react";
 import { ThaiButton } from "../ui/thai-button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { parseLatLngPaste } from "@/lib/parseLatLngPaste";
+import { useLoadScript } from "@react-google-maps/api";
+import { LocationSearch } from "./location-search";
 
 interface MapPickerProps {
     lat?: number;
@@ -32,16 +37,13 @@ function LocationMarker({ lat, lng, onSelect }: { lat?: number; lng?: number; on
     return lat && lng ? <Marker position={[lat, lng]} /> : null;
 }
 
-import { useLoadScript } from "@react-google-maps/api";
-import { LocationSearch } from "./location-search";
-
-// ... imports
-
 const libraries: ("places")[] = ["places"];
 
 export default function MapPicker({ lat, lng, onLocationSelect }: MapPickerProps) {
     const [loading, setLoading] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
+    const [coordPaste, setCoordPaste] = useState("");
+    const [pasteError, setPasteError] = useState<string | null>(null);
 
     const { isLoaded } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
@@ -76,6 +78,16 @@ export default function MapPicker({ lat, lng, onLocationSelect }: MapPickerProps
     // Default center (Hadyai)
     const defaultCenter: [number, number] = [7.00866, 100.47469];
 
+    const applyCoordPaste = () => {
+        const parsed = parseLatLngPaste(coordPaste);
+        if (!parsed) {
+            setPasteError("รูปแบบไม่ถูกต้อง ใช้ (ละติจูด, ลองจิจูด) เช่น (13.3226994, 101.1165946)");
+            return;
+        }
+        setPasteError(null);
+        onLocationSelect(parsed.lat, parsed.lng);
+    };
+
     // Don't render map until mounted on client
     if (!isMounted) {
         return (
@@ -87,6 +99,33 @@ export default function MapPicker({ lat, lng, onLocationSelect }: MapPickerProps
 
     return (
         <div className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="map-coord-paste" className="text-sm text-gray-700">
+                    วางพิกัดจาก Google Maps (ละติจูด, ลองจิจูด)
+                </Label>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                    <Input
+                        id="map-coord-paste"
+                        value={coordPaste}
+                        onChange={(e) => {
+                            setCoordPaste(e.target.value);
+                            setPasteError(null);
+                        }}
+                        placeholder="(13.3226994, 101.1165946)"
+                        className="text-gray-900 bg-white sm:flex-1"
+                        autoComplete="off"
+                    />
+                    <ThaiButton type="button" variant="outline" className="shrink-0" onClick={applyCoordPaste}>
+                        ใช้พิกัดนี้
+                    </ThaiButton>
+                </div>
+                {pasteError && <p className="text-sm text-red-600">{pasteError}</p>}
+                <p className="text-xs text-gray-500">
+                    คัดลอกจาก Google Maps ได้หลายรูปแบบ เช่น <code className="rounded bg-gray-100 px-1">(13.3226994, 101.1165946)</code> หรือ{" "}
+                    <code className="rounded bg-gray-100 px-1">13.3226994, 101.1165946</code>
+                </p>
+            </div>
+
             <div className="relative h-[400px] w-full rounded-xl overflow-hidden border-2 border-border shadow-sm z-0">
                 {/* Search Bar Overlay */}
                 {isLoaded && (

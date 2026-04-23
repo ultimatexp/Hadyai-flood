@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { compressImage } from "@/lib/image-utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, MapPin, Check, ChevronRight, ChevronLeft, X, Plus, Facebook } from "lucide-react";
+import { Loader2, Upload, MapPin, Check, ChevronRight, ChevronLeft, X, Plus } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import dynamic from "next/dynamic";
@@ -63,119 +63,137 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
     const [petAnalysis, setPetAnalysis] = useState<any>(null);
     const [analyzing, setAnalyzing] = useState(false);
 
-    const analyzeImage = async (file: File) => {
-        setAnalyzing(true);
-        try {
-            const formData = new FormData();
-            formData.append('image', file);
+    /** Pet photo analysis only (no loading UI — caller manages `analyzing`). */
+    const runPetImageAnalysis = async (file: File) => {
+        const formData = new FormData();
+        formData.append("image", file);
 
-            const response = await fetch('/api/analyze-pet', {
-                method: 'POST',
-                body: formData,
-            });
+        const response = await fetch("/api/analyze-pet", {
+            method: "POST",
+            body: formData,
+        });
 
-            const data = await response.json();
-            if (data.success) {
-                setPetAnalysis(data.data);
+        const data = await response.json();
+        if (!data.success) return;
 
-                // Autofill fields
-                if (data.data.species === 'dog' || data.data.species === 'cat') setPetType(data.data.species);
-                if (data.data.color_main) setColor(data.data.color_main);
-                if (data.data.unique_marks) setMarks(data.data.unique_marks);
-                if (data.data.description) setDescription(data.data.description);
+        setPetAnalysis(data.data);
 
-                // Add image to list
-                setImages(prev => [...prev, file]);
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setImagePreviews(prev => [...prev, reader.result as string]);
-                };
-                reader.readAsDataURL(file);
-            }
-        } catch (error) {
-            console.error('Error analyzing image:', error);
-        } finally {
-            setAnalyzing(false);
-        }
+        if (data.data.species === "dog" || data.data.species === "cat") setPetType(data.data.species);
+        if (data.data.color_main) setColor(data.data.color_main);
+        if (data.data.unique_marks) setMarks(data.data.unique_marks);
+        if (data.data.description) setDescription(data.data.description);
+
+        setImages((prev) => [...prev, file]);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreviews((prev) => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
     };
 
-    const handleAutofillSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length > 0) {
-            try {
-                console.log(`Compressing autofill image ${files[0].name}...`);
-                const compressed = await compressImage(files[0]);
-                console.log(`Compressed: ${(files[0].size / 1024 / 1024).toFixed(2)}MB -> ${(compressed.size / 1024 / 1024).toFixed(2)}MB`);
-                analyzeImage(compressed);
-            } catch (err) {
-                console.error("Compression failed", err);
-                analyzeImage(files[0]);
-            }
+    /** Social screenshot / post text + visuals; returns fields filled count, or null if API unusable. */
+    const applySocialPostImport = (info: Record<string, unknown>, imageToUpload: File): number => {
+        let filledCount = 0;
+        if (info.pet_name) {
+            setPetName(String(info.pet_name));
+            filledCount++;
         }
+        if (info.species === "dog" || info.species === "cat") {
+            setPetType(info.species);
+            filledCount++;
+        }
+        if (info.breed) {
+            setBreed(String(info.breed));
+            filledCount++;
+        }
+        if (info.color) {
+            setColor(String(info.color));
+            filledCount++;
+        }
+        if (info.marks) {
+            setMarks(String(info.marks));
+            filledCount++;
+        }
+        if (info.owner_name) {
+            setOwnerName(String(info.owner_name));
+            filledCount++;
+        }
+        if (info.contact_info) {
+            setContactInfo(String(info.contact_info));
+            filledCount++;
+        }
+        if (info.reward) {
+            setReward(String(info.reward));
+            filledCount++;
+        }
+        if (info.sex === "male" || info.sex === "female" || info.sex === "unknown") {
+            setSex(info.sex);
+            filledCount++;
+        }
+        if (info.description) {
+            setDescription(String(info.description));
+            filledCount++;
+        }
+        if (info.last_seen_date) {
+            setLastSeenDate(String(info.last_seen_date));
+            filledCount++;
+        }
+
+        setImages((prev) => [imageToUpload, ...prev]);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreviews((prev) => [reader.result as string, ...prev]);
+        };
+        reader.readAsDataURL(imageToUpload);
+
+        return filledCount;
     };
 
-    const handleSocialImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    /** One entry point: post screenshot or direct pet photo — try social/post parser first, then pet vision. */
+    const handleAiAssistFromImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = "";
         if (!file) return;
 
         setAnalyzing(true);
+        let imageToUpload = file;
         try {
-            console.log(`Compressing social post image ${file.name}...`);
-            let imageToUpload = file;
             try {
                 imageToUpload = await compressImage(file);
             } catch (err) {
                 console.error("Compression failed", err);
             }
 
-            const formData = new FormData();
-            formData.append('image', imageToUpload);
-
-            const response = await fetch('/api/analyze-social-post', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await response.json();
-
-            if (data.success && data.data) {
-                const info = data.data;
-
-                // Autofill fields
-                let filledCount = 0;
-                if (info.pet_name) { setPetName(info.pet_name); filledCount++; }
-                if (info.species === 'dog' || info.species === 'cat') { setPetType(info.species); filledCount++; }
-                if (info.breed) { setBreed(info.breed); filledCount++; }
-                if (info.color) { setColor(info.color); filledCount++; }
-                if (info.marks) { setMarks(info.marks); filledCount++; }
-                if (info.owner_name) { setOwnerName(info.owner_name); filledCount++; }
-                if (info.contact_info) { setContactInfo(info.contact_info); filledCount++; }
-                if (info.reward) { setReward(info.reward); filledCount++; }
-                if (info.sex) { setSex(info.sex); filledCount++; }
-                if (info.description) { setDescription(info.description); filledCount++; }
-                if (info.last_seen_date) { setLastSeenDate(info.last_seen_date); filledCount++; }
-
-                // Add the screenshot as the first image
-                setImages(prev => [imageToUpload, ...prev]);
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setImagePreviews(prev => [reader.result as string, ...prev]);
-                };
-                reader.readAsDataURL(imageToUpload);
-
-                if (filledCount > 0) {
-                    alert(`ดึงข้อมูลเรียบร้อย! (พบข้อมูล ${filledCount} รายการ)\nกรุณาตรวจสอบความถูกต้องและเติมข้อมูลที่ขาดหายไป`);
-                } else {
-                    alert("วิเคราะห์รูปภาพแล้ว แต่ไม่พบข้อมูลที่ชัดเจน กรุณากรอกข้อมูลด้วยตนเอง");
+            let usedSocial = false;
+            try {
+                const formData = new FormData();
+                formData.append("image", imageToUpload);
+                const response = await fetch("/api/analyze-social-post", {
+                    method: "POST",
+                    body: formData,
+                });
+                const data = await response.json();
+                if (data.success && data.data) {
+                    const filled = applySocialPostImport(data.data, imageToUpload);
+                    if (filled > 0) {
+                        alert(
+                            `ดึงข้อมูลเรียบร้อย! (พบข้อมูล ${filled} รายการ)\nกรุณาตรวจสอบความถูกต้องและเติมข้อมูลที่ขาดหายไป`
+                        );
+                    } else {
+                        alert("วิเคราะห์รูปภาพแล้ว แต่ไม่พบข้อมูลที่ชัดเจน กรุณากรอกข้อมูลด้วยตนเอง");
+                    }
+                    usedSocial = true;
                 }
-            } else {
-                alert("ไม่สามารถวิเคราะห์ข้อมูลได้ หรือไม่พบข้อมูลสัตว์เลี้ยงในภาพ");
+            } catch (err) {
+                console.error("Error analyzing with social-post route:", err);
             }
 
-
+            if (!usedSocial) {
+                await runPetImageAnalysis(imageToUpload);
+            }
         } catch (error) {
-            console.error('Error analyzing social post:', error);
-            alert("เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ");
+            console.error("Error analyzing image:", error);
+            alert("ไม่สามารถวิเคราะห์ข้อมูลได้ หรือไม่พบข้อมูลสัตว์เลี้ยงในภาพ");
         } finally {
             setAnalyzing(false);
         }
@@ -356,29 +374,27 @@ export function LostPetForm({ open: externalOpen, onOpenChange }: LostPetFormPro
                     {step === 1 && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
 
-                            {/* Autofill Button */}
-                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h3 className="font-bold text-blue-800">ใช้ AI ช่วยกรอกข้อมูล?</h3>
-                                        <p className="text-xs text-blue-600">อัพโหลดรูปภาพเพื่อใ้ห้ AI ช่วยระบุสี ตำหนิ และรายละเอียด</p>
+                            {/* Single AI assist upload: direct pet photo or social screenshot */}
+                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0">
+                                        <h3 className="font-bold text-blue-800">ให้ AI ช่วยจากรูปภาพ</h3>
+                                        <p className="text-xs text-blue-600 mt-1">
+                                            อัพโหลดรูปสัตว์โดยตรง หรือแคปหน้าจอโพสต์ Facebook/IG — ระบบจะดึงสี ตำหนิ และรายละเอียดให้
+                                        </p>
                                     </div>
-                                    <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-colors">
+                                    <label className="cursor-pointer shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-colors self-start sm:self-auto">
                                         {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                                        <span className="text-sm font-bold">{analyzing ? 'กำลังวิเคราะห์...' : 'รูปถ่ายสัตว์'}</span>
-                                        <input type="file" accept="image/*" className="hidden" onChange={handleAutofillSelect} disabled={analyzing} />
-                                    </label>
-                                </div>
-
-                                <div className="border-t border-blue-200 pt-3 flex items-center justify-between">
-                                    <div>
-                                        <h3 className="font-bold text-indigo-800">นำเข้าจากโพสต์โซเชียล?</h3>
-                                        <p className="text-xs text-indigo-600">แคปหน้าจอโพสต์ Facebook/IG แล้วให้ AI ดึงข้อมูล</p>
-                                    </div>
-                                    <label className="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-colors">
-                                        {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Facebook className="w-4 h-4" />}
-                                        <span className="text-sm font-bold">{analyzing ? 'กำลังวิเคราะห์...' : 'รูปแคปหน้าจอ'}</span>
-                                        <input type="file" accept="image/*" className="hidden" onChange={handleSocialImport} disabled={analyzing} />
+                                        <span className="text-sm font-bold whitespace-nowrap">
+                                            {analyzing ? "กำลังวิเคราะห์..." : "อัพโหลดรูป (AI)"}
+                                        </span>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleAiAssistFromImage}
+                                            disabled={analyzing}
+                                        />
                                     </label>
                                 </div>
                             </div>

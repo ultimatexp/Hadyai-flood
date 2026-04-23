@@ -13,6 +13,7 @@ import '../../pets/presentation/pet_feed_screen.dart';
 import '../../pets/presentation/report_screen.dart';
 
 import '../../inbox/presentation/inbox_screen.dart';
+import '../../inbox/data/inbox_providers.dart';
 
 class OverviewScreen extends ConsumerWidget {
   const OverviewScreen({super.key});
@@ -21,6 +22,8 @@ class OverviewScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(overviewStatsProvider);
     final latestFoundAsync = ref.watch(latestFoundPetsProvider);
+    final unreadNotificationsAsync = ref.watch(unreadNotificationsCountProvider);
+    final unreadNotifications = unreadNotificationsAsync.asData?.value ?? 0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -31,7 +34,13 @@ class OverviewScreen extends ConsumerWidget {
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.black87),
+            icon: unreadNotifications > 0
+                ? Badge(
+                    label: Text('$unreadNotifications', style: const TextStyle(fontSize: 10)),
+                    backgroundColor: Colors.red,
+                    child: const Icon(Icons.notifications, color: Colors.black87),
+                  )
+                : const Icon(Icons.notifications, color: Colors.black87),
             onPressed: () {
                Navigator.push(context, MaterialPageRoute(builder: (_) => const InboxScreen()));
             }, 
@@ -409,7 +418,7 @@ class OverviewScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    pet.name ?? 'Unknown',
+                    pet.titleForPreview(emptyFallback: 'Pet'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),

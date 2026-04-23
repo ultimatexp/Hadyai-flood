@@ -128,8 +128,10 @@ class PetMatcherService {
     score += 0.3;
 
     // 2. Sex (If known)
-    if (lost.sex != null && found.sex != null && lost.sex != 'Unknown' && found.sex != 'Unknown') {
-      if (lost.sex == found.sex) {
+    final ls = lost.sex?.toLowerCase();
+    final fs = found.sex?.toLowerCase();
+    if (ls != null && fs != null && ls != 'unknown' && fs != 'unknown') {
+      if (ls == fs) {
         score += 0.1;
       } else {
         return 0.0; // Hard mismatch on sex

@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../domain/feed_post.dart';
 import '../domain/reaction.dart';
 import '../data/social_providers.dart';
@@ -225,6 +227,8 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   bool _isLikeAnimating = false;
   List<FeedComment> _previewComments = [];
   String? _editedBody;
+  String? _editedImageUrl;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -232,7 +236,39 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     _myReactions = Set.from(widget.post.myReactions);
     _counts = widget.post.reactionCounts;
     _commentCount = widget.post.commentCount;
+    _editedImageUrl = widget.post.imageUrl;
     _loadPreviewComments();
+  }
+
+  Future<String?> _uploadFeedImage(File image) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id ?? 'anon';
+      final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = 'feed_posts/$fileName';
+      await supabase.storage.from('pet-photos').upload(path, image);
+      return supabase.storage.from('pet-photos').getPublicUrl(path);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _storagePathFromPublicUrl(String imageUrl) {
+    final marker = '/storage/v1/object/public/pet-photos/';
+    final idx = imageUrl.indexOf(marker);
+    if (idx == -1) return null;
+    return Uri.decodeComponent(imageUrl.substring(idx + marker.length));
+  }
+
+  Future<void> _tryDeleteFeedImageByPublicUrl(String? imageUrl) async {
+    if (imageUrl == null || imageUrl.isEmpty) return;
+    final path = _storagePathFromPublicUrl(imageUrl);
+    if (path == null || path.isEmpty) return;
+    try {
+      await Supabase.instance.client.storage.from('pet-photos').remove([path]);
+    } catch (_) {
+      // Keep silent; post update already succeeded.
+    }
   }
 
   Future<void> _loadPreviewComments() async {
@@ -515,91 +551,215 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
 
   void _editPost() {
     final controller = TextEditingController(text: _editedBody ?? widget.post.body ?? '');
+    File? selectedNewImage;
+    String? currentImageUrl = _editedImageUrl;
+    bool removeCurrentImage = false;
+    bool isSaving = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40, height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
-              ),
-              const Text('แก้ไขโพสต์', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                maxLines: 5,
-                minLines: 2,
-                maxLength: 500,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'เขียนอะไรบางอย่าง...',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[200]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[200]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFFF9800)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          Future<void> pickImage(ImageSource source) async {
+            try {
+              final picked = await _imagePicker.pickImage(
+                source: source,
+                maxWidth: 1080,
+                maxHeight: 1080,
+                imageQuality: 85,
+              );
+              if (picked == null) return;
+              setSheetState(() {
+                selectedNewImage = File(picked.path);
+                removeCurrentImage = false;
+              });
+            } catch (_) {}
+          }
+
+          final hasVisibleImage = selectedNewImage != null || (!removeCurrentImage && currentImageUrl != null);
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                ),
+                const Text('แก้ไขโพสต์', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  maxLines: 5,
+                  minLines: 2,
+                  maxLength: 500,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'เขียนอะไรบางอย่าง...',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[200]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[200]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFFF9800)),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final newBody = controller.text.trim();
-                    Navigator.pop(ctx);
-                    try {
-                      await Supabase.instance.client
-                          .from('feed_posts')
-                          .update({'body': newBody})
-                          .eq('id', widget.post.id);
-                      if (mounted) {
-                        setState(() => _editedBody = newBody);
-                        widget.onReactionChanged();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('แก้ไขแล้ว ✅')),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
-                        );
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF9800),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: selectedNewImage != null
+                        ? Image.file(selectedNewImage!, fit: BoxFit.cover)
+                        : (!removeCurrentImage && currentImageUrl != null
+                            ? Image.network(
+                                currentImageUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Colors.grey[100],
+                                  alignment: Alignment.center,
+                                  child: const Icon(Icons.broken_image_outlined),
+                                ),
+                              )
+                            : Container(
+                                color: Colors.grey[100],
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'ยังไม่มีรูปภาพ',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              )),
                   ),
-                  child: const Text('บันทึก', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => pickImage(ImageSource.gallery),
+                        icon: const Icon(Icons.photo_library_outlined, size: 18),
+                        label: const Text('เปลี่ยนรูป'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => pickImage(ImageSource.camera),
+                        icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                        label: const Text('ถ่ายรูป'),
+                      ),
+                    ),
+                  ],
+                ),
+                if (hasVisibleImage) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        setSheetState(() {
+                          selectedNewImage = null;
+                          removeCurrentImage = true;
+                        });
+                      },
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      label: const Text(
+                        'ลบรูปออกจากโพสต์',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final newBody = controller.text.trim();
+                            final previousImageUrl = _editedImageUrl ?? widget.post.imageUrl;
+                            setSheetState(() => isSaving = true);
+                            try {
+                              String? nextImageUrl = removeCurrentImage ? null : currentImageUrl;
+                              if (selectedNewImage != null) {
+                                final uploaded = await _uploadFeedImage(selectedNewImage!);
+                                if (uploaded == null) {
+                                  throw Exception('อัพโหลดรูปภาพไม่สำเร็จ');
+                                }
+                                nextImageUrl = uploaded;
+                              }
+
+                              await Supabase.instance.client
+                                  .from('feed_posts')
+                                  .update({
+                                    'body': newBody.isEmpty ? null : newBody,
+                                    'image_url': nextImageUrl,
+                                  })
+                                  .eq('id', widget.post.id);
+
+                              if (previousImageUrl != null &&
+                                  previousImageUrl.isNotEmpty &&
+                                  previousImageUrl != nextImageUrl) {
+                                await _tryDeleteFeedImageByPublicUrl(previousImageUrl);
+                              }
+
+                              if (!mounted) return;
+                              setState(() {
+                                _editedBody = newBody;
+                                _editedImageUrl = nextImageUrl;
+                              });
+                              widget.onReactionChanged();
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('แก้ไขแล้ว ✅')),
+                              );
+                            } catch (e) {
+                              if (!mounted) return;
+                              setSheetState(() => isSaving = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+                              );
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF9800),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('บันทึก', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -673,7 +833,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
                   height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _typeColor(post.postType).withOpacity(0.12),
+                    color: const Color(0xFFFF9800).withOpacity(0.12),
                   ),
                   child: Center(
                     child: post.authorAvatar != null
@@ -681,7 +841,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
                             radius: 20,
                             backgroundImage: NetworkImage(post.authorAvatar!),
                           )
-                        : Text(post.postType.icon, style: const TextStyle(fontSize: 20)),
+                        : const Icon(Icons.person_outline, size: 20, color: Color(0xFFFF9800)),
                   ),
                 ),
               ),
@@ -703,24 +863,8 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
                   ],
                 ),
               ),
-              // Type badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _typeColor(post.postType).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  post.postType.label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _typeColor(post.postType),
-                  ),
-                ),
-              ),
               // Three-dot menu
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               GestureDetector(
                 onTap: _showPostOptions,
                 child: Icon(Icons.more_horiz, color: Colors.grey[600], size: 22),
@@ -730,7 +874,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
         ),
 
         // Image
-        if (post.imageUrl != null)
+        if ((_editedImageUrl ?? post.imageUrl) != null)
           DoubleTapReaction(
             entityType: ReactableEntityType.feedPost,
             entityId: post.id,
@@ -741,7 +885,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
               ),
               child: ClipRect(
                 child: Image.network(
-                  post.imageUrl!,
+                  (_editedImageUrl ?? post.imageUrl)!,
                   width: double.infinity,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
@@ -893,16 +1037,6 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
         Divider(height: 1, color: Colors.grey[200]),
       ],
     );
-  }
-
-  Color _typeColor(FeedPostType type) {
-    return switch (type) {
-      FeedPostType.petReport => const Color(0xFFFF9800),
-      FeedPostType.reunion => const Color(0xFF4CAF50),
-      FeedPostType.shelterUpdate => const Color(0xFF2196F3),
-      FeedPostType.milestone => const Color(0xFFFFD700),
-      FeedPostType.story => const Color(0xFF9C27B0),
-    };
   }
 
   String _timeAgo(DateTime time) {

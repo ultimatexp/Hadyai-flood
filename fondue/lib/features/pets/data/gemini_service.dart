@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../../../core/config/constants.dart';
 
 class GeminiService {
   late final GenerativeModel _model;
+
+  static bool get isConfigured => AppConstants.googleGeminiKey.isNotEmpty;
 
   GeminiService() {
     _model = GenerativeModel(
@@ -15,65 +18,66 @@ class GeminiService {
   }
 
   static void _ensureGeminiApiKey() {
-    if (AppConstants.googleGeminiKey.isEmpty) {
-      throw StateError(
-        'No Gemini API key. Use Run and Debug → "fondue (reads fondue/.env)" '
-        'or: cd fondue && flutter run --dart-define-from-file=.env. '
-        'On a phone, plain "flutter run" does not read fondue/.env unless you '
-        'pass that flag or put a non-empty key in assets/google_ai.env.',
-      );
+    if (!isConfigured) {
+      throw StateError('Gemini API key is missing.');
     }
   }
 
   Future<Map<String, dynamic>> analyzePetImage(XFile imageFile) async {
-    _ensureGeminiApiKey();
-    final imageBytes = await imageFile.readAsBytes();
-    
-    final prompt = Content.multi([
-      TextPart('''
-        Analyze this image, which might be a photo of a pet OR a screenshot of a social media post about a lost/found pet.
-        Return ONE JSON object only. No markdown, no code fences.
-        
-        Matching fields (use lowercase English tokens so they align with a database):
-        - species: exactly "dog" or "cat" only (domestic dog or domestic cat clearly visible)
-        - color_main: primary coat color, one of "black", "white", "orange", "gray", "brown", "cream", "mixed", or a short English phrase if none fit
-        - color_secondary: secondary color if clearly visible, else null
-        - color_pattern: one of "solid", "tabby", "calico", "tuxedo", "bicolor", "tortie", "pointed", "spotted", "merle", "brindle", or null if unclear
-        - fur_length: one of "short", "medium", "long", "hairless", or null if unclear
-        - sex: "male", "female", or "unknown"
-        - has_collar: true/false
-        - collar_color: short English color or null
-        - clothes: short description of clothing/vest or null
-        - white_patch_location: JSON array of body areas with white patches, e.g. ["chest","paws"], or null
-        - heterochromia: true if eyes are two different colors, else false
-        
-        Context (optional, for posts/screenshots):
-        - pet_name: name if mentioned, else null
-        - description: brief summary of visuals AND any readable text in the image
-        - breed: breed if obvious or mentioned, else null
-        - location_text: place mentioned in text, else null
-        - contact_info: phone/Line/Facebook if visible, else null
-        - reward: reward text/amount if mentioned, else null
-        
-        If it's not pet-related, return { "error": "Not a pet" }.
-        If the animal is not clearly a dog or cat (e.g. bird, rabbit, reptile, livestock), return { "error": "Not a dog or cat" }.
-      '''),
-      DataPart('image/jpeg', imageBytes),
-    ]);
-
+    // Primary path: server-side analysis (no API key on device).
     try {
-      final response = await _model.generateContent([prompt]);
-      final text = response.text;
-      
-      if (text == null) throw Exception('No response from AI');
+      final uri = Uri.parse('${AppConstants.apiBaseUrl}/api/analyze-pet');
+      final request = http.MultipartRequest('POST', uri);
+      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
 
-      // Clean markdown if present
-      final jsonString = text.replaceAll(RegExp(r'```json\n|\n```'), '').trim();
-      
-      return json.decode(jsonString) as Map<String, dynamic>;
-    } catch (e) {
-      print('Gemini Analysis Error: $e');
-      throw Exception('Failed to analyze image: $e');
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      final raw = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200 && raw['success'] == true && raw['data'] is Map<String, dynamic>) {
+        return Map<String, dynamic>.from(raw['data'] as Map);
+      }
+      final code = raw['code']?.toString();
+      if (code == 'AI_TEMPORARY_UNAVAILABLE' || code == 'MISSING_SERVER_GEMINI_KEY') {
+        return <String, dynamic>{
+          'analysis_unavailable': true,
+          'reason': code,
+        };
+      }
+      final serverError = raw['error']?.toString();
+      if (serverError != null && serverError.isNotEmpty) {
+        throw Exception(serverError);
+      }
+      throw Exception('Server analysis failed (${response.statusCode})');
+    } catch (serverError) {
+      // Fallback: local Gemini only if key exists (developer/local scenarios).
+      if (!isConfigured) {
+        return <String, dynamic>{
+          'analysis_unavailable': true,
+          'reason': 'server_failed_and_no_device_key',
+        };
+      }
+      _ensureGeminiApiKey();
+      final imageBytes = await imageFile.readAsBytes();
+      final prompt = Content.multi([
+        TextPart('''
+          Analyze this image, which might be a photo of a pet OR a screenshot of a social media post about a lost/found pet.
+          Return ONE JSON object only. No markdown, no code fences.
+          Fields: species(dog/cat), color_main, color_secondary, color_pattern, fur_length, sex(male/female/unknown), has_collar, collar_color, clothes, white_patch_location, heterochromia, pet_name, description, breed, location_text, contact_info, reward.
+          If not pet-related return {"error":"Not a pet"}.
+          If not clearly dog/cat return {"error":"Not a dog or cat"}.
+        '''),
+        DataPart('image/jpeg', imageBytes),
+      ]);
+      try {
+        final response = await _model.generateContent([prompt]);
+        final text = response.text;
+        if (text == null) throw Exception('No response from AI');
+        final jsonString = text.replaceAll(RegExp(r'```json\n|\n```'), '').trim();
+        return json.decode(jsonString) as Map<String, dynamic>;
+      } catch (e) {
+        throw Exception('Failed to analyze image: $e (server fallback: $serverError)');
+      }
     }
   }
 

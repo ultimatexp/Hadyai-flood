@@ -21,6 +21,8 @@ import '../../auth/presentation/login_screen.dart';
 import '../../../shared/page_transitions.dart';
 import '../../donate/donation_providers.dart';
 import '../../donate/latest_donors_strip.dart';
+import '../../inbox/data/inbox_providers.dart';
+import '../../inbox/presentation/inbox_screen.dart';
 
 class SemanticSearchScreen extends ConsumerStatefulWidget {
   final XFile? initialImage;
@@ -232,7 +234,9 @@ class _SemanticSearchScreenState extends ConsumerState<SemanticSearchScreen>
       _errorMessage = null;
       _allSearchResults = [];
       _filteredResults = [];
-      _statusMessage = "Step 1/2: Analyzing image with AI...";
+      _statusMessage = GeminiService.isConfigured
+          ? "Step 1/2: Analyzing image with AI..."
+          : "Step 1/2: Preparing image search...";
     });
 
     try {
@@ -241,14 +245,19 @@ class _SemanticSearchScreenState extends ConsumerState<SemanticSearchScreen>
       for (int i = 0; i < _selectedImages.length; i++) {
         final image = _selectedImages[i];
 
-        setState(() => _statusMessage = "Step 1/2: Extracting features from image ${i + 1}...");
+        final canUseGemini = GeminiService.isConfigured;
+        setState(() => _statusMessage = canUseGemini
+            ? "Step 1/2: Extracting features from image ${i + 1}..."
+            : "Step 1/2: Searching without AI features (${i + 1}/${_selectedImages.length})...");
 
         Map<String, dynamic> features = {};
-        try {
-          features = await _gemini.analyzePetImage(image);
-          print("Gemini extracted: $features");
-        } catch (e) {
-          print("Gemini analysis failed: $e");
+        if (canUseGemini) {
+          try {
+            features = await _gemini.analyzePetImage(image);
+            print("Gemini extracted: $features");
+          } catch (e) {
+            print("Gemini analysis failed, fallback to standard search: $e");
+          }
         }
 
         final err = features['error']?.toString();
@@ -472,6 +481,8 @@ class _SemanticSearchScreenState extends ConsumerState<SemanticSearchScreen>
     }
 
     final bool hasResults = _allSearchResults.isNotEmpty;
+    final unreadNotificationsAsync = ref.watch(unreadNotificationsCountProvider);
+    final unreadNotifications = unreadNotificationsAsync.asData?.value ?? 0;
     // Home tab idle empty state: upload lives in scroll (above "recent"), not fixed under app bar.
     final bool homeEmptyIdle = widget.asHomeTab &&
         !hasResults &&
@@ -483,6 +494,28 @@ class _SemanticSearchScreenState extends ConsumerState<SemanticSearchScreen>
       appBar: AppBar(
         automaticallyImplyLeading: !widget.asHomeTab,
         title: Text(widget.asHomeTab ? 'ค้นหาสุนัข & แมว' : 'Smart Pet Search'),
+        actions: widget.asHomeTab
+            ? [
+                IconButton(
+                  icon: unreadNotifications > 0
+                      ? Badge(
+                          label: Text(
+                            '$unreadNotifications',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                          backgroundColor: Colors.red,
+                          child: const Icon(Icons.notifications_none_rounded),
+                        )
+                      : const Icon(Icons.notifications_none_rounded),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const InboxScreen()),
+                    );
+                  },
+                ),
+              ]
+            : null,
       ),
       // Map FAB lives on [DashboardScreen] Stack when asHomeTab — inner Scaffold FAB is hidden by parent + FAB.
       floatingActionButton: widget.asHomeTab

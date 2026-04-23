@@ -113,6 +113,11 @@ class _LatestDonorsStripState extends State<LatestDonorsStrip> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            DonateStripIcon(
+              size: _donateIconPx,
+              forLightBackground: widget.forLightBackground,
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 widget.forLightBackground
@@ -125,8 +130,6 @@ class _LatestDonorsStripState extends State<LatestDonorsStrip> {
                 ),
               ),
             ),
-            const SizedBox(width: 6),
-            DonateStripIcon(size: _donateIconPx),
           ],
         ),
       );
@@ -140,7 +143,7 @@ class _LatestDonorsStripState extends State<LatestDonorsStrip> {
         Padding(
           padding: const EdgeInsets.only(left: 2, bottom: 3),
           child: Text(
-            widget.forLightBackground ? 'ผู้บริจาคล่าสุด' : 'ผู้บริจาคล่าสุด (Stripe)',
+            widget.forLightBackground ? 'ผู้ใจบุญล่าสุด' : 'ผู้ใจบุญล่าสุด (Stripe)',
             style: GoogleFonts.prompt(
               fontSize: widget.forLightBackground ? 10 : 11,
               fontWeight: FontWeight.w700,
@@ -153,6 +156,11 @@ class _LatestDonorsStripState extends State<LatestDonorsStrip> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              DonateStripIcon(
+                size: _donateIconPx,
+                forLightBackground: widget.forLightBackground,
+              ),
+              SizedBox(width: _sepW),
               Expanded(
                 child: ListView.separated(
                   controller: _scroll,
@@ -170,8 +178,6 @@ class _LatestDonorsStripState extends State<LatestDonorsStrip> {
                   },
                 ),
               ),
-              SizedBox(width: _sepW),
-              DonateStripIcon(size: _donateIconPx),
             ],
           ),
         ),
@@ -185,8 +191,13 @@ class DonateStripIcon extends StatelessWidget {
   static const String donateWebUrl = 'https://thaiflood2025.com/donate';
 
   final double size;
+  final bool forLightBackground;
 
-  const DonateStripIcon({super.key, this.size = 80});
+  const DonateStripIcon({
+    super.key,
+    this.size = 80,
+    this.forLightBackground = false,
+  });
 
   Future<void> _openDonate(BuildContext context) async {
     final uri = Uri.parse(donateWebUrl);
@@ -209,11 +220,23 @@ class DonateStripIcon extends StatelessWidget {
         child: InkWell(
           onTap: () => _openDonate(context),
           borderRadius: BorderRadius.circular(10),
-          child: SvgPicture.asset(
-            'assets/icons/donate.svg',
-            width: size,
-            height: size,
-            fit: BoxFit.contain,
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: forLightBackground
+                    ? const Color(0xFF111827)
+                    : Colors.white,
+                width: 1.5,
+              ),
+            ),
+            child: SvgPicture.asset(
+              'assets/icons/donate.svg',
+              width: size,
+              height: size,
+              fit: BoxFit.contain,
+            ),
           ),
         ),
       ),

@@ -9,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/config/constants.dart';
 import '../domain/pet.dart';
+import '../domain/pet_claim.dart';
+import '../domain/pet_transfer.dart';
 import '../domain/pet_matcher_service.dart';
 import 'pet_providers.dart';
 import '../../chat/data/chat_repository.dart';
@@ -31,16 +33,182 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
   int _currentImageIndex = 0;
   late Pet _pet;
   bool _showContactInfo = false;
+  bool _reportDetailsExpanded = false;
+  bool _claimLoading = false;
+  List<PetClaim> _claims = const [];
+  PetTransfer? _pendingTransfer;
 
   @override
   void initState() {
     super.initState();
     _pet = widget.pet;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshClaimTransferState();
+    });
   }
 
   bool get _isOwner {
     final user = Supabase.instance.client.auth.currentUser;
     return user != null && _pet.userId == user.id;
+  }
+
+  bool get _isClaimant {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return false;
+    return _claims.any((c) => c.claimantUserId == user.id);
+  }
+
+  Future<void> _refreshClaimTransferState() async {
+    if (!mounted) return;
+    setState(() => _claimLoading = true);
+    try {
+      final repo = ref.read(petRepositoryProvider);
+      final claims = await repo.fetchClaimsForPet(_pet.id);
+      final pendingTransfer = await repo.fetchPendingTransferForPet(_pet.id);
+      if (!mounted) return;
+      setState(() {
+        _claims = claims;
+        _pendingTransfer = pendingTransfer;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _claims = const [];
+        _pendingTransfer = null;
+      });
+    } finally {
+      if (mounted) setState(() => _claimLoading = false);
+    }
+  }
+
+  Future<void> _showClaimDialog() async {
+    final current = Supabase.instance.client.auth.currentUser;
+    if (current == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please login first')),
+        );
+      }
+      return;
+    }
+    if (_isOwner) return;
+    final ctrl = TextEditingController();
+    final note = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Claim this pet'),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'Add proof details (optional): marks, photos, behaviors...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const Text('Submit claim'),
+          ),
+        ],
+      ),
+    );
+    if (note == null) return;
+    try {
+      final repo = ref.read(petRepositoryProvider);
+      await repo.submitClaim(petId: _pet.id, note: note);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Claim submitted')),
+        );
+      }
+      await _refreshClaimTransferState();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit claim: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _acceptClaim(String claimId) async {
+    try {
+      final repo = ref.read(petRepositoryProvider);
+      await repo.acceptClaim(claimId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Claim accepted')),
+        );
+      }
+      await _refreshClaimTransferState();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to accept claim: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectClaim(String claimId) async {
+    try {
+      final repo = ref.read(petRepositoryProvider);
+      await repo.rejectClaim(claimId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Claim rejected')),
+        );
+      }
+      await _refreshClaimTransferState();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to reject claim: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _submitTransfer(String claimId) async {
+    try {
+      final repo = ref.read(petRepositoryProvider);
+      await repo.submitTransferForAcceptedClaim(claimId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transfer submitted. Waiting claimant confirmation.')),
+        );
+      }
+      await _refreshClaimTransferState();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit transfer: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmTransfer(String transferId) async {
+    try {
+      final repo = ref.read(petRepositoryProvider);
+      await repo.confirmTransfer(transferId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transfer confirmed. Ownership updated.')),
+        );
+      }
+      await _refreshClaimTransferState();
+      ref.invalidate(lostPetsProvider);
+      ref.invalidate(paginatedLostPetsProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to confirm transfer: $e')),
+        );
+      }
+    }
   }
 
   void _nextImage() {
@@ -84,99 +252,208 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
     return _pet.expiresAt!.difference(DateTime.now());
   }
 
+  /// DB stores lowercase sex; edit form uses `Male` / `Female` / `Unknown` keys for `localizedSex`.
+  static String _sexToFormValue(String? sex) {
+    switch ((sex ?? '').toLowerCase().trim()) {
+      case 'male':
+        return 'Male';
+      case 'female':
+        return 'Female';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  static String _sexFormValueToDb(String form) {
+    switch (form) {
+      case 'Male':
+        return 'male';
+      case 'Female':
+        return 'female';
+      default:
+        return 'unknown';
+    }
+  }
+
   void _showEditDialog() {
+    if (!_isOwner) return;
+
     final nameController = TextEditingController(text: _pet.name ?? '');
+    final breedController = TextEditingController(text: _pet.breed ?? '');
+    final marksController = TextEditingController(text: _pet.marks ?? _pet.uniqueMarks ?? '');
     final descController = TextEditingController(text: _pet.description ?? '');
-    final colorController = TextEditingController(text: _pet.colorMain ?? '');
+    final colorController = TextEditingController(
+      text: _pet.colorMain ?? _pet.legacyColor ?? '',
+    );
     final contactController = TextEditingController(text: _pet.contactInfo ?? '');
     String selectedStatus = _pet.status;
-    String selectedSex = _pet.sex ?? 'Unknown';
+    String selectedSex = _sexToFormValue(_pet.sex);
 
-    showDialog(
+    void disposeControllers() {
+      nameController.dispose();
+      breedController.dispose();
+      marksController.dispose();
+      descController.dispose();
+      colorController.dispose();
+      contactController.dispose();
+    }
+
+    var saving = false;
+
+    showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          final d = AppLocalizations.of(ctx)!;
-          return AlertDialog(
-            title: Text(d.petDetailEditTitle),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(labelText: d.petDetailLabelPetName),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: selectedStatus,
-                    decoration: InputDecoration(labelText: d.petDetailLabelStatus),
-                    items: ['LOST', 'FOUND', 'REUNITED']
-                        .map((s) => DropdownMenuItem(value: s, child: Text(localizedPetStatus(ctx, s))))
-                        .toList(),
-                    onChanged: (v) => setDialogState(() => selectedStatus = v!),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: selectedSex,
-                    decoration: InputDecoration(labelText: d.petDetailLabelSex),
-                    items: ['Male', 'Female', 'Unknown']
-                        .map((s) => DropdownMenuItem(value: s, child: Text(localizedSex(ctx, s))))
-                        .toList(),
-                    onChanged: (v) => setDialogState(() => selectedSex = v!),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: colorController,
-                    decoration: InputDecoration(labelText: d.petDetailLabelColor),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descController,
-                    decoration: InputDecoration(labelText: d.petDetailLabelDescription),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: contactController,
-                    decoration: InputDecoration(labelText: d.petDetailLabelContact),
-                  ),
-                ],
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final d = AppLocalizations.of(ctx)!;
+
+            return AlertDialog(
+              title: Text(d.petDetailEditTitle),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(labelText: d.petDetailLabelPetName),
+                      enabled: !saving,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedStatus,
+                      decoration: InputDecoration(labelText: d.petDetailLabelStatus),
+                      items: ['LOST', 'FOUND', 'REUNITED']
+                          .map((s) => DropdownMenuItem(value: s, child: Text(localizedPetStatus(ctx, s))))
+                          .toList(),
+                      onChanged: saving
+                          ? null
+                          : (v) => setDialogState(() => selectedStatus = v!),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedSex,
+                      decoration: InputDecoration(labelText: d.petDetailLabelSex),
+                      items: ['Male', 'Female', 'Unknown']
+                          .map((s) => DropdownMenuItem(value: s, child: Text(localizedSex(ctx, s))))
+                          .toList(),
+                      onChanged: saving
+                          ? null
+                          : (v) => setDialogState(() => selectedSex = v!),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: colorController,
+                      decoration: InputDecoration(labelText: d.petDetailLabelColor),
+                      enabled: !saving,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: breedController,
+                      decoration: const InputDecoration(
+                        labelText: 'Breed',
+                        border: OutlineInputBorder(),
+                      ),
+                      enabled: !saving,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: marksController,
+                      decoration: const InputDecoration(
+                        labelText: 'Marks / identifying signs',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                      enabled: !saving,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: descController,
+                      decoration: InputDecoration(labelText: d.petDetailLabelDescription),
+                      maxLines: 3,
+                      enabled: !saving,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: contactController,
+                      decoration: InputDecoration(labelText: d.petDetailLabelContact),
+                      enabled: !saving,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(d.settingsCancel),
-              ),
-              FilledButton(
-                onPressed: () async {
-                  final updatedMsg = context.l10n.petDetailPetUpdatedSnack;
-                  final repo = ref.read(petRepositoryProvider);
-                  await repo.updatePet(
-                    petId: _pet.id,
-                    petName: nameController.text.isNotEmpty ? nameController.text : null,
-                    status: selectedStatus,
-                    sex: selectedSex,
-                    colorMain: colorController.text.isNotEmpty ? colorController.text : null,
-                    description: descController.text.isNotEmpty ? descController.text : null,
-                    contactInfo: contactController.text.isNotEmpty ? contactController.text : null,
-                  );
-                  if (!mounted) return;
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(updatedMsg)),
-                  );
-                  ref.invalidate(lostPetsProvider);
-                },
-                style: FilledButton.styleFrom(backgroundColor: AppTheme.accentOrange),
-                child: Text(d.petDetailSave),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+              actions: [
+                TextButton(
+                  onPressed: saving ? null : () => Navigator.pop(ctx),
+                  child: Text(d.settingsCancel),
+                ),
+                FilledButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          setDialogState(() => saving = true);
+                          final updatedMsg = context.l10n.petDetailPetUpdatedSnack;
+                          final repo = ref.read(petRepositoryProvider);
+                          try {
+                            await repo.updatePet(
+                              petId: _pet.id,
+                              petName: nameController.text.trim().isNotEmpty
+                                  ? nameController.text.trim()
+                                  : null,
+                              status: selectedStatus,
+                              sex: _sexFormValueToDb(selectedSex),
+                              colorMain: colorController.text.trim().isNotEmpty
+                                  ? colorController.text.trim()
+                                  : null,
+                              description: descController.text.trim().isNotEmpty
+                                  ? descController.text.trim()
+                                  : null,
+                              contactInfo: contactController.text.trim().isNotEmpty
+                                  ? contactController.text.trim()
+                                  : null,
+                              breed: breedController.text.trim().isNotEmpty
+                                  ? breedController.text.trim()
+                                  : null,
+                              marks: marksController.text.trim().isNotEmpty
+                                  ? marksController.text.trim()
+                                  : null,
+                            );
+                            final fresh = await repo.fetchPetById(_pet.id);
+                            if (!mounted) return;
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            if (!mounted) return;
+                            if (fresh != null) {
+                              setState(() => _pet = fresh);
+                            }
+                            ref.invalidate(lostPetsProvider);
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(updatedMsg)),
+                            );
+                          } catch (e) {
+                            if (mounted) {
+                              setDialogState(() => saving = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(context.l10n.petDetailGenericError(e.toString()))),
+                              );
+                            }
+                          }
+                        },
+                  style: FilledButton.styleFrom(backgroundColor: AppTheme.accentOrange),
+                  child: saving
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(d.petDetailSave),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).whenComplete(disposeControllers);
   }
 
   void _showArchiveDialog() {
@@ -641,12 +918,17 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _pet.description ?? l10n.petDetailNoDescription,
+                    (_pet.description?.trim().isNotEmpty ?? false)
+                        ? _pet.description!.trim()
+                        : l10n.petDetailNoDescription,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: Colors.grey[700],
                           height: 1.5,
                         ),
                   ),
+
+                  const SizedBox(height: 24),
+                  _buildExtendedWebFields(context),
 
                   const SizedBox(height: 24),
 
@@ -735,6 +1017,9 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                   // Owner Card
                   _buildOwnerCard(context, l10n),
 
+                  const SizedBox(height: 16),
+                  _buildClaimTransferSection(context),
+
                   // Post ID
                   Center(
                     child: Padding(
@@ -777,19 +1062,122 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
   }
 
   Widget _buildInfoGrid(BuildContext context, AppLocalizations l10n) {
+    final sx = _pet.sex?.toLowerCase();
+    final sexIcon = sx == 'female' ? Icons.female : Icons.male;
     return Wrap(
       spacing: 16,
       runSpacing: 16,
       children: [
         _buildInfoItem(Icons.pets, l10n.petDetailInfoSpecies, _pet.species),
-        if (_pet.sex != null)
+        if (_pet.sex != null && sx != 'unknown')
           _buildInfoItem(
-            _pet.sex == 'Male' ? Icons.male : Icons.female,
+            sexIcon,
             l10n.petDetailInfoSex,
             localizedSex(context, _pet.sex!),
           ),
-        if (_pet.colorMain != null) _buildInfoItem(Icons.palette, l10n.petDetailInfoColor, _pet.colorMain!),
+        if (_pet.breed != null && _pet.breed!.trim().isNotEmpty)
+          _buildInfoItem(Icons.category_outlined, 'Breed', _pet.breed!.trim()),
+        if (_pet.colorMain != null && _pet.colorMain!.trim().isNotEmpty)
+          _buildInfoItem(Icons.palette, l10n.petDetailInfoColor, _pet.colorMain!),
       ],
+    );
+  }
+
+  static const int _maxJsonPreviewLen = 280;
+
+  String? _truncatePreview(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final t = raw.trim();
+    if (t.length <= _maxJsonPreviewLen) return t;
+    return '${t.substring(0, _maxJsonPreviewLen)}…';
+  }
+
+  Widget _buildExtendedWebFields(BuildContext context) {
+    if (!_pet.hasExtendedAttributes) return const SizedBox.shrink();
+
+    Widget row(String label, String value) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 130,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[700],
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Expanded(
+              child: SelectableText(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[900]),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final rows = <Widget>[];
+
+    void add(String label, String? value) {
+      final v = value?.trim();
+      if (v == null || v.isEmpty) return;
+      rows.add(row(label, v));
+    }
+
+    add('Secondary color', _pet.colorSecondary);
+    add('Pattern', _pet.colorPattern);
+    add('Fur length', _pet.furLength);
+    add('Eye color', _pet.eyeColor);
+    add('Body size', _pet.bodySize);
+    add('Collar color', _pet.collarColor);
+    add('Unique marks', _pet.uniqueMarks);
+    if (_pet.marks != null && _pet.marks!.trim().isNotEmpty && _pet.marks != _pet.uniqueMarks) {
+      add('Marks', _pet.marks);
+    }
+    add('Web color (legacy)', _pet.legacyColor);
+    add('Pet type (legacy)', _pet.petType);
+    if (_pet.lastSeenAt != null) {
+      rows.add(row('Last seen', _pet.lastSeenAt!.toLocal().toString()));
+    }
+    add('EXIF time', _pet.exifTime);
+    if (_pet.exifLocation != null && _pet.exifLocation!.isNotEmpty) {
+      rows.add(row('EXIF location', _pet.exifLocation.toString()));
+    }
+    for (final e in _pet.characteristicEntries) {
+      rows.add(row(e.key, e.value));
+    }
+    final dc = _truncatePreview(_pet.dominantColorsJson);
+    if (dc != null) rows.add(row('Dominant colors', dc));
+    final cp = _truncatePreview(_pet.colorPercentagesJson);
+    if (cp != null) rows.add(row('Color %', cp));
+    final lc = _truncatePreview(_pet.labColorsJson);
+    if (lc != null) rows.add(row('Lab colors', lc));
+    if (_pet.hasImageEmbedding) {
+      rows.add(row('Image embedding', 'Stored (used for search)'));
+    }
+
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: EdgeInsets.zero,
+        initiallyExpanded: _reportDetailsExpanded,
+        onExpansionChanged: (expanded) {
+          setState(() => _reportDetailsExpanded = expanded);
+        },
+        title: Text(
+          'Report details',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        children: rows,
+      ),
     );
   }
 
@@ -870,7 +1258,20 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _showEditDialog,
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  label: Text(l10n.petDetailEditTooltip),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue.shade800,
+                    side: BorderSide(color: Colors.blue.shade300),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               // Recheck Database Button
               SizedBox(
                 width: double.infinity,
@@ -897,17 +1298,33 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
       } else {
         // Owner but not LOST (e.g. Found/Adoptable/Reunited)
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.grey[100],
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey[300]!),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.person, color: Colors.grey),
-              const SizedBox(width: 12),
-              Text(l10n.petDetailOwnerOfPost, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              Row(
+                children: [
+                  const Icon(Icons.person, color: Colors.grey),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      l10n.petDetailOwnerOfPost,
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _showEditDialog,
+                icon: const Icon(Icons.edit_outlined, size: 20),
+                label: Text(l10n.petDetailEditTooltip),
+              ),
             ],
           ),
         );
@@ -1040,6 +1457,163 @@ class _PetDetailScreenState extends ConsumerState<PetDetailScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildClaimTransferSection(BuildContext context) {
+    final current = Supabase.instance.client.auth.currentUser;
+    if (current == null) return const SizedBox.shrink();
+
+    final myClaim = _claims.cast<PetClaim?>().firstWhere(
+          (c) => c?.claimantUserId == current.id,
+          orElse: () => null,
+        );
+    final acceptedClaim = _claims.cast<PetClaim?>().firstWhere(
+          (c) => c?.status == 'accepted',
+          orElse: () => null,
+        );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.indigo[50],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.indigo[100]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.verified_user_outlined, color: Colors.indigo),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Ownership claim & transfer',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+              if (_claimLoading)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 18),
+                onPressed: _refreshClaimTransferState,
+                tooltip: 'Refresh claim status',
+              ),
+            ],
+          ),
+          if (!_isOwner) ...[
+            const SizedBox(height: 8),
+            if (myClaim == null)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _showClaimDialog,
+                  icon: const Icon(Icons.how_to_reg),
+                  label: const Text('Claim this pet'),
+                ),
+              )
+            else
+              Text(
+                'Your claim status: ${myClaim.status.toUpperCase()}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+          ],
+          if (_isOwner) ...[
+            const SizedBox(height: 8),
+            if (_claims.isEmpty)
+              Text(
+                'No claims yet.',
+                style: TextStyle(color: Colors.grey[700]),
+              )
+            else
+              ..._claims.map((claim) {
+                final canAcceptReject = claim.status == 'pending';
+                final canTransfer = claim.status == 'accepted' &&
+                    (_pendingTransfer == null ||
+                        _pendingTransfer!.status != 'pending_claimant_confirmation');
+                return Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.indigo[100]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Claimant: ${claim.claimantUserId.substring(0, 8)}...  |  ${claim.status.toUpperCase()}',
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                      ),
+                      if (claim.note != null && claim.note!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(claim.note!, style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+                      ],
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (canAcceptReject)
+                            OutlinedButton(
+                              onPressed: () => _acceptClaim(claim.id),
+                              child: const Text('Accept'),
+                            ),
+                          if (canAcceptReject)
+                            OutlinedButton(
+                              onPressed: () => _rejectClaim(claim.id),
+                              child: const Text('Reject'),
+                            ),
+                          if (canTransfer)
+                            ElevatedButton(
+                              onPressed: () => _submitTransfer(claim.id),
+                              child: const Text('Submit transfer'),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+          if (_pendingTransfer != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Transfer status: ${_pendingTransfer!.status}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  if (_pendingTransfer!.claimantUserId == current.id &&
+                      _pendingTransfer!.status == 'pending_claimant_confirmation')
+                    FilledButton.icon(
+                      onPressed: () => _confirmTransfer(_pendingTransfer!.id),
+                      icon: const Icon(Icons.check_circle),
+                      label: const Text('Confirm transfer'),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
+import '../../../core/services/push_notification_service.dart';
 import '../data/inbox_providers.dart';
 import '../domain/notification.dart';
 import '../../../../shared/shimmer_loading.dart';
@@ -31,6 +32,7 @@ class InboxScreen extends ConsumerWidget {
             onPressed: () async {
               await ref.read(inboxRepositoryProvider).markAllAsRead();
               ref.invalidate(notificationsProvider);
+              ref.invalidate(unreadNotificationsCountProvider);
             },
             child: const Text(
               'Mark all read',
@@ -139,6 +141,14 @@ class InboxScreen extends ConsumerWidget {
             if (!notif.isRead) {
               await ref.read(inboxRepositoryProvider).markAsRead(notif.id);
               ref.invalidate(notificationsProvider);
+              ref.invalidate(unreadNotificationsCountProvider);
+            }
+            if (_canDeepLink(notif)) {
+              await PushNotificationService.openInboxNotification(
+                context: context,
+                payload: _asPushPayload(notif),
+              );
+              return;
             }
             _showNotificationDetail(context, notif);
           },
@@ -386,5 +396,28 @@ class InboxScreen extends ConsumerWidget {
       return '${diff.inMinutes}m ago';
     }
     return 'Just now';
+  }
+
+  bool _canDeepLink(AppNotification notif) {
+    final payload = _asPushPayload(notif);
+    return payload.containsKey('type');
+  }
+
+  Map<String, dynamic> _asPushPayload(AppNotification notif) {
+    final payload = Map<String, dynamic>.from(notif.data);
+    final type = payload['type']?.toString() ?? '';
+    if (type.isNotEmpty) return payload;
+
+    switch (notif.type) {
+      case 'chat':
+        return <String, dynamic>{'type': 'CHAT_MESSAGE', ...payload};
+      case 'pet_match':
+      case 'match':
+        return <String, dynamic>{'type': 'PET_MATCH', ...payload};
+      case 'post':
+        return <String, dynamic>{'type': 'POST_ACTIVITY', ...payload};
+      default:
+        return payload;
+    }
   }
 }

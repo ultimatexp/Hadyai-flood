@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fondue/l10n/app_localizations.dart';
 import 'package:fondue/l10n/app_localizations_context.dart';
 import 'package:lottie/lottie.dart';
@@ -23,15 +24,78 @@ class PetFeedScreen extends ConsumerStatefulWidget {
 }
 
 class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
+  static const String _gridPrefKey = 'pet_feed_grid_view';
+  static const String _rewardOnlyPrefKey = 'pet_feed_reward_only';
+  static const String _todayOnlyPrefKey = 'pet_feed_today_only';
+  static const String _statusPrefKey = 'pet_feed_status';
+  static const String _speciesPrefKey = 'pet_feed_species';
+
   bool _hasCheckedMatches = false;
+  bool _isGridView = false;
+  bool _rewardOnly = false;
+  bool _todayOnly = false;
 
   @override
   void initState() {
     super.initState();
+    _restoreViewPreference();
     // Check for matches slightly after initial build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForMatches();
     });
+  }
+
+  Future<void> _restoreViewPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+
+    final savedGrid = prefs.getBool(_gridPrefKey);
+    final savedRewardOnly = prefs.getBool(_rewardOnlyPrefKey);
+    final savedTodayOnly = prefs.getBool(_todayOnlyPrefKey);
+    final savedStatus = prefs.getString(_statusPrefKey);
+    final savedSpecies = prefs.getString(_speciesPrefKey);
+
+    if (savedGrid != null || savedRewardOnly != null || savedTodayOnly != null) {
+      setState(() {
+        if (savedGrid != null) _isGridView = savedGrid;
+        if (savedRewardOnly != null) _rewardOnly = savedRewardOnly;
+        if (savedTodayOnly != null) _todayOnly = savedTodayOnly;
+      });
+    }
+
+    final currentFilter = ref.read(petFilterProvider);
+    ref.read(petFilterProvider.notifier).setFilter(
+      currentFilter.copyWith(
+        status: savedStatus ?? currentFilter.status,
+        species: savedSpecies ?? currentFilter.species,
+      ),
+    );
+  }
+
+  Future<void> _persistFeedPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final filter = ref.read(petFilterProvider);
+    await prefs.setBool(_gridPrefKey, _isGridView);
+    await prefs.setBool(_rewardOnlyPrefKey, _rewardOnly);
+    await prefs.setBool(_todayOnlyPrefKey, _todayOnly);
+    await prefs.setString(_statusPrefKey, filter.status);
+    await prefs.setString(_speciesPrefKey, filter.species);
+  }
+
+  Future<void> _setFilterAndPersist(PetFilter next) async {
+    ref.read(petFilterProvider.notifier).setFilter(next);
+    await _persistFeedPrefs();
+  }
+
+  Future<void> _toggleGridView() async {
+    final next = !_isGridView;
+    setState(() => _isGridView = next);
+    await _persistFeedPrefs();
+  }
+
+  bool _isToday(DateTime value) {
+    final now = DateTime.now();
+    return value.year == now.year && value.month == now.month && value.day == now.day;
   }
 
   Future<void> _checkForMatches() async {
@@ -119,7 +183,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final lostPetsAsync = ref.watch(lostPetsProvider);
+    final lostPetsAsync = ref.watch(paginatedLostPetsProvider);
     final filter = ref.watch(petFilterProvider);
 
     return Scaffold(
@@ -217,11 +281,48 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
               scrollDirection: Axis.horizontal,
               children: [
                 _buildFilterChip(
+                  context,
+                  ref,
+                  label: _isGridView ? 'Grid 3x' : 'List',
+                  isSelected: _isGridView,
+                  icon: _isGridView ? Icons.grid_view_rounded : Icons.view_agenda_rounded,
+                  onTap: _toggleGridView,
+                ),
+                const SizedBox(width: 8),
+                _buildFilterChip(
+                  context,
+                  ref,
+                  label: 'Reward only',
+                  isSelected: _rewardOnly,
+                  color: Colors.amber[700],
+                  icon: Icons.monetization_on_outlined,
+                  onTap: () async {
+                    setState(() => _rewardOnly = !_rewardOnly);
+                    await _persistFeedPrefs();
+                  },
+                ),
+                const SizedBox(width: 8),
+                _buildFilterChip(
+                  context,
+                  ref,
+                  label: 'Today only',
+                  isSelected: _todayOnly,
+                  color: Colors.blue,
+                  icon: Icons.today_outlined,
+                  onTap: () async {
+                    setState(() => _todayOnly = !_todayOnly);
+                    await _persistFeedPrefs();
+                  },
+                ),
+                const SizedBox(width: 16),
+                Container(width: 1, height: 20, color: Colors.grey[300]),
+                const SizedBox(width: 16),
+                _buildFilterChip(
                   context, 
                   ref, 
                   label: l10n.petFilterAll, 
                   isSelected: filter.status == 'All',
-                  onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(status: 'All')),
+                  onTap: () => _setFilterAndPersist(filter.copyWith(status: 'All')),
                 ),
                 const SizedBox(width: 8),
                 _buildFilterChip(
@@ -230,7 +331,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                   label: l10n.petFilterLost, 
                   isSelected: filter.status == 'LOST',
                   color: Colors.red,
-                  onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(status: 'LOST')),
+                  onTap: () => _setFilterAndPersist(filter.copyWith(status: 'LOST')),
                 ),
                 const SizedBox(width: 8),
                 _buildFilterChip(
@@ -239,7 +340,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                   label: l10n.petFilterFound, 
                   isSelected: filter.status == 'FOUND',
                   color: AppTheme.primaryGreen,
-                  onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(status: 'FOUND')),
+                  onTap: () => _setFilterAndPersist(filter.copyWith(status: 'FOUND')),
                 ),
                 const SizedBox(width: 16),
                 Container(width: 1, height: 20, color: Colors.grey[300]), // Divider
@@ -250,7 +351,9 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                   label: l10n.petFilterDogs, 
                   isSelected: filter.species == 'Dog',
                   icon: Icons.pets,
-                  onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(species: filter.species == 'Dog' ? 'All' : 'Dog')),
+                  onTap: () => _setFilterAndPersist(
+                    filter.copyWith(species: filter.species == 'Dog' ? 'All' : 'Dog'),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 _buildFilterChip(
@@ -259,7 +362,9 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                   label: l10n.petFilterCats, 
                   isSelected: filter.species == 'Cat',
                   icon: Icons.pets,
-                  onTap: () => ref.read(petFilterProvider.notifier).setFilter(filter.copyWith(species: filter.species == 'Cat' ? 'All' : 'Cat')),
+                  onTap: () => _setFilterAndPersist(
+                    filter.copyWith(species: filter.species == 'Cat' ? 'All' : 'Cat'),
+                  ),
                 ),
               ],
             ),
@@ -270,7 +375,14 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
           // Pet List
           Expanded(
             child: lostPetsAsync.when(
-              data: (pets) {
+              data: (paged) {
+                var pets = paged.pets;
+                if (_rewardOnly) {
+                  pets = pets.where((p) => (p.reward ?? 0) > 0).toList();
+                }
+                if (_todayOnly) {
+                  pets = pets.where((p) => _isToday(p.createdAt)).toList();
+                }
                 if (pets.isEmpty) {
                   return Center(
                     child: Column(
@@ -303,18 +415,87 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                 return RefreshIndicator(
                   onRefresh: () async {
                     HapticFeedback.mediumImpact();
-                    ref.invalidate(lostPetsProvider);
+                    await ref.read(paginatedLostPetsProvider.notifier).refresh();
                   },
                   color: AppTheme.accentOrange,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: pets.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      final pet = pets[index];
-                      return PetCard(pet: pet);
-                    },
-                  ),
+                  child: _isGridView
+                      ? GridView.builder(
+                          padding: const EdgeInsets.all(12),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: 1,
+                          ),
+                          itemCount: pets.length + ((paged.hasMore || paged.isLoadingMore) ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index >= pets.length) {
+                              if (paged.isLoadingMore) {
+                                return const _GridLoadingTile();
+                              }
+                              return InkWell(
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  ref.read(paginatedLostPetsProvider.notifier).loadMore();
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.expand_more, color: Colors.grey),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            if (index >= pets.length - 6 && paged.hasMore && !paged.isLoadingMore) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                ref.read(paginatedLostPetsProvider.notifier).loadMore();
+                              });
+                            }
+
+                            final pet = pets[index];
+                            return _PetSquareCard(pet: pet);
+                          },
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: pets.length + ((paged.hasMore || paged.isLoadingMore) ? 1 : 0),
+                          separatorBuilder: (context, index) => const SizedBox(height: 16),
+                          itemBuilder: (context, index) {
+                            if (index >= pets.length) {
+                              if (paged.isLoadingMore) {
+                                return const PetCardSkeleton();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Center(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () {
+                                      HapticFeedback.selectionClick();
+                                      ref.read(paginatedLostPetsProvider.notifier).loadMore();
+                                    },
+                                    icon: const Icon(Icons.expand_more),
+                                    label: const Text('Load more'),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            if (index >= pets.length - 3 && paged.hasMore && !paged.isLoadingMore) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                ref.read(paginatedLostPetsProvider.notifier).loadMore();
+                              });
+                            }
+
+                            final pet = pets[index];
+                            return PetCard(pet: pet);
+                          },
+                        ),
                 );
               },
               error: (err, stack) => Center(
@@ -326,7 +507,7 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
                     Text(l10n.petFeedErrorTitle, style: TextStyle(color: Colors.grey[600])),
                     const SizedBox(height: 8),
                     TextButton(
-                      onPressed: () => ref.invalidate(lostPetsProvider),
+                      onPressed: () => ref.invalidate(paginatedLostPetsProvider),
                       child: Text(l10n.potentialMatchesRetry),
                     ),
                   ],
@@ -385,4 +566,84 @@ class _PetFeedScreenState extends ConsumerState<PetFeedScreen> {
   }
 }
 
+class _PetSquareCard extends StatelessWidget {
+  final Pet pet;
+
+  const _PetSquareCard({required this.pet});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => PetDetailScreen(pet: pet)),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (pet.imageUrl != null)
+              Image.network(
+                pet.imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(color: Colors.grey[300]),
+              )
+            else
+              Container(color: Colors.grey[300]),
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x00000000), Color(0xAA000000)],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 6,
+              right: 6,
+              bottom: 6,
+              child: Text(
+                pet.titleForPreview(maxLen: 18, emptyFallback: 'Pet'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GridLoadingTile extends StatelessWidget {
+  const _GridLoadingTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Center(
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
 

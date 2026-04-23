@@ -65,8 +65,4 @@ final unreadMessagesCountProvider = StreamProvider<int>((ref) async* {
   }
 });
 
-// Unread notifications count (for inbox)
-final unreadNotificationsCountProvider = StreamProvider<int>((ref) {
-  // This can be connected to a notifications table later
-  return Stream.value(0);
-});
+// Unread notifications count moved to inbox_providers.dart

@@ -21,7 +21,6 @@ import {
     Home,
     ChevronLeft,
     Plus,
-    Facebook
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -143,120 +142,136 @@ function FindPetPageInner() {
         router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     };
 
+    /** Core /api/analyze-pet call — does not toggle `analyzing` (caller owns UI state). */
+    const runFoundPetImageAnalysisCore = async (file: File) => {
+        console.log("runFoundPetImageAnalysisCore called");
+        const formData = new FormData();
+        formData.append("image", file);
+
+        console.log("Sending request to /api/analyze-pet");
+        const response = await fetch("/api/analyze-pet", {
+            method: "POST",
+            body: formData,
+        });
+        console.log("Response received:", response.status);
+
+        let data: { success?: boolean; data?: { description?: string } };
+        try {
+            data = await response.json();
+            console.log("Data parsed:", data);
+        } catch (jsonError) {
+            console.error("JSON parse error:", jsonError);
+            throw new Error("Failed to parse server response");
+        }
+
+        if (data.success && data.data) {
+            setPetAnalysis(data.data);
+            console.log("✅ Analysis complete! Data saved:", data.data);
+            setDescription((prev) => prev || data.data?.description || "");
+        }
+    };
+
     const analyzeImage = async (file: File) => {
-        console.log("analyzeImage called");
         setAnalyzing(true);
         try {
-            const formData = new FormData();
-            formData.append('image', file);
-
-            console.log("Sending request to /api/analyze-pet");
-            const response = await fetch('/api/analyze-pet', {
-                method: 'POST',
-                body: formData,
-            });
-            console.log("Response received:", response.status);
-
-            let data;
-            try {
-                data = await response.json();
-                console.log("Data parsed:", data);
-            } catch (jsonError) {
-                console.error("JSON parse error:", jsonError);
-                // Try to read as text to see what happened
-                const text = await response.text(); // This might fail if body already read, but worth a try if json() failed immediately
-                console.log("Raw response text:", text);
-                throw new Error("Failed to parse server response");
-            }
-
-            if (data.success) {
-                setPetAnalysis(data.data);
-                console.log("✅ Analysis complete! Data saved:", data.data);
-                // Autofill description if empty
-                if (!description && data.data.description) {
-                    setDescription(data.data.description);
-                }
-
-                // Auto-trigger search after analysis completes (ensures features are sent)
-                // Auto-trigger removed as per user request
-                // User will manually click search button
-            }
-        } catch (error: any) {
-            console.error('Error analyzing image:', error);
-            // Log the specific error message to see if it matches
-            console.log("Error message:", error.message);
+            await runFoundPetImageAnalysisCore(file);
+        } catch (error: unknown) {
+            console.error("Error analyzing image:", error);
+            const message = error instanceof Error ? error.message : String(error);
+            console.log("Error message:", message);
         } finally {
             setAnalyzing(false);
         }
     };
 
+    const applyFoundSocialImport = (info: Record<string, unknown>, imageToUpload: File): number => {
+        let filledCount = 0;
+        if (info.sex === "male" || info.sex === "female" || info.sex === "unknown") {
+            setSex(info.sex);
+            filledCount++;
+        }
+        if (info.description) {
+            setDescription(String(info.description));
+            filledCount++;
+        }
+        if (info.last_seen_date) {
+            setLastSeenDate(String(info.last_seen_date));
+            filledCount++;
+        }
+        if (info.contact_info && !isAnonymousReport) {
+            setContactInfo(String(info.contact_info));
+            filledCount++;
+        }
 
+        if (info.species || info.color || info.breed) {
+            setPetAnalysis({
+                species: info.species as string | undefined,
+                color_main: info.color as string | undefined,
+                breed: info.breed as string | undefined,
+                unique_marks: info.marks as string | undefined,
+            });
+        }
 
-    // ... (inside component)
+        setSelectedImages((prev) => [imageToUpload, ...prev]);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreviews((prev) => [reader.result as string, ...prev]);
+        };
+        reader.readAsDataURL(imageToUpload);
 
-    const handleFoundSocialImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        return filledCount;
+    };
+
+    /** Found flow: one control for direct pet photo or social screenshot — social route first, then pet vision. */
+    const handleFoundAiAssistFromImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = "";
         if (!file) return;
 
         setAnalyzing(true);
+        let imageToUpload = file;
         try {
-            console.log(`Compressing social post image ${file.name}...`);
-            let imageToUpload = file;
             try {
                 imageToUpload = await compressImage(file);
             } catch (err) {
                 console.error("Compression failed", err);
             }
 
-            const formData = new FormData();
-            formData.append('image', imageToUpload);
-
-            const response = await fetch('/api/analyze-social-post', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await response.json();
-
-            if (data.success && data.data) {
-                const info = data.data;
-                let filledCount = 0;
-
-                // Autofill fields
-                if (info.sex) { setSex(info.sex); filledCount++; }
-                if (info.description) { setDescription(info.description); filledCount++; }
-                if (info.last_seen_date) { setLastSeenDate(info.last_seen_date); filledCount++; }
-                if (info.contact_info && !isAnonymousReport) { setContactInfo(info.contact_info); filledCount++; }
-
-                // Map analysis data to petAnalysis format if possible
-                if (info.species || info.color || info.breed) {
-                    setPetAnalysis({
-                        species: info.species,
-                        color_main: info.color,
-                        breed: info.breed,
-                        unique_marks: info.marks,
-                        // Add other fields as needed based on what analyze-social-post returns vs analyze-pet
-                    });
+            let usedSocial = false;
+            try {
+                const formData = new FormData();
+                formData.append("image", imageToUpload);
+                const response = await fetch("/api/analyze-social-post", {
+                    method: "POST",
+                    body: formData,
+                });
+                const data = await response.json();
+                if (data.success && data.data) {
+                    const filled = applyFoundSocialImport(data.data, imageToUpload);
+                    if (filled > 0) {
+                        toastSuccess(
+                            `ดึงข้อมูลเรียบร้อย! (พบข้อมูล ${filled} รายการ)\nกรุณาตรวจสอบความถูกต้องและเติมข้อมูลที่ขาดหายไป`
+                        );
+                    } else {
+                        toastInfo("วิเคราะห์รูปภาพแล้ว แต่ไม่พบข้อมูลที่ชัดเจน กรุณากรอกข้อมูลด้วยตนเอง");
+                    }
+                    usedSocial = true;
                 }
+            } catch (err) {
+                console.error("Error analyzing with social-post route:", err);
+            }
 
-                // Add the screenshot
-                setSelectedImages(prev => [imageToUpload, ...prev]);
+            if (!usedSocial) {
+                setSelectedImages((prev) => [...prev, imageToUpload]);
                 const reader = new FileReader();
                 reader.onloadend = () => {
-                    setImagePreviews(prev => [reader.result as string, ...prev]);
+                    setImagePreviews((prev) => [...prev, reader.result as string]);
                 };
                 reader.readAsDataURL(imageToUpload);
-
-                if (filledCount > 0) {
-                    toastSuccess(`ดึงข้อมูลเรียบร้อย! (พบข้อมูล ${filledCount} รายการ)\nกรุณาตรวจสอบความถูกต้องและเติมข้อมูลที่ขาดหายไป`);
-                } else {
-                    toastInfo("วิเคราะห์รูปภาพแล้ว แต่ไม่พบข้อมูลที่ชัดเจน กรุณากรอกข้อมูลด้วยตนเอง");
-                }
-            } else {
-                toastWarning("ไม่สามารถวิเคราะห์ข้อมูลได้ หรือไม่พบข้อมูลสัตว์เลี้ยงในภาพ");
+                await runFoundPetImageAnalysisCore(imageToUpload);
             }
         } catch (error) {
-            console.error('Error analyzing social post:', error);
+            console.error("Error analyzing image:", error);
             toastError("เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ");
         } finally {
             setAnalyzing(false);
@@ -666,17 +681,27 @@ function FindPetPageInner() {
                                             </label>
                                         </div>
 
-                                        {/* Social Import Button */}
+                                        {/* Single AI assist: direct pet photo or social screenshot */}
                                         <div className="mt-4 border-t border-gray-200 pt-4">
-                                            <div className="flex items-center justify-between bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                                                <div>
-                                                    <h3 className="font-bold text-indigo-800">นำเข้าจากโพสต์โซเชียล?</h3>
-                                                    <p className="text-xs text-indigo-600">แคปหน้าจอโพสต์ Facebook/IG แล้วให้ AI ดึงข้อมูล</p>
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                                <div className="min-w-0">
+                                                    <h3 className="font-bold text-blue-800">ให้ AI ช่วยจากรูปภาพ</h3>
+                                                    <p className="text-xs text-blue-600 mt-1">
+                                                        อัพโหลดรูปสัตว์โดยตรง หรือแคปหน้าจอโพสต์ Facebook/IG — ระบบจะดึงรายละเอียดให้
+                                                    </p>
                                                 </div>
-                                                <label className="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-colors shadow-sm">
-                                                    {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Facebook className="w-4 h-4" />}
-                                                    <span className="text-sm font-bold">{analyzing ? 'กำลังวิเคราะห์...' : 'รูปแคปหน้าจอ'}</span>
-                                                    <input type="file" accept="image/*" className="hidden" onChange={handleFoundSocialImport} disabled={analyzing} />
+                                                <label className="cursor-pointer shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full flex items-center gap-2 transition-colors shadow-sm self-start sm:self-auto">
+                                                    {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadIcon className="w-4 h-4" />}
+                                                    <span className="text-sm font-bold whitespace-nowrap">
+                                                        {analyzing ? "กำลังวิเคราะห์..." : "อัพโหลดรูป (AI)"}
+                                                    </span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={handleFoundAiAssistFromImage}
+                                                        disabled={analyzing}
+                                                    />
                                                 </label>
                                             </div>
                                         </div>

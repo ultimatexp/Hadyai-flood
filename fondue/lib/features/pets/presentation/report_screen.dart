@@ -170,6 +170,17 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       final gemini = ref.read(geminiServiceProvider);
       final data = await gemini.analyzePetImage(image);
 
+      if (data['analysis_unavailable'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('AI ช่วยกรอกข้อมูลชั่วคราวไม่พร้อมใช้งาน กรุณากรอกข้อมูลด้วยตนเอง'),
+            ),
+          );
+        }
+        return;
+      }
+
       if (data['error'] != null) {
         throw Exception(data['error'].toString());
       }
@@ -243,7 +254,10 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('ส่งรายงานสำเร็จ! +$pointsAwarded แต้ม 🎉')),
         );
-        ref.refresh(lostPetsProvider);
+        // Refresh both providers: map/legacy views still use lostPetsProvider,
+        // while pet feed list now uses paginatedLostPetsProvider.
+        ref.invalidate(lostPetsProvider);
+        ref.invalidate(paginatedLostPetsProvider);
 
         // If image provided, ask to search
         if (_imageFiles.isNotEmpty) {
@@ -484,6 +498,17 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
               
 
               const SizedBox(height: 8),
+
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'ชื่อสัตว์เลี้ยง (ถ้าทราบ)',
+                  hintText: 'เช่น Charlotte',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.badge_outlined),
+                ),
+              ),
+              const SizedBox(height: 16),
 
               // Sex
               DropdownButtonFormField<String>(

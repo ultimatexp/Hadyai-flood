@@ -114,19 +114,34 @@ class PetCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    pet.name ?? pet.species,
+                    pet.titleForPreview(),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18),
                   ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                      Icon(Icons.pets, size: 16, color: Colors.grey[600]),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          pet.description ?? "No description",
-                          style: TextStyle(color: Colors.grey[800]),
+                          pet.species,
+                          style: TextStyle(color: Colors.grey[700], fontSize: 13),
                           maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.notes_outlined, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          pet.descriptionPreview(),
+                          style: TextStyle(color: Colors.grey[800]),
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),

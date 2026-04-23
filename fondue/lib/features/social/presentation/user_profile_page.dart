@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/presentation/edit_profile_screen.dart';
@@ -757,47 +760,87 @@ class _HighlightItem extends StatelessWidget {
   }
 
   void _showBadgeDetail(BuildContext context) {
-    showModalBottomSheet(
+    showGeneralDialog<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(badge.emoji, style: const TextStyle(fontSize: 48)),
-            const SizedBox(height: 12),
-            Text(badge.thaiLabel,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(badge.description,
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: earned
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                earned ? '✅ ได้รับแล้ว' : '🔒 ยังไม่ปลดล็อก',
-                style: TextStyle(
-                  color: earned ? Colors.green : Colors.grey,
-                  fontWeight: FontWeight.w600,
+      barrierLabel: 'BadgeDetail',
+      barrierDismissible: true,
+      barrierColor: Colors.black45,
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (ctx, _, __) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 28, 28, 26),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(badge.emoji, style: const TextStyle(fontSize: 56)),
+                      const SizedBox(height: 14),
+                      Text(
+                        badge.thaiLabel,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        badge.description,
+                        style: TextStyle(fontSize: 15, color: Colors.grey[600], height: 1.35),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: earned
+                              ? Colors.green.withOpacity(0.1)
+                              : Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          earned ? '✅ ได้รับแล้ว' : '🔒 ยังไม่ปลดล็อก',
+                          style: TextStyle(
+                            color: earned ? Colors.green : Colors.grey,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    tooltip: 'ปิด',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-          ],
+          ),
         ),
       ),
+      transitionBuilder: (ctx, animation, secondaryAnimation, child) {
+        final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+        final fade = Tween<double>(begin: 0.0, end: 1.0).animate(curve);
+        final scale = Tween<double>(begin: 0.94, end: 1.0).animate(curve);
+        return FadeTransition(
+          opacity: fade,
+          child: ScaleTransition(
+            scale: scale,
+            child: child,
+          ),
+        );
+      },
     );
   }
 }
@@ -861,7 +904,7 @@ class _PostsGridTab extends StatelessWidget {
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final post = posts[index];
-            return _GridThumbnail(post: post);
+            return _GridThumbnail(post: post, userId: userId, ref: ref);
           },
         );
       },
@@ -899,8 +942,14 @@ class _PostsGridTab extends StatelessWidget {
 
 class _GridThumbnail extends StatelessWidget {
   final FeedPost post;
+  final String userId;
+  final WidgetRef ref;
 
-  const _GridThumbnail({required this.post});
+  const _GridThumbnail({
+    required this.post,
+    required this.userId,
+    required this.ref,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -917,22 +966,6 @@ class _GridThumbnail extends StatelessWidget {
             )
           else
             _placeholder(),
-          // Type indicator
-          Positioned(
-            top: 6,
-            right: 6,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                post.postType.icon,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-          ),
           // Comment count
           if (post.commentCount > 0)
             Positioned(
@@ -969,7 +1002,7 @@ class _GridThumbnail extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(post.postType.icon, style: const TextStyle(fontSize: 24)),
+          const Icon(Icons.image_outlined, size: 24, color: Colors.grey),
           const SizedBox(height: 4),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -987,6 +1020,7 @@ class _GridThumbnail extends StatelessWidget {
   }
 
   void _showPostDetail(BuildContext context) {
+    final isOwnPost = post.userId == Supabase.instance.client.auth.currentUser?.id;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1033,34 +1067,49 @@ class _GridThumbnail extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(post.postType.icon,
-                            style: const TextStyle(fontSize: 20)),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF9800)
-                                .withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                        Expanded(
                           child: Text(
-                            post.postType.label,
+                            post.title,
                             style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFFF9800),
-                            ),
+                                fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ),
+                        if (isOwnPost)
+                          PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_horiz),
+                            onSelected: (value) async {
+                              if (value == 'edit') {
+                                await _editPost(context);
+                              } else if (value == 'delete') {
+                                await _deletePost(context);
+                              }
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem<String>(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit_outlined, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('แก้ไขโพสต์'),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem<String>(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('ลบโพสต์', style: TextStyle(color: Colors.red)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      post.title,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     if (post.body != null && post.body!.isNotEmpty) ...[
                       const SizedBox(height: 8),
@@ -1083,6 +1132,267 @@ class _GridThumbnail extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _editPost(BuildContext context) async {
+    final controller = TextEditingController(text: post.body ?? '');
+    final picker = ImagePicker();
+    File? selectedNewImage;
+    String? currentImageUrl = post.imageUrl;
+    bool removeCurrentImage = false;
+    bool isSaving = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          Future<void> pickImage(ImageSource source) async {
+            try {
+              final picked = await picker.pickImage(
+                source: source,
+                maxWidth: 1080,
+                maxHeight: 1080,
+                imageQuality: 85,
+              );
+              if (picked == null) return;
+              setSheetState(() {
+                selectedNewImage = File(picked.path);
+                removeCurrentImage = false;
+              });
+            } catch (_) {}
+          }
+
+          final hasVisibleImage =
+              selectedNewImage != null || (!removeCurrentImage && currentImageUrl != null);
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('แก้ไขโพสต์'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: controller,
+                    minLines: 2,
+                    maxLines: 6,
+                    maxLength: 500,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'เขียนอะไรบางอย่าง...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: selectedNewImage != null
+                          ? Image.file(selectedNewImage!, fit: BoxFit.cover)
+                          : (!removeCurrentImage && currentImageUrl != null
+                              ? Image.network(
+                                  currentImageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: Colors.grey[100],
+                                    alignment: Alignment.center,
+                                    child: const Icon(Icons.broken_image_outlined),
+                                  ),
+                                )
+                              : Container(
+                                  color: Colors.grey[100],
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    'ยังไม่มีรูปภาพ',
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                )),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => pickImage(ImageSource.gallery),
+                          icon: const Icon(Icons.photo_library_outlined, size: 18),
+                          label: const Text('เปลี่ยนรูป'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => pickImage(ImageSource.camera),
+                          icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                          label: const Text('ถ่ายรูป'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hasVisibleImage)
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          setSheetState(() {
+                            selectedNewImage = null;
+                            removeCurrentImage = true;
+                          });
+                        },
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        label: const Text(
+                          'ลบรูปออกจากโพสต์',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                child: const Text('ยกเลิก'),
+              ),
+              FilledButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final newBody = controller.text.trim();
+                        final previousImageUrl = post.imageUrl;
+                        setSheetState(() => isSaving = true);
+                        try {
+                          String? nextImageUrl = removeCurrentImage ? null : currentImageUrl;
+                          if (selectedNewImage != null) {
+                            final uploaded = await _uploadFeedImage(selectedNewImage!);
+                            if (uploaded == null) {
+                              throw Exception('อัพโหลดรูปภาพไม่สำเร็จ');
+                            }
+                            nextImageUrl = uploaded;
+                          }
+
+                          await Supabase.instance.client
+                              .from('feed_posts')
+                              .update({
+                                'body': newBody.isEmpty ? null : newBody,
+                                'image_url': nextImageUrl,
+                              })
+                              .eq('id', post.id);
+
+                          if (previousImageUrl != null &&
+                              previousImageUrl.isNotEmpty &&
+                              previousImageUrl != nextImageUrl) {
+                            await _tryDeleteFeedImageByPublicUrl(previousImageUrl);
+                          }
+
+                          _refreshLists();
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx);
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('แก้ไขโพสต์แล้ว')),
+                            );
+                          }
+                        } catch (e) {
+                          if (!ctx.mounted) return;
+                          setSheetState(() => isSaving = false);
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+                          );
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('บันทึก'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<String?> _uploadFeedImage(File image) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id ?? 'anon';
+      final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = 'feed_posts/$fileName';
+      await supabase.storage.from('pet-photos').upload(path, image);
+      return supabase.storage.from('pet-photos').getPublicUrl(path);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _storagePathFromPublicUrl(String imageUrl) {
+    const marker = '/storage/v1/object/public/pet-photos/';
+    final idx = imageUrl.indexOf(marker);
+    if (idx == -1) return null;
+    return Uri.decodeComponent(imageUrl.substring(idx + marker.length));
+  }
+
+  Future<void> _tryDeleteFeedImageByPublicUrl(String? imageUrl) async {
+    if (imageUrl == null || imageUrl.isEmpty) return;
+    final path = _storagePathFromPublicUrl(imageUrl);
+    if (path == null || path.isEmpty) return;
+    try {
+      await Supabase.instance.client.storage.from('pet-photos').remove([path]);
+    } catch (_) {}
+  }
+
+  Future<void> _deletePost(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('ลบโพสต์?'),
+        content: const Text('โพสต์นี้จะถูกลบถาวร ไม่สามารถกู้คืนได้'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await Supabase.instance.client
+          .from('feed_posts')
+          .delete()
+          .eq('id', post.id);
+      _refreshLists();
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ลบโพสต์แล้ว')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+        );
+      }
+    }
+  }
+
+  void _refreshLists() {
+    ref.invalidate(userPostsProvider(userId));
+    ref.invalidate(feedPostsProvider);
   }
 
   String _timeAgo(DateTime time) {
@@ -1182,8 +1492,8 @@ class _ListFeedCard extends StatelessWidget {
                   color: const Color(0xFFFF9800).withOpacity(0.12),
                 ),
                 child: Center(
-                  child: Text(post.postType.icon,
-                      style: const TextStyle(fontSize: 18)),
+                  child: const Icon(Icons.person_outline,
+                      size: 18, color: Color(0xFFFF9800)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1200,22 +1510,6 @@ class _ListFeedCard extends StatelessWidget {
                         style:
                             TextStyle(fontSize: 12, color: Colors.grey[500])),
                   ],
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF9800).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  post.postType.label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFFF9800),
-                  ),
                 ),
               ),
             ],

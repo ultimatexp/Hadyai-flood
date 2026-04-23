@@ -8,6 +8,65 @@ if (!apiKey) {
 }
 const genAI = new GoogleGenerativeAI(apiKey || 'DUMMY_KEY'); // Prevent crash on init, but will fail on call if invalid
 
+function extractJsonObject(text: string): string | null {
+    const cleaned = text
+        .replace(/```json\s*/gi, '')
+        .replace(/```/g, '')
+        .trim();
+    const first = cleaned.indexOf('{');
+    const last = cleaned.lastIndexOf('}');
+    if (first === -1 || last === -1 || last <= first) return null;
+    return cleaned.slice(first, last + 1);
+}
+
+function normalizePetAnalysis(data: any) {
+    if (!data || typeof data !== 'object') {
+        return { ok: false as const, reason: 'not_object' as const };
+    }
+
+    const speciesRaw = typeof data.species === 'string' ? data.species.toLowerCase().trim() : null;
+    if (data.not_dog_or_cat === true) {
+        return { ok: false as const, reason: 'not_dog_or_cat' as const };
+    }
+    if (!speciesRaw || !['dog', 'cat'].includes(speciesRaw)) {
+        return { ok: false as const, reason: 'not_dog_or_cat' as const };
+    }
+
+    return {
+        ok: true as const,
+        data: {
+            ...data,
+            species: speciesRaw === 'dog' ? 'dog' : 'cat',
+        },
+    };
+}
+
+async function callGeminiWithRetry(
+    model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
+    parts: any[],
+    retries = 1
+) {
+    let lastErr: any;
+    for (let i = 0; i <= retries; i++) {
+        try {
+            return await model.generateContent(parts);
+        } catch (e: any) {
+            lastErr = e;
+            const msg = String(e?.message || e || '').toLowerCase();
+            const retryable =
+                msg.includes('timeout') ||
+                msg.includes('temporar') ||
+                msg.includes('unavailable') ||
+                msg.includes('overloaded') ||
+                msg.includes('503') ||
+                msg.includes('429');
+            if (!retryable || i === retries) break;
+            await new Promise((r) => setTimeout(r, 450));
+        }
+    }
+    throw lastErr;
+}
+
 export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData();
@@ -15,7 +74,7 @@ export async function POST(request: NextRequest) {
 
         if (!file) {
             return NextResponse.json(
-                { success: false, error: 'Missing image' },
+                { success: false, error: 'Missing image', code: 'MISSING_IMAGE' },
                 { status: 400 }
             );
         }
@@ -27,7 +86,11 @@ export async function POST(request: NextRequest) {
 
         if (!apiKey) {
             return NextResponse.json(
-                { success: false, error: 'Server configuration error: Missing AI API Key' },
+                {
+                    success: false,
+                    error: 'Server configuration error: Missing AI API Key',
+                    code: 'MISSING_SERVER_GEMINI_KEY',
+                },
                 { status: 500 }
             );
         }
@@ -70,46 +133,94 @@ export async function POST(request: NextRequest) {
         - description: A concise 1-sentence description of the pet
         `;
 
-        const result = await model.generateContent([
-            prompt,
-            {
-                inlineData: {
-                    data: base64Image,
-                    mimeType: file.type || 'image/jpeg',
+        let result;
+        try {
+            result = await callGeminiWithRetry(model, [
+                prompt,
+                {
+                    inlineData: {
+                        data: base64Image,
+                        mimeType: file.type || 'image/jpeg',
+                    },
                 },
-            },
-        ]);
+            ], 1);
+        } catch (e: any) {
+            console.error('Gemini call failed:', e);
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Temporary AI service unavailable',
+                    code: 'AI_TEMPORARY_UNAVAILABLE',
+                    detail: e?.message ?? 'unknown',
+                },
+                { status: 503 }
+            );
+        }
 
         const response = await result.response;
         const text = response.text();
+        const jsonString = extractJsonObject(text);
+        if (!jsonString) {
+            console.error('No JSON found in Gemini response:', text);
+            return NextResponse.json(
+                { success: false, error: 'Failed to parse AI response', code: 'AI_PARSE_FAILED' },
+                { status: 502 }
+            );
+        }
 
-        // Clean up markdown code blocks if present
-        const jsonString = text.replace(/```json\n|\n```/g, '').trim();
-
-        let data;
+        let parsed: any;
         try {
-            data = JSON.parse(jsonString);
+            parsed = JSON.parse(jsonString);
         } catch (e) {
-            console.error('Failed to parse Gemini response:', text);
-            return NextResponse.json({ success: false, error: 'Failed to parse AI response' }, { status: 500 });
+            console.error('Failed to parse Gemini JSON:', jsonString);
+            return NextResponse.json(
+                { success: false, error: 'Failed to parse AI response', code: 'AI_PARSE_FAILED' },
+                { status: 502 }
+            );
         }
 
-        if (data.error) {
-            return NextResponse.json({ success: false, error: data.error }, { status: 400 });
-        }
-        if (data.not_dog_or_cat === true || (data.species && !['dog', 'cat'].includes(String(data.species).toLowerCase()))) {
-            return NextResponse.json({
-                success: false,
-                error: 'This service only supports dogs and cats. Please use a clear photo of a dog or cat.',
-            }, { status: 400 });
+        if (parsed?.error) {
+            const err = String(parsed.error);
+            const lowered = err.toLowerCase();
+            const code = lowered.includes('dog or cat')
+                ? 'NOT_DOG_OR_CAT'
+                : lowered.includes('not a pet')
+                    ? 'NOT_A_PET'
+                    : 'AI_REJECTED';
+            return NextResponse.json(
+                { success: false, error: err, code },
+                { status: 400 }
+            );
         }
 
-        return NextResponse.json({ success: true, data });
+        const normalized = normalizePetAnalysis(parsed);
+        if (!normalized.ok) {
+            if (normalized.reason === 'not_dog_or_cat') {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: 'This service only supports dogs and cats. Please use a clear photo of a dog or cat.',
+                        code: 'NOT_DOG_OR_CAT',
+                    },
+                    { status: 400 }
+                );
+            }
+            return NextResponse.json(
+                { success: false, error: 'Invalid AI response format', code: 'AI_INVALID_SCHEMA' },
+                { status: 502 }
+            );
+        }
+
+        return NextResponse.json({ success: true, data: normalized.data });
 
     } catch (error: any) {
         console.error('Error analyzing pet:', error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to analyze image' },
+            {
+                success: false,
+                error: error.message || 'Failed to analyze image',
+                code: 'ANALYZE_PET_UNEXPECTED',
+            },
             { status: 500 }
         );
     }

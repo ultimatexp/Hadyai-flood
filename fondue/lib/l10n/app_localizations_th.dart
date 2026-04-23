@@ -63,7 +63,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get profileMenuActivity => 'กิจกรรม';
 
   @override
-  String get profileMenuTopDonors => 'อันดับผู้บริจาค';
+  String get profileMenuTopDonors => 'อันดับผู้ใจบุญ';
 
   @override
   String get profileMenuNotifications => 'แจ้งเตือน';

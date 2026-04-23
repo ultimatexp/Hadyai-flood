@@ -46,7 +46,7 @@ class TopDonorsScreen extends ConsumerWidget {
                         colors: [Color(0xFFFBBF24), Color(0xFFF472B6), Color(0xFFA78BFA)],
                       ).createShader(bounds),
                       child: Text(
-                        'สุดยอดผู้บริจาค',
+                        'สุดยอดผู้ใจบุญ',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.prompt(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white),
                       ),

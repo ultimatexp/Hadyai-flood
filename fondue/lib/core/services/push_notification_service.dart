@@ -5,9 +5,11 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import '../navigation/push_chat_navigation.dart';
 import '../navigation/push_pet_match_navigation.dart';
+import '../navigation/push_post_navigation.dart';
 
 // Background message handler must be a top-level function
 @pragma('vm:entry-point')
@@ -137,7 +139,11 @@ class PushNotificationService {
 
   /// Routes FCM `data` (chat or pet match) from Edge Functions or local notification payload.
   Future<void> handleNotificationDataMap(Map<String, dynamic> data) async {
-    if (!isChatPushPayload(data) && !isPetMatchPushPayload(data)) return;
+    if (!isChatPushPayload(data) &&
+        !isPetMatchPushPayload(data) &&
+        !isPostPushPayload(data)) {
+      return;
+    }
 
     if (Supabase.instance.client.auth.currentUser == null) {
       _pendingPushPayload = Map<String, dynamic>.from(data);
@@ -155,6 +161,8 @@ class PushNotificationService {
       await openChatFromPushData(data);
     } else if (isPetMatchPushPayload(data)) {
       await openPetMatchFromPushData(data);
+    } else if (isPostPushPayload(data)) {
+      await openPostFromPushData(data);
     }
   }
 
@@ -202,11 +210,13 @@ class PushNotificationService {
     RemoteNotification? notification = message.notification;
 
     // On iOS, we want to show the notification even if 'android' is null
-    if (notification != null) {
+    if (notification != null || message.data.isNotEmpty) {
+      final dataTitle = message.data['title']?.toString();
+      final dataBody = message.data['body']?.toString();
       await _localNotifications.show(
         id: notification.hashCode,
-        title: notification.title,
-        body: notification.body,
+        title: notification?.title ?? dataTitle ?? 'Fondue',
+        body: notification?.body ?? dataBody ?? 'You have a new notification',
         notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             'high_importance_channel', // id
@@ -224,6 +234,16 @@ class PushNotificationService {
         ),
         payload: jsonEncode(message.data),
       );
+    }
+  }
+
+  static Future<void> openInboxNotification({
+    required BuildContext context,
+    required Map<String, dynamic> payload,
+  }) async {
+    final data = Map<String, dynamic>.from(payload);
+    if (isChatPushPayload(data) || isPetMatchPushPayload(data) || isPostPushPayload(data)) {
+      await PushNotificationService().handleNotificationDataMap(data);
     }
   }
 }

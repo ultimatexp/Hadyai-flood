@@ -13,10 +13,10 @@ String localizedPetStatus(BuildContext context, String status) {
 
 String localizedSex(BuildContext context, String sex) {
   final l10n = AppLocalizations.of(context)!;
-  return switch (sex) {
-    'Male' => l10n.petSexMale,
-    'Female' => l10n.petSexFemale,
-    'Unknown' => l10n.petSexUnknown,
+  return switch (sex.toLowerCase()) {
+    'male' => l10n.petSexMale,
+    'female' => l10n.petSexFemale,
+    'unknown' => l10n.petSexUnknown,
     _ => sex,
   };
 }
