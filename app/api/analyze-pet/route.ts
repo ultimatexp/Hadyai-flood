@@ -44,7 +44,7 @@ function normalizePetAnalysis(data: any) {
 async function callGeminiWithRetry(
     model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
     parts: any[],
-    retries = 1
+    retries = 3
 ) {
     let lastErr: any;
     for (let i = 0; i <= retries; i++) {
@@ -61,7 +61,9 @@ async function callGeminiWithRetry(
                 msg.includes('503') ||
                 msg.includes('429');
             if (!retryable || i === retries) break;
-            await new Promise((r) => setTimeout(r, 450));
+            // Exponential backoff with small jitter to smooth burst retries.
+            const backoffMs = Math.min(5000, 400 * Math.pow(2, i) + Math.floor(Math.random() * 250));
+            await new Promise((r) => setTimeout(r, backoffMs));
         }
     }
     throw lastErr;
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Use Gemini 2.0 Flash
+        // Use Gemini 2.0 Flash first, fallback to 1.5 Flash on heavy throttling.
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
 
         const prompt = `
@@ -133,28 +135,52 @@ export async function POST(request: NextRequest) {
         - description: A concise 1-sentence description of the pet
         `;
 
+        const parts = [
+            prompt,
+            {
+                inlineData: {
+                    data: base64Image,
+                    mimeType: file.type || 'image/jpeg',
+                },
+            },
+        ];
+
         let result;
         try {
-            result = await callGeminiWithRetry(model, [
-                prompt,
-                {
-                    inlineData: {
-                        data: base64Image,
-                        mimeType: file.type || 'image/jpeg',
-                    },
-                },
-            ], 1);
+            result = await callGeminiWithRetry(model, parts, 3);
         } catch (e: any) {
-            console.error('Gemini call failed:', e);
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Temporary AI service unavailable',
-                    code: 'AI_TEMPORARY_UNAVAILABLE',
-                    detail: e?.message ?? 'unknown',
-                },
-                { status: 503 }
-            );
+            const firstMsg = String(e?.message || e || '').toLowerCase();
+            const isRateLimited = firstMsg.includes('429') || firstMsg.includes('resource exhausted');
+
+            // Fallback model for better availability under flash-2.0 throttling.
+            if (isRateLimited) {
+                try {
+                    const fallbackModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    result = await callGeminiWithRetry(fallbackModel, parts, 2);
+                } catch (fallbackErr: any) {
+                    console.error('Gemini call failed (primary + fallback):', e, fallbackErr);
+                    return NextResponse.json(
+                        {
+                            success: false,
+                            error: 'Temporary AI service unavailable',
+                            code: 'AI_RATE_LIMITED',
+                            detail: fallbackErr?.message ?? e?.message ?? 'unknown',
+                        },
+                        { status: 429 }
+                    );
+                }
+            } else {
+                console.error('Gemini call failed:', e);
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Temporary AI service unavailable',
+                        code: 'AI_TEMPORARY_UNAVAILABLE',
+                        detail: e?.message ?? 'unknown',
+                    },
+                    { status: 503 }
+                );
+            }
         }
 
         const response = await result.response;

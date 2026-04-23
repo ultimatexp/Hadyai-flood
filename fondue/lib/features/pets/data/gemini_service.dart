@@ -38,10 +38,20 @@ class GeminiService {
         return Map<String, dynamic>.from(raw['data'] as Map);
       }
       final code = raw['code']?.toString();
-      if (code == 'AI_TEMPORARY_UNAVAILABLE' || code == 'MISSING_SERVER_GEMINI_KEY') {
+      if (code == 'AI_TEMPORARY_UNAVAILABLE' ||
+          code == 'MISSING_SERVER_GEMINI_KEY' ||
+          code == 'AI_RATE_LIMITED') {
         return <String, dynamic>{
           'analysis_unavailable': true,
           'reason': code,
+          'server_error': raw['error']?.toString(),
+        };
+      }
+      if (code != null && code.isNotEmpty) {
+        return <String, dynamic>{
+          'analysis_unavailable': true,
+          'reason': code,
+          'server_error': raw['error']?.toString(),
         };
       }
       final serverError = raw['error']?.toString();

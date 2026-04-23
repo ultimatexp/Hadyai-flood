@@ -52,6 +52,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   bool _isLoading = false;
   bool _isAnalyzing = false;
   bool _shareContactInfo = true;
+  DateTime? _lastAnalyzeAt;
+  static const Duration _analyzeCooldown = Duration(seconds: 12);
 
 
 
@@ -165,16 +167,40 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   }
 
   Future<void> _analyzeImage(XFile image) async {
+    if (_isAnalyzing) return;
+    final now = DateTime.now();
+    if (_lastAnalyzeAt != null) {
+      final elapsed = now.difference(_lastAnalyzeAt!);
+      if (elapsed < _analyzeCooldown) {
+        final waitSec = (_analyzeCooldown - elapsed).inSeconds + 1;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('กรุณารอ $waitSec วินาทีก่อนวิเคราะห์อีกครั้ง')),
+          );
+        }
+        return;
+      }
+    }
+
+    _lastAnalyzeAt = now;
     setState(() => _isAnalyzing = true);
     try {
       final gemini = ref.read(geminiServiceProvider);
       final data = await gemini.analyzePetImage(image);
 
       if (data['analysis_unavailable'] == true) {
+        final reason = data['reason']?.toString();
+        final serverError = data['server_error']?.toString();
+        final debugSuffix = (reason != null && reason.isNotEmpty)
+            ? ' [$reason]'
+            : '';
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('AI ช่วยกรอกข้อมูลชั่วคราวไม่พร้อมใช้งาน กรุณากรอกข้อมูลด้วยตนเอง'),
+            SnackBar(
+              content: Text(
+                'AI ช่วยกรอกข้อมูลชั่วคราวไม่พร้อมใช้งาน กรุณากรอกข้อมูลด้วยตนเอง$debugSuffix'
+                '${(serverError != null && serverError.isNotEmpty) ? ' - $serverError' : ''}',
+              ),
             ),
           );
         }
