@@ -8,6 +8,32 @@ if (!apiKey) {
 }
 const genAI = new GoogleGenerativeAI(apiKey || 'DUMMY_KEY'); // Prevent crash on init, but will fail on call if invalid
 
+function resolveImageMimeType(file: File): string {
+    const fromType = (file.type || '').toLowerCase().trim();
+    const supported = new Set([
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+        'image/heic',
+        'image/heif',
+        'image/gif',
+        'image/bmp',
+    ]);
+    if (supported.has(fromType)) {
+        return fromType === 'image/jpg' ? 'image/jpeg' : fromType;
+    }
+
+    const name = (file.name || '').toLowerCase();
+    if (name.endsWith('.png')) return 'image/png';
+    if (name.endsWith('.webp')) return 'image/webp';
+    if (name.endsWith('.heic')) return 'image/heic';
+    if (name.endsWith('.heif')) return 'image/heif';
+    if (name.endsWith('.gif')) return 'image/gif';
+    if (name.endsWith('.bmp')) return 'image/bmp';
+    return 'image/jpeg';
+}
+
 function extractJsonObject(text: string): string | null {
     const cleaned = text
         .replace(/```json\s*/gi, '')
@@ -85,6 +111,7 @@ export async function POST(request: NextRequest) {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const base64Image = buffer.toString('base64');
+        const mimeType = resolveImageMimeType(file);
 
         if (!apiKey) {
             return NextResponse.json(
@@ -140,7 +167,7 @@ export async function POST(request: NextRequest) {
             {
                 inlineData: {
                     data: base64Image,
-                    mimeType: file.type || 'image/jpeg',
+                    mimeType,
                 },
             },
         ];
