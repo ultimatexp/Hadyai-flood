@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Use Gemini 2.0 Flash first, fallback to 1.5 Flash on heavy throttling.
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
+        // Use Gemini 2.5 Flash-Lite first, fallback to 1.5 Flash on heavy throttling.
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
         const prompt = `
         Analyze this pet image and return a JSON object with comprehensive characteristics.
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
             // Fallback model for better availability under flash-2.0 throttling.
             if (isRateLimited) {
                 try {
-                    const fallbackModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const fallbackModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
                     result = await callGeminiWithRetry(fallbackModel, parts, 2);
                 } catch (fallbackErr: any) {
                     console.error('Gemini call failed (primary + fallback):', e, fallbackErr);
